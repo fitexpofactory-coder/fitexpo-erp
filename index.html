@@ -329,6 +329,8 @@ textarea.fc2{resize:vertical;min-height:60px}
         <div class="ni" onclick="nav('hr-report')"><span class="ic">📋</span>รายงาน HR</div>
         <div class="ni" onclick="nav('hr-employees')"><span class="ic">👥</span>พนักงาน+Login</div>
         <div class="ni" onclick="nav('hr-holidays')"><span class="ic">🎌</span>วันหยุด</div>
+        <div class="ni" onclick="nav('hr-payroll')"><span class="ic">💰</span>คำนวณเงินเดือน</div>
+        <div class="ni" onclick="nav('hr-payslip')"><span class="ic">🧾</span>สลิปเงินเดือน</div>
         <div class="ns">ระบบ</div>
         <div class="ni" onclick="nav('permissions')"><span class="ic">🔐</span>Custom Permission</div>
         <div class="ni" onclick="nav('actlog')"><span class="ic">📋</span>Activity Log</div>
@@ -1295,6 +1297,62 @@ textarea.fc2{resize:vertical;min-height:60px}
   </table></div>
 </div>
 
+<!-- HR PAYROLL PAGE -->
+<div id="pg-hr-payroll" class="pg">
+  <div class="ch2 mb3">
+    <select class="fc2" id="pay-year" style="width:120px" onchange="hrLoadPayroll()"></select>
+    <select class="fc2" id="pay-month" style="width:140px" onchange="hrLoadPayroll()">
+      <option value="1">มกราคม</option><option value="2">กุมภาพันธ์</option>
+      <option value="3">มีนาคม</option><option value="4">เมษายน</option>
+      <option value="5">พฤษภาคม</option><option value="6">มิถุนายน</option>
+      <option value="7">กรกฎาคม</option><option value="8">สิงหาคม</option>
+      <option value="9">กันยายน</option><option value="10">ตุลาคม</option>
+      <option value="11">พฤศจิกายน</option><option value="12">ธันวาคม</option>
+    </select>
+    <button class="btn btnP sm" onclick="hrCalcPayroll()">⚙️ คำนวณ</button>
+    <button class="btn btnT sm" onclick="hrPrintPayrollSummary()">🖨️ สรุป</button>
+    <button class="btn btnN sm" onclick="hrExportPayroll()">📄 PDF</button>
+    <button class="btn btnS sm" onclick="hrLoadPayroll()">🔄</button>
+  </div>
+  <div class="al ali mb3" style="font-size:12px">
+    📋 <b>กฎหมายไทยที่ใช้:</b> ประกันสังคม 5% (สูงสุด 750 บ/เดือน) | ภาษีเงินได้บุคคลธรรมดาแบบขั้นบันได | OT ×1.5/×2/×3 ตาม พ.ร.บ.คุ้มครองแรงงาน
+  </div>
+  <div class="tw"><table id="payroll-table">
+    <thead><tr>
+      <th>รหัส</th><th>ชื่อ-สกุล</th><th>เงินเดือน</th>
+      <th style="color:var(--orange)">OT (฿)</th>
+      <th style="color:var(--green)">รายได้รวม</th>
+      <th style="color:var(--red)">ประกันสังคม</th>
+      <th style="color:var(--red)">ภาษี ณ ที่จ่าย</th>
+      <th style="color:var(--red)">หักอื่นๆ</th>
+      <th style="font-weight:800;color:var(--navy)">รับสุทธิ</th>
+      <th>สลิป</th><th>แก้ไข</th>
+    </tr></thead>
+    <tbody id="payroll-tb"></tbody>
+    <tfoot id="payroll-foot"></tfoot>
+  </table></div>
+</div>
+
+<!-- HR PAYSLIP PAGE -->
+<div id="pg-hr-payslip" class="pg">
+  <div class="ch2 mb3">
+    <select class="fc2" id="slip-emp" style="width:240px"><option value="">— เลือกพนักงาน —</option></select>
+    <select class="fc2" id="slip-year" style="width:120px"></select>
+    <select class="fc2" id="slip-month" style="width:140px">
+      <option value="1">มกราคม</option><option value="2">กุมภาพันธ์</option>
+      <option value="3">มีนาคม</option><option value="4">เมษายน</option>
+      <option value="5">พฤษภาคม</option><option value="6">มิถุนายน</option>
+      <option value="7">กรกฎาคม</option><option value="8">สิงหาคม</option>
+      <option value="9">กันยายน</option><option value="10">ตุลาคม</option>
+      <option value="11">พฤศจิกายน</option><option value="12">ธันวาคม</option>
+    </select>
+    <button class="btn btnP sm" onclick="hrPreviewPayslip()">👁️ Preview</button>
+    <button class="btn btnT sm" onclick="hrPrintPayslip()">🖨️ พิมพ์สลิป</button>
+    <button class="btn btnN sm" onclick="hrPdfPayslip()">📄 PDF</button>
+  </div>
+  <div id="payslip-preview" style="max-width:600px;margin:0 auto"></div>
+</div>
+
 <!-- HR HOLIDAYS -->
 <div id="pg-hr-holidays" class="pg">
   <div class="ch2 mb3">
@@ -1327,13 +1385,13 @@ textarea.fc2{resize:vertical;min-height:60px}
 //  ⚙️ CONFIG — ใส่ anon key ที่นี่
 // ════════════════════════════════════════════════════════════
 const SB='https://meehbfcmnmposarkejuh.supabase.co';
-let KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1lZWhiZmNtbm1wb3NhcmtlanVoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NjQyNTMsImV4cCI6MjA5MDA0MDI1M30.vbd9TxJr4D4ccPqjm1lw9XD4FwgrCOErqjXkKpUzLkk'; //
+let KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1lZWhiZmNtbm1wb3NhcmtlanVoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NjQyNTMsImV4cCI6MjA5MDA0MDI1M30.vbd9TxJr4D4ccPqjm1lw9XD4FwgrCOErqjXkKpUzLkk'; // 
 
 // ════════════════════════════════════════════════════════════
 //  SESSION
 // ════════════════════════════════════════════════════════════
 let CU=null, CUR='dashboard', BOM_TYPE='fg';
-const RM={admin:['dashboard','rm','wip-stock','fg','bom-mgr','production','wip-prod','print-docs','oee-log','oee-dashboard','machines','so','mat-mgr','prod-mgr','wip-mgr','supp-mgr','cust-mgr','inv-locations','inv-assign','inv-count','inv-sessions','inv-sheet','hr-checkin','hr-attendance','hr-leave','hr-ot','hr-approve','hr-report','hr-employees','hr-holidays','import','permissions','actlog','users'],production:['dashboard','rm','wip-stock','fg','bom-mgr','production','wip-prod','print-docs','oee-log','oee-dashboard','inv-locations','inv-assign','inv-count','inv-sessions','inv-sheet','hr-checkin','hr-leave','hr-ot'],sales:['dashboard','fg','so','hr-checkin','hr-leave','hr-ot'],qc:['dashboard','rm','wip-stock','fg','print-docs','oee-log','oee-dashboard','inv-locations','inv-assign','inv-count','inv-sessions','inv-sheet','hr-checkin','hr-leave','hr-ot']};
+const RM={admin:['dashboard','rm','wip-stock','fg','bom-mgr','production','wip-prod','print-docs','oee-log','oee-dashboard','machines','so','mat-mgr','prod-mgr','wip-mgr','supp-mgr','cust-mgr','inv-locations','inv-assign','inv-count','inv-sessions','inv-sheet','hr-checkin','hr-attendance','hr-leave','hr-ot','hr-approve','hr-report','hr-employees','hr-holidays','hr-payroll','hr-payslip','import','permissions','actlog','users'],production:['dashboard','rm','wip-stock','fg','bom-mgr','production','wip-prod','print-docs','oee-log','oee-dashboard','inv-locations','inv-assign','inv-count','inv-sessions','inv-sheet','hr-checkin','hr-leave','hr-ot'],sales:['dashboard','fg','so','hr-checkin','hr-leave','hr-ot'],qc:['dashboard','rm','wip-stock','fg','print-docs','oee-log','oee-dashboard','inv-locations','inv-assign','inv-count','inv-sessions','inv-sheet','hr-checkin','hr-leave','hr-ot']};
 
 // ════════════════════════════════════════════════════════════
 //  SUPABASE HELPERS
@@ -1445,6 +1503,8 @@ const META={dashboard:['Dashboard','ภาพรวมระบบ'],rm:['Stock 
   'hr-report':['📋 รายงาน HR','สรุปรายเดือน/ปี'],
   'hr-employees':['👥 พนักงาน + Login','ทะเบียนพนักงาน + กำหนด username/password'],
   'hr-holidays':['🎌 วันหยุด','วันหยุดประเพณี + บริษัท'],
+  'hr-payroll':['💰 คำนวณเงินเดือน','เงินเดือน + OT + หักประกันสังคม + ภาษี'],
+  'hr-payslip':['🧾 สลิปเงินเดือน','พิมพ์สลิปรายบุคคล'],
   'inv-locations':['📍 Location Master','กำหนดห้อง > ชั้นวาง > ช่อง'],
   'inv-assign':['🏷️ กำหนด Location','กำหนด Location ให้ RM/WIP/FG'],
   'inv-count':['📋 สร้างรอบนับ','ประจำเดือน / สุ่มนับ / ประจำปี'],
@@ -1487,6 +1547,8 @@ function loadPage(id){
     'hr-report':()=>{hrInit();},
     'hr-employees':hrLoadEmployees,
     'hr-holidays':()=>{hrInit().then(hrLoadHolidays);},
+    'hr-payroll':()=>{hrInit().then(hrLoadPayroll);},
+    'hr-payslip':()=>{hrInit().then(hrLoadPayslip);},
   };
   if(fn[id])fn[id]();
   else console.warn('loadPage: unknown page',id);
@@ -2472,22 +2534,62 @@ function matForm(m={}){
   <div id="mf-msg" style="margin-top:8px"></div>`;}
 
 
+// แปลง file input เป็น base64
+async function fileToBase64(inputId){
+  const el=document.getElementById(inputId);
+  if(!el||!el.files||!el.files[0])return null;
+  return new Promise((resolve)=>{
+    const reader=new FileReader();
+    reader.onload=e=>resolve(e.target.result);
+    reader.onerror=()=>resolve(null);
+    reader.readAsDataURL(el.files[0]);
+  });
+}
+
 async function saveMat(id){
-  // โหลดรูปภาพ
-  const existMat=id?(_matData.find(m=>m.id===id)||{}):{}; 
-  const oldImgs=existMat.images||[];
-  const newImgs=[...oldImgs];
-  for(let i=1;i<=4;i++){
-    const b64=await fileToBase64(`mf-img${i}`);
-    if(b64)newImgs[i-1]=b64;
-  }
-  const d={code:document.getElementById('mf-code').value.trim(),name:document.getElementById('mf-name').value,category:document.getElementById('mf-cat').value,unit:document.getElementById('mf-unit').value,price_per_unit:parseFloat(document.getElementById('mf-price').value)||0,balance_opening:parseFloat(document.getElementById('mf-bal').value)||0,stock_min:parseFloat(document.getElementById('mf-min').value)||0,exp_date:document.getElementById('mf-exp').value,supplier:document.getElementById('mf-supp').value,note:document.getElementById('mf-note').value,images:newImgs};
-  if(!d.code){msgEl('mf-msg','กรุณากรอกรหัส','e');return;}
+  const msgId='mf-msg';
+  msgEl(msgId,'<span class="spin"></span> กำลังบันทึก...','i');
   try{
-    if(id){await sbU('master_material',d,`id=eq.${id}`);await logA('UPDATE','materials',`แก้ไข ${d.code}`);}
-    else{await sbP('master_material',d);await logA('CREATE','materials',`เพิ่ม ${d.code}`);}
-    msgEl('mf-msg','✅ บันทึกแล้ว','s');setTimeout(()=>{closeMo();loadMatMgr();},800);
-  }catch(e){msgEl('mf-msg','❌ '+e.message,'e');}
+    // โหลดรูปภาพ (ถ้ามีการเลือกใหม่)
+    const existMat=id?(_matData.find(m=>m.id===id)||{}):{}; 
+    const oldImgs=existMat.images||[];
+    const newImgs=[...oldImgs];
+    for(let i=1;i<=4;i++){
+      try{
+        const b64=await fileToBase64(`mf-img${i}`);
+        if(b64)newImgs[i-1]=b64;
+      }catch(imgErr){ /* ไม่มีรูป ข้ามได้ */ }
+    }
+    const d={
+      code:document.getElementById('mf-code').value.trim(),
+      name:document.getElementById('mf-name').value,
+      category:document.getElementById('mf-cat').value,
+      unit:document.getElementById('mf-unit').value,
+      price_per_unit:parseFloat(document.getElementById('mf-price').value)||0,
+      balance_opening:parseFloat(document.getElementById('mf-bal').value)||0,
+      stock_min:parseFloat(document.getElementById('mf-min').value)||0,
+      exp_date:document.getElementById('mf-exp').value,
+      supplier:document.getElementById('mf-supp').value,
+      note:document.getElementById('mf-note').value,
+    };
+    // เพิ่ม images เฉพาะถ้า column มีใน DB
+    if(newImgs.some(Boolean))d.images=newImgs;
+    if(!d.code){msgEl(msgId,'กรุณากรอกรหัส','e');return;}
+    if(id){
+      await sbU('master_material',d,`id=eq.${id}`);
+      await logA('UPDATE','materials',`แก้ไข ${d.code}`);
+    }else{
+      await sbP('master_material',d);
+      await logA('CREATE','materials',`เพิ่ม ${d.code}`);
+    }
+    // invalidate cache
+    window._cachedRM=null;
+    msgEl(msgId,'✅ บันทึกสำเร็จ','s');
+    setTimeout(()=>{closeMo();loadMatMgr();},800);
+  }catch(e){
+    msgEl(msgId,'❌ '+e.message,'e');
+    console.error('saveMat:',e);
+  }
 }
 async function editMat(id){const r=(await sbG('master_material',{f:[`id=eq.${id}`]}))[0];openMo(`✏️ แก้ไข: ${r.code}`,matForm(r));}
 async function delMat(id,code){if(!confirm(`ลบ ${code}?`))return;await sbD('master_material',`id=eq.${id}`);await logA('DELETE','materials',`ลบ ${code}`);loadMatMgr();}
@@ -4570,6 +4672,20 @@ function hrEmpForm(e={}){return`
       </select>
     </div>
   </div>
+  <div style="background:#ECFDF5;border-radius:8px;padding:12px;margin-top:8px">
+    <div style="font-size:12px;font-weight:700;color:var(--green);margin-bottom:8px">💰 ข้อมูลเงินเดือน</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+      <div class="fgrp"><label class="flbl">เงินเดือน (฿/เดือน)</label>
+        <input type="number" class="fc2" id="hef-salary" value="${e.base_salary||0}" step="500" placeholder="15000"></div>
+      <div class="fgrp"><label class="flbl">เบี้ยเลี้ยง (฿/เดือน)</label>
+        <input type="number" class="fc2" id="hef-allow" value="${e.allowance||0}" step="100"></div>
+      <div class="fgrp"><label class="flbl">หักอื่นๆ (฿/เดือน)</label>
+        <input type="number" class="fc2" id="hef-deduct" value="${e.other_deduct||0}" step="100"></div>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:6px">
+      💡 ประกันสังคม 5% สูงสุด 750 บ. | ภาษีตามบัญชีอัตราภาษีเงินได้บุคคลธรรมดา
+    </div>
+  </div>
   <button class="btn btnP" style="width:100%;margin-top:10px" onclick="hrSaveEmp('${e.emp_code||''}')">💾 บันทึกพนักงาน + สร้าง Login</button>
   <div id="hef-msg" style="margin-top:8px"></div>`;}
 
@@ -4584,7 +4700,7 @@ async function hrSaveEmp(oldCode){
   msgEl('hef-msg','<span class="spin"></span> กำลังบันทึก...','i');
   try{
     // 1. บันทึกพนักงาน
-    const empData={emp_code:code,first_name:fn,last_name:ln,nickname:document.getElementById('hef-nick').value,department:document.getElementById('hef-dept').value,position:document.getElementById('hef-pos').value,work_shift:document.getElementById('hef-shift').value,work_start:document.getElementById('hef-start').value,work_end:document.getElementById('hef-end').value,phone:document.getElementById('hef-tel').value,email:document.getElementById('hef-email').value,start_date:document.getElementById('hef-sdate').value||null,annual_leave_days:parseInt(document.getElementById('hef-annual').value)||6,hr_access_level:document.getElementById('hef-access').value,is_active:true};
+    const empData={emp_code:code,first_name:fn,last_name:ln,base_salary:parseFloat(document.getElementById('hef-salary')?.value)||0,allowance:parseFloat(document.getElementById('hef-allow')?.value)||0,other_deduct:parseFloat(document.getElementById('hef-deduct')?.value)||0,nickname:document.getElementById('hef-nick').value,department:document.getElementById('hef-dept').value,position:document.getElementById('hef-pos').value,work_shift:document.getElementById('hef-shift').value,work_start:document.getElementById('hef-start').value,work_end:document.getElementById('hef-end').value,phone:document.getElementById('hef-tel').value,email:document.getElementById('hef-email').value,start_date:document.getElementById('hef-sdate').value||null,annual_leave_days:parseInt(document.getElementById('hef-annual').value)||6,hr_access_level:document.getElementById('hef-access').value,is_active:true};
     if(oldCode){await sbU('employees',empData,`emp_code=eq.${oldCode}`);}
     else{await sbP('employees',empData);}
 
@@ -5470,6 +5586,479 @@ function applyRMFilter(){
   else if(by==='stock-desc') data.sort((a,b)=>avRM(b)-avRM(a));
   renderRMTable(data);
 }
+
+
+// ════════════════════════════════════════════════════════════
+//  HR PAYROLL MODULE — คำนวณเงินเดือน + OT + ประกันสังคม + ภาษี
+//  อ้างอิง: พ.ร.บ.ประกันสังคม 2533 + พ.ร.บ.คุ้มครองแรงงาน 2541
+//           + ประมวลรัษฎากร มาตรา 40(1)
+// ════════════════════════════════════════════════════════════
+
+let _payrollData = []; // เก็บข้อมูล payroll รอบปัจจุบัน
+
+// ── กฎหมายไทย ────────────────────────────────────────────────
+const TAX_BRACKETS = [
+  {min:0,      max:150000,   rate:0,    desc:'ได้รับยกเว้น'},
+  {min:150001, max:300000,   rate:0.05, desc:'5%'},
+  {min:300001, max:500000,   rate:0.10, desc:'10%'},
+  {min:500001, max:750000,   rate:0.15, desc:'15%'},
+  {min:750001, max:1000000,  rate:0.20, desc:'20%'},
+  {min:1000001,max:2000000,  rate:0.25, desc:'25%'},
+  {min:2000001,max:5000000,  rate:0.30, desc:'30%'},
+  {min:5000001,max:Infinity, rate:0.35, desc:'35%'},
+];
+
+// คำนวณภาษีเงินได้บุคคลธรรมดา (รายปี → หาร 12)
+function calcIncomeTax(annualIncome){
+  // หักค่าใช้จ่าย 50% ไม่เกิน 100,000 บ/ปี
+  const expense = Math.min(annualIncome * 0.5, 100000);
+  // หักค่าลดหย่อนส่วนตัว 60,000 บ/ปี
+  const personal = 60000;
+  const taxable = Math.max(0, annualIncome - expense - personal);
+  let tax = 0;
+  for(const b of TAX_BRACKETS){
+    if(taxable > b.min){
+      const chunk = Math.min(taxable, b.max) - b.min + 1;
+      tax += chunk * b.rate;
+    }
+  }
+  return Math.round(tax);
+}
+
+// ประกันสังคม 5% สูงสุด 750 บาท/เดือน (ฐาน max 15,000)
+function calcSSO(monthlySalary){
+  return Math.min(Math.round(monthlySalary * 0.05), 750);
+}
+
+// คำนวณ OT เป็นบาท
+function calcOTBaht(dailyRate, otHours, otType){
+  // อัตราค่าจ้างต่อชั่วโมง = เงินเดือน/(26*8)
+  const rate = {'weekday':1.5, 'weekend':2, 'holiday':3}[otType]||1.5;
+  return Math.round(dailyRate * rate * otHours);
+}
+
+// ── init payroll selects ──────────────────────────────────────
+function hrPayrollInitSelects(){
+  const yr = new Date().getFullYear();
+  const mn = new Date().getMonth()+1;
+  ['pay-year','slip-year'].forEach(id=>{
+    const sel=document.getElementById(id);if(!sel)return;
+    sel.innerHTML='';
+    for(let y=yr;y>=yr-3;y--){const o=document.createElement('option');o.value=y;o.textContent=`${y} (${y+543})`;if(y===yr)o.selected=true;sel.appendChild(o);}
+  });
+  ['pay-month','slip-month'].forEach(id=>{
+    const sel=document.getElementById(id);if(!sel)return;
+    sel.value=mn;
+  });
+  // slip employee
+  const slipEmp=document.getElementById('slip-emp');
+  if(slipEmp){
+    slipEmp.innerHTML='<option value="">— เลือกพนักงาน —</option>';
+    _hrEmps.forEach(e=>{const o=document.createElement('option');o.value=e.emp_code;o.textContent=`${e.emp_code} — ${e.first_name} ${e.last_name}`;slipEmp.appendChild(o);});
+  }
+}
+
+// ── โหลด Payroll ─────────────────────────────────────────────
+async function hrLoadPayroll(){
+  await hrInit();
+  hrPayrollInitSelects();
+  const tb=document.getElementById('payroll-tb');
+  if(tb)tb.innerHTML='<tr><td colspan="11" style="text-align:center;padding:20px"><span class="spin"></span> กำลังโหลด...</td></tr>';
+}
+
+async function hrLoadPayslip(){
+  await hrInit();
+  hrPayrollInitSelects();
+}
+
+// ── คำนวณ Payroll ────────────────────────────────────────────
+async function hrCalcPayroll(){
+  const yr=parseInt(document.getElementById('pay-year')?.value)||new Date().getFullYear();
+  const mn=parseInt(document.getElementById('pay-month')?.value)||new Date().getMonth()+1;
+  const mnName=['','มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
+                'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'][mn];
+  const from=`${yr}-${String(mn).padStart(2,'0')}-01`;
+  const daysInMonth=new Date(yr,mn,0).getDate();
+  const to=`${yr}-${String(mn).padStart(2,'0')}-${daysInMonth}`;
+  const tb=document.getElementById('payroll-tb');
+  const foot=document.getElementById('payroll-foot');
+  if(tb)tb.innerHTML='<tr><td colspan="11" style="text-align:center;padding:20px"><span class="spin"></span> กำลังคำนวณ...</td></tr>';
+
+  try{
+    // โหลด OT ที่อนุมัติแล้วในเดือนนั้น
+    const otList=await sbG('ot_requests',{f:[`ot_date=gte.${from}`,`ot_date=lte.${to}`,`status=eq.approved`]});
+    // โหลด attendance ในเดือนนั้น
+    const attList=await sbG('attendance',{f:[`att_date=gte.${from}`,`att_date=lte.${to}`]});
+
+    _payrollData=[];
+    let grandGross=0, grandSSO=0, grandTax=0, grandDeduct=0, grandNet=0;
+
+    for(const emp of _hrEmps){
+      // --- ข้อมูลพื้นฐาน ---
+      const salary=Number(emp.base_salary||0);
+      if(!salary)continue; // ข้ามถ้าไม่มีเงินเดือน
+
+      // --- วันทำงาน ---
+      const att=attList.filter(a=>a.emp_code===emp.emp_code);
+      const workDays=att.filter(a=>['present','late'].includes(a.status)).length;
+      const absentDays=att.filter(a=>a.status==='absent').length;
+      const lateDays=att.filter(a=>a.status==='late').length;
+
+      // คำนวณเงินเดือนตามวันทำงาน (ถ้าขาด หักตามส่วน)
+      const workDaysInMonth=daysInMonth-_hrHols.filter(h=>h.holiday_date>=from&&h.holiday_date<=to).length;
+      const dailyRate=salary/(workDaysInMonth||26);
+      const adjustedSalary=absentDays>0?Math.round(salary-(dailyRate*absentDays)):salary;
+
+      // --- OT ---
+      const empOT=otList.filter(o=>o.emp_code===emp.emp_code);
+      const otBaht=empOT.reduce((s,o)=>{
+        const hrs=Number(o.ot_hours||0);
+        const rate=Number(o.ot_rate||1.5);
+        const hourlyRate=salary/(workDaysInMonth*8||208);
+        return s+Math.round(hourlyRate*rate*hrs);
+      },0);
+
+      // --- รายได้อื่นๆ ---
+      const allowance=Number(emp.allowance||0); // เบี้ยเลี้ยง
+      const bonus=Number(emp.bonus_month||0);   // โบนัสเดือนนี้
+
+      // --- รายได้รวม ---
+      const grossIncome=adjustedSalary+otBaht+allowance+bonus;
+
+      // --- ประกันสังคม ---
+      const sso=calcSSO(grossIncome);
+
+      // --- ภาษีหัก ณ ที่จ่าย (รายปี) ---
+      const annualGross=grossIncome*12;
+      const annualTax=calcIncomeTax(annualGross-sso*12);
+      const monthlyTax=Math.round(annualTax/12);
+
+      // --- หักอื่นๆ (ถ้ามี) ---
+      const otherDeduct=Number(emp.other_deduct||0);
+
+      // --- รับสุทธิ ---
+      const netPay=grossIncome-sso-monthlyTax-otherDeduct;
+
+      const row={
+        emp_code:emp.emp_code,
+        emp_name:`${emp.first_name} ${emp.last_name}`,
+        department:emp.department||'',
+        position:emp.position||'',
+        base_salary:salary,
+        adjusted_salary:adjustedSalary,
+        work_days:workDays,
+        absent_days:absentDays,
+        late_days:lateDays,
+        ot_baht:otBaht,
+        ot_hours:empOT.reduce((s,o)=>s+Number(o.ot_hours||0),0),
+        allowance,bonus,
+        gross_income:grossIncome,
+        sso,
+        income_tax:monthlyTax,
+        annual_tax:annualTax,
+        other_deduct:otherDeduct,
+        net_pay:netPay,
+        year:yr, month:mn,
+        daily_rate:dailyRate,
+      };
+      _payrollData.push(row);
+      grandGross+=grossIncome;grandSSO+=sso;grandTax+=monthlyTax;
+      grandDeduct+=otherDeduct;grandNet+=netPay;
+    }
+
+    // ── Render ────────────────────────────────────────────────
+    if(tb){
+      tb.innerHTML=_payrollData.length?_payrollData.map(r=>`<tr>
+        <td class="mn" style="color:var(--accent)">${r.emp_code}</td>
+        <td><div style="font-weight:600">${r.emp_name}</div><div style="font-size:11px;color:var(--text3)">${r.department}</div></td>
+        <td class="mn">${thb(r.adjusted_salary)}<br><span style="font-size:10px;color:var(--text3)">(${r.work_days}วัน${r.absent_days>0?` -${r.absent_days}ขาด`:''})</span></td>
+        <td class="mn" style="color:var(--orange)">${r.ot_baht>0?thb(r.ot_baht):'—'}<br><span style="font-size:10px;color:var(--text3)">${r.ot_hours>0?r.ot_hours+'ชม.':''}</span></td>
+        <td class="mn" style="color:var(--green);font-weight:700">${thb(r.gross_income)}</td>
+        <td class="mn" style="color:var(--red)">-${thb(r.sso)}</td>
+        <td class="mn" style="color:var(--red)">-${thb(r.income_tax)}<br><span style="font-size:10px;color:var(--text3)">(ปี ${thb(r.annual_tax)})</span></td>
+        <td class="mn" style="color:var(--red)">${r.other_deduct>0?'-'+thb(r.other_deduct):'—'}</td>
+        <td class="mn" style="font-weight:800;font-size:14px;color:var(--navy)">${thb(r.net_pay)}</td>
+        <td><button class="btn btnP sm" onclick="hrShowPayslip('${r.emp_code}',${yr},${mn})">🧾 สลิป</button></td>
+        <td><button class="btn btnS sm" onclick="hrEditPayrollRow('${r.emp_code}')">✏️</button></td>
+      </tr>`).join(''):'<tr><td colspan="11" style="text-align:center;color:var(--text3);padding:20px">ยังไม่มีพนักงานที่มีเงินเดือน — ตั้งค่าเงินเดือนที่เมนู พนักงาน+Login ก่อนครับ</td></tr>';
+    }
+    if(foot){
+      foot.innerHTML=_payrollData.length?`<tr style="background:var(--bg3);font-weight:700">
+        <td colspan="4" style="text-align:right">รวม ${_payrollData.length} คน — ${mnName} ${yr+543}</td>
+        <td class="mn" style="color:var(--green)">${thb(grandGross)}</td>
+        <td class="mn" style="color:var(--red)">-${thb(grandSSO)}</td>
+        <td class="mn" style="color:var(--red)">-${thb(grandTax)}</td>
+        <td class="mn" style="color:var(--red)">${grandDeduct>0?'-'+thb(grandDeduct):'—'}</td>
+        <td class="mn" style="color:var(--navy);font-size:14px">${thb(grandNet)}</td>
+        <td colspan="2"></td>
+      </tr>`:'';
+    }
+  }catch(e){
+    if(tb)tb.innerHTML=`<tr><td colspan="11" style="color:var(--red);padding:12px">❌ ${e.message}</td></tr>`;
+    console.error('hrCalcPayroll:',e);
+  }
+}
+
+// ── แก้ไข row (เพิ่ม/ลด deduction) ──────────────────────────
+function hrEditPayrollRow(empCode){
+  const r=_payrollData.find(x=>x.emp_code===empCode);if(!r)return;
+  openMo(`✏️ ปรับรายการ: ${r.emp_name}`,`
+    <div class="al ali mb3" style="font-size:12px">
+      เงินเดือน: <b>${thb(r.base_salary)}</b> | รายได้รวม: <b>${thb(r.gross_income)}</b>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fgrp"><label class="flbl">โบนัส / พิเศษ (฿)</label>
+        <input type="number" class="fc2" id="pr-bonus" value="${r.bonus||0}" step="100"></div>
+      <div class="fgrp"><label class="flbl">เบี้ยเลี้ยง (฿)</label>
+        <input type="number" class="fc2" id="pr-allow" value="${r.allowance||0}" step="100"></div>
+      <div class="fgrp"><label class="flbl">หักอื่นๆ (฿)</label>
+        <input type="number" class="fc2" id="pr-deduct" value="${r.other_deduct||0}" step="100"></div>
+      <div class="fgrp"><label class="flbl">หมายเหตุ</label>
+        <input type="text" class="fc2" id="pr-note" value="${r.note||''}"></div>
+    </div>
+    <div style="background:var(--bg3);border-radius:8px;padding:12px;margin-top:8px;font-size:12px">
+      <div style="font-weight:700;margin-bottom:6px">สรุปการคำนวณ (ข้อมูลปัจจุบัน)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+        <div>เงินเดือน: ${thb(r.adjusted_salary)}</div>
+        <div>OT: ${thb(r.ot_baht)}</div>
+        <div style="color:var(--green);font-weight:600">รวม: ${thb(r.gross_income)}</div>
+        <div style="color:var(--red)">ประกันสังคม: -${thb(r.sso)}</div>
+        <div style="color:var(--red)">ภาษี: -${thb(r.income_tax)}</div>
+        <div style="color:var(--navy);font-weight:800">สุทธิ: ${thb(r.net_pay)}</div>
+      </div>
+    </div>
+    <button class="btn btnP" style="width:100%;margin-top:10px" onclick="hrSavePayrollRow('${empCode}')">💾 คำนวณใหม่</button>
+    <div id="pr-msg" style="margin-top:8px"></div>`);
+}
+
+function hrSavePayrollRow(empCode){
+  const r=_payrollData.find(x=>x.emp_code===empCode);if(!r)return;
+  r.bonus=parseFloat(document.getElementById('pr-bonus')?.value)||0;
+  r.allowance=parseFloat(document.getElementById('pr-allow')?.value)||0;
+  r.other_deduct=parseFloat(document.getElementById('pr-deduct')?.value)||0;
+  r.note=document.getElementById('pr-note')?.value||'';
+  r.gross_income=r.adjusted_salary+r.ot_baht+r.allowance+r.bonus;
+  r.sso=calcSSO(r.gross_income);
+  const annualTax=calcIncomeTax(r.gross_income*12-r.sso*12);
+  r.income_tax=Math.round(annualTax/12);
+  r.annual_tax=annualTax;
+  r.net_pay=r.gross_income-r.sso-r.income_tax-r.other_deduct;
+  msgEl('pr-msg','✅ คำนวณใหม่แล้ว','s');
+  setTimeout(()=>{closeMo();hrCalcPayroll();},600);
+}
+
+// ── PAYSLIP ────────────────────────────────────────────────────
+function hrShowPayslip(empCode,yr,mn){
+  nav('hr-payslip');
+  setTimeout(()=>{
+    document.getElementById('slip-emp').value=empCode;
+    document.getElementById('slip-year').value=yr;
+    document.getElementById('slip-month').value=mn;
+    hrPreviewPayslip();
+  },300);
+}
+
+async function hrPreviewPayslip(){
+  const empCode=document.getElementById('slip-emp')?.value;
+  const yr=parseInt(document.getElementById('slip-year')?.value)||new Date().getFullYear();
+  const mn=parseInt(document.getElementById('slip-month')?.value)||new Date().getMonth()+1;
+  if(!empCode){document.getElementById('payslip-preview').innerHTML='<div class="al ali">กรุณาเลือกพนักงานครับ</div>';return;}
+
+  // ดึงจาก _payrollData ก่อน ถ้าไม่มีค่อยคำนวณใหม่
+  let row=_payrollData.find(r=>r.emp_code===empCode&&r.year===yr&&r.month===mn);
+  if(!row){
+    // คำนวณเฉพาะคนนี้
+    const emp=_hrEmps.find(e=>e.emp_code===empCode);
+    if(!emp){document.getElementById('payslip-preview').innerHTML='<div class="al ale">ไม่พบข้อมูลพนักงาน</div>';return;}
+    const from=`${yr}-${String(mn).padStart(2,'0')}-01`;
+    const daysInMonth=new Date(yr,mn,0).getDate();
+    const to=`${yr}-${String(mn).padStart(2,'0')}-${daysInMonth}`;
+    const [att,ots]=await Promise.all([
+      sbG('attendance',{f:[`emp_code=eq.${empCode}`,`att_date=gte.${from}`,`att_date=lte.${to}`]}),
+      sbG('ot_requests',{f:[`emp_code=eq.${empCode}`,`ot_date=gte.${from}`,`ot_date=lte.${to}`,`status=eq.approved`]})
+    ]);
+    const salary=Number(emp.base_salary||0);
+    const workDaysInMonth=daysInMonth-_hrHols.filter(h=>h.holiday_date>=from&&h.holiday_date<=to).length||26;
+    const dailyRate=salary/workDaysInMonth;
+    const absentDays=att.filter(a=>a.status==='absent').length;
+    const workDays=att.filter(a=>['present','late'].includes(a.status)).length;
+    const adjustedSalary=absentDays>0?Math.round(salary-dailyRate*absentDays):salary;
+    const hourlyRate=salary/(workDaysInMonth*8);
+    const otBaht=ots.reduce((s,o)=>s+Math.round(hourlyRate*(o.ot_rate||1.5)*(o.ot_hours||0)),0);
+    const grossIncome=adjustedSalary+otBaht;
+    const sso=calcSSO(grossIncome);
+    const annualTax=calcIncomeTax(grossIncome*12-sso*12);
+    const monthlyTax=Math.round(annualTax/12);
+    row={emp_code:empCode,emp_name:`${emp.first_name} ${emp.last_name}`,
+      department:emp.department||'',position:emp.position||'',
+      base_salary:salary,adjusted_salary:adjustedSalary,work_days:workDays,
+      absent_days:absentDays,ot_baht:otBaht,ot_hours:ots.reduce((s,o)=>s+Number(o.ot_hours||0),0),
+      allowance:0,bonus:0,gross_income:grossIncome,sso,income_tax:monthlyTax,
+      annual_tax:annualTax,other_deduct:0,net_pay:grossIncome-sso-monthlyTax,
+      year:yr,month:mn,ots};
+  }
+  const mnName=['','มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
+    'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'][mn];
+  document.getElementById('payslip-preview').innerHTML=buildPayslipHTML(row,mnName);
+}
+
+function buildPayslipHTML(r,mnName){
+  const otRows=(r.ots||[]).map(o=>`<tr>
+    <td>OT ${o.ot_date} (×${o.ot_rate})</td>
+    <td>${fmt(o.ot_hours,2)} ชม.</td>
+    <td class="mn" style="color:var(--orange)">${thb(Math.round((r.base_salary/(26*8))*(o.ot_rate||1.5)*(o.ot_hours||0)))}</td>
+  </tr>`).join('');
+  return`<div style="border:2px solid var(--navy);border-radius:12px;overflow:hidden;font-family:Sarabun,sans-serif">
+    <!-- Header -->
+    <div style="background:var(--navy);color:white;padding:14px 20px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:14px;font-weight:800">บริษัท ฟิตเอ็กซ์โป จำกัด</div>
+        <div style="font-size:11px;opacity:.8">เลขที่ภาษี: 0105567113357</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:16px;font-weight:900">ใบจ่ายเงินเดือน</div>
+        <div style="font-size:12px;opacity:.8">${mnName} ${r.year+543}</div>
+      </div>
+    </div>
+    <!-- Employee Info -->
+    <div style="background:#F0F4FF;padding:12px 20px;display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px">
+      <div><b>ชื่อ-สกุล:</b> ${r.emp_name}</div>
+      <div><b>รหัสพนักงาน:</b> ${r.emp_code}</div>
+      <div><b>แผนก:</b> ${r.department||'—'}</div>
+      <div><b>ตำแหน่ง:</b> ${r.position||'—'}</div>
+      <div><b>วันทำงาน:</b> ${r.work_days} วัน${r.absent_days>0?` (ขาด ${r.absent_days} วัน)`:''}</div>
+      <div><b>OT:</b> ${r.ot_hours||0} ชั่วโมง</div>
+    </div>
+    <!-- Income / Deduction -->
+    <div style="display:grid;grid-template-columns:1fr 1fr">
+      <!-- รายรับ -->
+      <div style="padding:14px 16px;border-right:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:800;color:var(--green);margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:4px">💰 รายได้</div>
+        <table style="width:100%;font-size:12px">
+          <tr><td>เงินเดือน (${r.work_days} วัน)</td><td class="mn" style="text-align:right">${thb(r.adjusted_salary)}</td></tr>
+          ${r.ot_baht>0?`<tr><td>OT (${r.ot_hours} ชม.)</td><td class="mn" style="text-align:right;color:var(--orange)">${thb(r.ot_baht)}</td></tr>`:''}
+          ${r.allowance>0?`<tr><td>เบี้ยเลี้ยง</td><td class="mn" style="text-align:right">${thb(r.allowance)}</td></tr>`:''}
+          ${r.bonus>0?`<tr><td>โบนัส/พิเศษ</td><td class="mn" style="text-align:right;color:var(--accent)">${thb(r.bonus)}</td></tr>`:''}
+          <tr style="border-top:1px solid var(--border);font-weight:700">
+            <td>รวมรายได้</td>
+            <td class="mn" style="text-align:right;color:var(--green)">${thb(r.gross_income)}</td>
+          </tr>
+        </table>
+      </div>
+      <!-- รายหัก -->
+      <div style="padding:14px 16px">
+        <div style="font-size:12px;font-weight:800;color:var(--red);margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:4px">📉 รายหัก</div>
+        <table style="width:100%;font-size:12px">
+          <tr><td>ประกันสังคม (5%)</td><td class="mn" style="text-align:right;color:var(--red)">${thb(r.sso)}</td></tr>
+          <tr><td style="font-size:10px;color:var(--text3)" colspan="2">ฐานสูงสุด 15,000 บ. สูงสุด 750 บ./ด.</td></tr>
+          <tr><td>ภาษีหัก ณ ที่จ่าย</td><td class="mn" style="text-align:right;color:var(--red)">${thb(r.income_tax)}</td></tr>
+          <tr><td style="font-size:10px;color:var(--text3)" colspan="2">รายปีประมาณ ${thb(r.annual_tax)} บาท</td></tr>
+          ${r.other_deduct>0?`<tr><td>หักอื่นๆ</td><td class="mn" style="text-align:right;color:var(--red)">${thb(r.other_deduct)}</td></tr>`:''}
+          <tr style="border-top:1px solid var(--border);font-weight:700">
+            <td>รวมหัก</td>
+            <td class="mn" style="text-align:right;color:var(--red)">-${thb(r.sso+r.income_tax+(r.other_deduct||0))}</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+    <!-- Net Pay -->
+    <div style="background:var(--navy);color:white;padding:14px 20px;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:13px">เงินได้สุทธิ (Net Pay)</div>
+      <div style="font-size:22px;font-weight:900;font-family:monospace">${thb(r.net_pay)}</div>
+    </div>
+    <!-- Tax Info -->
+    <div style="padding:10px 20px;background:#FFFDE7;font-size:11px;color:var(--text3)">
+      📊 ฐานภาษีรายปี (ประมาณ): ${thb(r.gross_income*12)} บ. | หักค่าใช้จ่าย: ${thb(Math.min(r.gross_income*12*0.5,100000))} บ. | 
+      หักส่วนตัว: 60,000 บ. | ภาษีรายปี: ${thb(r.annual_tax)} บ. | ภาษี/เดือน: ${thb(r.income_tax)} บ.
+    </div>
+    <!-- Signature -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border-top:1px solid var(--border);padding:16px 20px">
+      <div style="text-align:center;font-size:11px"><div style="margin-bottom:24px">ผู้รับเงิน</div><div style="border-bottom:1px solid #555;margin:0 10px"></div><div style="margin-top:4px">${r.emp_name}</div></div>
+      <div style="text-align:center;font-size:11px"><div style="margin-bottom:24px">ผู้จัดทำ (HR)</div><div style="border-bottom:1px solid #555;margin:0 10px"></div><div style="margin-top:4px">ฝ่ายบุคคล</div></div>
+      <div style="text-align:center;font-size:11px"><div style="margin-bottom:24px">ผู้อนุมัติ</div><div style="border-bottom:1px solid #555;margin:0 10px"></div><div style="margin-top:4px">กรรมการผู้จัดการ</div></div>
+    </div>
+  </div>`;
+}
+
+function hrPrintPayslip(){
+  const preview=document.getElementById('payslip-preview');
+  if(!preview?.innerHTML?.includes('บริษัท')){alert('กรุณา Preview ก่อนครับ');return;}
+  const po=document.getElementById('print-output');
+  const win=window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>สลิปเงินเดือน</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body{font-family:'Sarabun',sans-serif;background:white;padding:10px;max-width:600px;margin:0 auto}
+    @page{margin:10mm;size:A5 portrait}
+    @media print{body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}
+    .mn{font-family:monospace}
+  </style></head><body>
+  ${preview.innerHTML}
+  <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),3000);}<\/script>
+  </body></html>`);
+  win.document.close();
+}
+
+function hrPdfPayslip(){ hrPrintPayslip(); }
+
+function hrPrintPayrollSummary(){
+  if(!_payrollData.length){alert('กรุณาคำนวณก่อนครับ');return;}
+  const mn=parseInt(document.getElementById('pay-month')?.value)||new Date().getMonth()+1;
+  const yr=parseInt(document.getElementById('pay-year')?.value)||new Date().getFullYear();
+  const mnName=['','มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
+    'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'][mn];
+  const rows=_payrollData.map((r,i)=>`<tr style="background:${i%2===0?'#fff':'#f9f9f9'}">
+    <td>${i+1}</td><td>${r.emp_code}</td><td>${r.emp_name}</td><td>${r.department}</td>
+    <td style="text-align:right">${thb(r.adjusted_salary)}</td>
+    <td style="text-align:right;color:#D97706">${r.ot_baht>0?thb(r.ot_baht):'—'}</td>
+    <td style="text-align:right;color:#059669;font-weight:700">${thb(r.gross_income)}</td>
+    <td style="text-align:right;color:#DC2626">-${thb(r.sso)}</td>
+    <td style="text-align:right;color:#DC2626">-${thb(r.income_tax)}</td>
+    <td style="text-align:right;font-weight:800;color:#1B3A5C">${thb(r.net_pay)}</td>
+  </tr>`).join('');
+  const grandGross=_payrollData.reduce((s,r)=>s+r.gross_income,0);
+  const grandNet=_payrollData.reduce((s,r)=>s+r.net_pay,0);
+  const win=window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>สรุปเงินเดือน</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body{font-family:'Sarabun',sans-serif;background:white;padding:15px}
+    @page{margin:10mm;size:A4 landscape}
+    @media print{body{-webkit-print-color-adjust:exact!important}}
+    table{width:100%;border-collapse:collapse}
+    th{background:#1B3A5C;color:white;padding:6px 8px;font-size:8.5pt;border:1px solid #0d2c47}
+    td{padding:5px 8px;border:1px solid #ddd;font-size:8.5pt}
+    .mn{font-family:monospace}
+  </style></head><body>
+  <div style="display:flex;justify-content:space-between;border-bottom:3px solid #1B3A5C;padding-bottom:8px;margin-bottom:12px">
+    <div><div style="font-size:14pt;font-weight:800;color:#1B3A5C">บริษัท ฟิตเอ็กซ์โป จำกัด</div>
+    <div style="font-size:9pt;color:#555">เลขที่ภาษี: 0105567113357</div></div>
+    <div style="text-align:right"><div style="font-size:14pt;font-weight:900;color:#1B3A5C">สรุปการจ่ายเงินเดือน</div>
+    <div style="font-size:9pt;color:#666">เดือน ${mnName} ${yr+543} | พนักงาน ${_payrollData.length} คน</div></div>
+  </div>
+  <table><thead><tr>
+    <th>#</th><th>รหัส</th><th>ชื่อ-สกุล</th><th>แผนก</th>
+    <th>เงินเดือน</th><th style="color:#FCD34D">OT</th>
+    <th style="color:#6EE7B7">รายได้รวม</th>
+    <th style="color:#FCA5A5">ประกันสังคม</th>
+    <th style="color:#FCA5A5">ภาษีหัก ณ ที่จ่าย</th>
+    <th style="color:#93C5FD">รับสุทธิ</th>
+  </tr></thead><tbody>${rows}</tbody>
+  <tfoot><tr style="background:#EBF3FA;font-weight:800">
+    <td colspan="6" style="text-align:right">รวมทั้งหมด ${_payrollData.length} คน:</td>
+    <td style="text-align:right;color:#059669">${thb(grandGross)}</td>
+    <td colspan="2" style="text-align:right;color:#DC2626">-${thb(_payrollData.reduce((s,r)=>s+r.sso+r.income_tax,0))}</td>
+    <td style="text-align:right;color:#1B3A5C">${thb(grandNet)}</td>
+  </tr></tfoot></table>
+  <div style="margin-top:20px;font-size:8.5pt;color:#666;border-top:1px solid #ddd;padding-top:8px">
+    อ้างอิง: ประกันสังคม 5% (สูงสุด 750 บ.) | ภาษีตามบัญชีอัตราภาษีเงินได้บุคคลธรรมดา ม.48(1) ประมวลรัษฎากร
+  </div>
+  <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),3000);}<\/script>
+  </body></html>`);
+  win.document.close();
+}
+
+function hrExportPayroll(){ hrPrintPayrollSummary(); }
 
 // ════════════════════════════════════════════════════════════
 //  CLOCK
