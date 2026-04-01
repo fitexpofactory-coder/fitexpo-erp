@@ -298,6 +298,7 @@ textarea.fc2{resize:vertical;min-height:60px}
         <div class="ns">การผลิต</div>
         <div class="ni" onclick="nav('bom-mgr')"><span class="ic">📋</span>จัดการ BOM</div>
         <div class="ni" onclick="nav('production')"><span class="ic">🔧</span>ผลิตสินค้า</div>
+        <div class="ni" onclick="nav('prod-plan')"><span class="ic">📅</span>วางแผนผลิต</div>
         <div class="ni" onclick="nav('wip-prod')"><span class="ic">🔄</span>ผลิต WIP</div>
         <div class="ni" onclick="nav('print-docs')"><span class="ic">🖨️</span>พิมพ์สูตรผลิต</div>
         <div class="ns">ขาย</div>
@@ -412,6 +413,7 @@ textarea.fc2{resize:vertical;min-height:60px}
     <button class="btn btnP sm" onclick="showReceiveRM()">📥 รับเข้า</button>
     <button class="btn btnT sm" onclick="showIssueRM()">📤 เบิก</button>
     <button class="btn btnS sm" onclick="loadRM()">🔄</button>
+        <button class="btn btnN sm" onclick="checkDupMaterials()" title="ตรวจหารหัสซ้ำ">🔍 หารหัสซ้ำ</button>
   </div>
   <div class="tw"><table>
     <thead><tr>
@@ -475,6 +477,65 @@ textarea.fc2{resize:vertical;min-height:60px}
 
 
 
+<!-- PRODUCTION PLAN (Multi-SKU) -->
+<div id="pg-prod-plan" class="pg">
+  <div class="g2">
+    <!-- LEFT: เพิ่ม SKU ที่ต้องการผลิต -->
+    <div class="card">
+      <div class="ct mb3">📋 รายการสินค้าที่ต้องการผลิต</div>
+      <!-- เพิ่ม SKU -->
+      <div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:end;margin-bottom:10px">
+        <div class="fgrp" style="margin:0">
+          <label class="flbl">ค้นหาสินค้า SKU</label>
+          <div style="position:relative">
+            <input type="text" class="fc2" id="pp-sku-search" placeholder="พิมพ์ SKU หรือชื่อ..." autocomplete="off"
+              oninput="skuAutoSearch('pp',this.value)" onkeydown="skuAutoKey('pp',event)">
+            <div id="pp-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;max-height:220px;overflow-y:auto;z-index:999;box-shadow:0 4px 16px rgba(0,0,0,.18)"></div>
+          </div>
+          <input type="hidden" id="pp-sku">
+        </div>
+        <div class="fgrp" style="margin:0;width:110px">
+          <label class="flbl">จำนวน Batch</label>
+          <input type="number" class="fc2" id="pp-batches" value="1" min="1" step="1">
+        </div>
+        <button class="btn btnP" onclick="ppAddSKU()" style="height:38px;white-space:nowrap">+ เพิ่ม</button>
+      </div>
+      <!-- ตาราง SKU ที่เพิ่มแล้ว -->
+      <div id="pp-sku-list">
+        <div style="text-align:center;color:var(--text3);padding:30px;font-size:13px">
+          ยังไม่มีรายการ — เพิ่มสินค้าด้านบนครับ
+        </div>
+      </div>
+      <!-- ปุ่มคำนวณ -->
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn btnP" style="flex:1" onclick="ppCalcAll()">⚙️ คำนวณ MRC ทั้งหมด</button>
+        <button class="btn btnS sm" onclick="ppClearAll()">🗑 ล้าง</button>
+      </div>
+    </div>
+    <!-- RIGHT: ตัวเลือก -->
+    <div class="card">
+      <div class="ct mb3">⚙️ ตั้งค่าการผลิต</div>
+      <div class="fgrp">
+        <label class="flbl">วันที่ผลิต</label>
+        <input type="date" class="fc2" id="pp-date">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">ผู้ดำเนินการ</label>
+        <input type="text" class="fc2" id="pp-op" placeholder="ชื่อผู้ดำเนินการ">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">Loss % (สูญเสีย)</label>
+        <input type="number" class="fc2" id="pp-loss" value="0" min="0" max="99" step="0.1">
+      </div>
+      <div style="background:var(--bg3);border-radius:8px;padding:10px;font-size:12px;color:var(--text3)">
+        💡 ระบบจะรวม BOM ของทุก SKU แล้วคำนวณวัตถุดิบที่ต้องใช้ทั้งหมดพร้อมกันครับ
+      </div>
+    </div>
+  </div>
+  <!-- ผลการคำนวณ MRC รวม -->
+  <div id="pp-result" style="margin-top:16px"></div>
+</div>
+
 <!-- PRODUCTION MODULE -->
 <div id="pg-production" class="pg">
   <div class="g2">
@@ -492,6 +553,33 @@ textarea.fc2{resize:vertical;min-height:60px}
           <span id="wo-selected-text"></span>
           <button onclick="clearSkuSearch('wo')" style="float:right;background:none;border:none;color:var(--red);cursor:pointer;font-size:14px">✕</button>
         </div>
+      </div>
+      <!-- WO Calculator -->
+      <div style="background:linear-gradient(135deg,rgba(27,94,199,.06),rgba(27,94,199,.02));border:1px solid rgba(27,94,199,.2);border-radius:10px;padding:12px;margin-bottom:10px">
+        <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:10px">🧮 คำนวณจำนวน BATCH อัตโนมัติ</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;align-items:end">
+          <div class="fgrp">
+            <label class="flbl">ต้องการผลิต</label>
+            <input type="number" class="fc2" id="wo-target-qty" placeholder="เช่น 5000" min="0" step="1" oninput="calcWOBatch()">
+          </div>
+          <div class="fgrp">
+            <label class="flbl">หน่วย</label>
+            <select class="fc2" id="wo-target-unit" onchange="calcWOBatch()">
+              <option value="pcs">ชิ้น (pcs)</option>
+              <option value="kg">กิโลกรัม (kg)</option>
+              <option value="box">กล่อง (box)</option>
+              <option value="pack">แพ็ค</option>
+            </select>
+          </div>
+          <div class="fgrp">
+            <label class="flbl">น้ำหนักต่อชิ้น (g)</label>
+            <input type="number" class="fc2" id="wo-unit-weight" placeholder="จาก SKU" step="0.1" oninput="calcWOBatch()">
+          </div>
+          <div>
+            <button class="btn btnP" style="width:100%" onclick="calcWOBatch()">⚙️ คำนวณ</button>
+          </div>
+        </div>
+        <div id="wo-calc-result" style="display:none;margin-top:10px;background:rgba(27,122,62,.08);border:1px solid rgba(27,122,62,.2);border-radius:8px;padding:10px;font-size:13px"></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:0">
         <div class="fgrp"><label class="flbl">จำนวน BATCH</label><input type="number" class="fc2" id="wo-n" value="1" min="1" onchange="calcBOMScaled()"></div>
@@ -518,11 +606,39 @@ textarea.fc2{resize:vertical;min-height:60px}
           <div id="wo-scaled-summary" style="margin-top:8px;font-size:12px;color:var(--text3)"></div>
         </div>
       </div>
-      <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
-        <div class="ch"><div class="ct">📜 Work Orders</div><button class="btn btnS sm" onclick="loadProduction()">🔄</button></div>
-        <div id="wo-list"></div>
+    </div>
+  </div>
+  <!-- WO List — full width ด้านล่าง -->
+  <div class="card" style="margin-top:12px">
+    <div class="ch">
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="wo-select-all" onchange="woToggleAll(this.checked)"
+          title="เลือกทั้งหมด" style="width:16px;height:16px;cursor:pointer">
+        <div class="ct">📜 Work Orders</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btnP sm" onclick="woReCalcSelected()" id="wo-recalc-btn" style="display:none">
+          🔄 คำนวณ MRC ที่เลือก
+        </button>
+            <button class="btn btnT sm" onclick="woRecalcPrint()" id="wo-print-mrc-btn" style="display:none">
+              🖨️ พิมพ์ MRC A4
+            </button>
+        <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer">
+          <input type="checkbox" id="wo-incl-wip" checked style="cursor:pointer"> รวม WIP WO
+        </label>
+        <select class="fc2" id="wo-status-filter" style="width:140px;font-size:12px" onchange="loadProduction()">
+          <option value="">สถานะทั้งหมด</option>
+          <option value="จองแล้ว">จองแล้ว</option>
+          <option value="กำลังผลิต">กำลังผลิต</option>
+          <option value="เสร็จแล้ว">เสร็จแล้ว</option>
+          <option value="ยกเลิก">ยกเลิก</option>
+        </select>
+        <button class="btn btnS sm" onclick="loadProduction()">🔄</button>
       </div>
     </div>
+    <!-- WO Grid: แสดงหลายคอลัมน์บน desktop -->
+    <div id="wo-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;margin-top:8px"></div>
+    <div id="wo-recalc-result" style="margin-top:12px"></div>
   </div>
 </div>
 
@@ -634,6 +750,7 @@ textarea.fc2{resize:vertical;min-height:60px}
     <button class="btn btnT sm" onclick="printMasterList('mat')">🖨️ พิมพ์</button>
     <button class="btn btnN sm" onclick="pdfMasterList('mat')">📄 PDF</button>
     <button class="btn btnS sm" onclick="loadMatMgr()">🔄</button>
+        <button class="btn btnN sm" onclick="checkDupMaterials()">🔍 หารหัสซ้ำ</button>
   </div>
   <div class="tw"><table>
     <thead><tr><th>รูป</th><th>รหัส</th><th>ชื่อ</th><th>Type</th><th>หมวด</th><th>ราคา/หน่วย</th><th>Balance เปิด</th><th>Min</th><th>EXP</th><th>Supplier</th><th>แก้ไข</th></tr></thead>
@@ -1135,6 +1252,7 @@ textarea.fc2{resize:vertical;min-height:60px}
     <button class="btn btnT sm" onclick="hrPrintAtt()">🖨️ พิมพ์</button>
     <button class="btn btnN sm" onclick="hrPdfAtt()">📄 PDF</button>
     <button class="btn btnS sm" onclick="hrLoadAttendance()">🔄</button>
+    ${CU?.role==='admin'?`<button class="btn btnP sm" onclick="hrAddAttBackdate()">➕ เพิ่มย้อนหลัง</button>`:''}
   </div>
   <div class="g4 mb3">
     <div class="kpi kb"><div class="kl">มาทำงาน</div><div class="kv" id="hr-att-p" style="color:var(--accent)">—</div></div>
@@ -1382,7 +1500,18 @@ textarea.fc2{resize:vertical;min-height:60px}
 </div>
 <script>
 // ════════════════════════════════════════════════════════════
-//  ⚙️ CONFIG — ใส่ anon key ที่นี่
+//  GLOBAL STATE VARIABLES — ต้องอยู่ก่อนทุก function
+// ════════════════════════════════════════════════════════════
+let _matData=[], _prodData=[], _rmData=[];
+let _matFilterType='all', _matFilterQ='';
+let _rmFilterType='all', _rmFilterQ='';
+let _skuDropIdx={}, _matDropIdx={};
+let _bomProds=[], _bomWIPs=[];
+let _currentBOMRows=[], _woBOM=[];
+let _payrollData=[], _lastMRC=null;
+
+// ════════════════════════════════════════════════════════════
+//  ⚙️ CONFIG 
 // ════════════════════════════════════════════════════════════
 const SB='https://meehbfcmnmposarkejuh.supabase.co';
 let KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1lZWhiZmNtbm1wb3NhcmtlanVoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NjQyNTMsImV4cCI6MjA5MDA0MDI1M30.vbd9TxJr4D4ccPqjm1lw9XD4FwgrCOErqjXkKpUzLkk'; // 
@@ -1391,7 +1520,7 @@ let KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im
 //  SESSION
 // ════════════════════════════════════════════════════════════
 let CU=null, CUR='dashboard', BOM_TYPE='fg';
-const RM={admin:['dashboard','rm','wip-stock','fg','bom-mgr','production','wip-prod','print-docs','oee-log','oee-dashboard','machines','so','mat-mgr','prod-mgr','wip-mgr','supp-mgr','cust-mgr','inv-locations','inv-assign','inv-count','inv-sessions','inv-sheet','hr-checkin','hr-attendance','hr-leave','hr-ot','hr-approve','hr-report','hr-employees','hr-holidays','hr-payroll','hr-payslip','import','permissions','actlog','users'],production:['dashboard','rm','wip-stock','fg','bom-mgr','production','wip-prod','print-docs','oee-log','oee-dashboard','inv-locations','inv-assign','inv-count','inv-sessions','inv-sheet','hr-checkin','hr-leave','hr-ot'],sales:['dashboard','fg','so','hr-checkin','hr-leave','hr-ot'],qc:['dashboard','rm','wip-stock','fg','print-docs','oee-log','oee-dashboard','inv-locations','inv-assign','inv-count','inv-sessions','inv-sheet','hr-checkin','hr-leave','hr-ot']};
+const RM={admin:['dashboard','rm','wip-stock','fg','bom-mgr','production','prod-plan','wip-prod','print-docs','oee-log','oee-dashboard','machines','so','mat-mgr','prod-mgr','wip-mgr','supp-mgr','cust-mgr','inv-locations','inv-assign','inv-count','inv-sessions','inv-sheet','prod-plan','hr-checkin','hr-attendance','hr-leave','hr-ot','hr-approve','hr-report','hr-employees','hr-holidays','hr-payroll','hr-payslip','import','permissions','actlog','users'],production:['dashboard','rm','wip-stock','fg','bom-mgr','production','prod-plan','wip-prod','print-docs','oee-log','oee-dashboard','inv-locations','inv-assign','inv-count','inv-sessions','inv-sheet','hr-checkin','hr-leave','hr-ot'],sales:['dashboard','fg','so','hr-checkin','hr-leave','hr-ot'],qc:['dashboard','rm','wip-stock','fg','print-docs','oee-log','oee-dashboard','inv-locations','inv-assign','inv-count','inv-sessions','inv-sheet','hr-checkin','hr-leave','hr-ot']};
 
 // ════════════════════════════════════════════════════════════
 //  SUPABASE HELPERS
@@ -1529,7 +1658,7 @@ function nav(id){
 
 function loadPage(id){
   const fn={dashboard:loadDash,rm:loadRM,'wip-stock':loadWIPStock,fg:loadFG,
-    'bom-mgr':loadBOMMgr,production:loadProduction,'wip-prod':loadWIPProd,
+    'bom-mgr':loadBOMMgr,production:loadProduction,'prod-plan':loadProdPlan,'wip-prod':loadWIPProd,
     'print-docs':loadPrintDocs,so:loadSO,
     'mat-mgr':loadMatMgr,'prod-mgr':loadProdMgr,'wip-mgr':loadWIPMgr,
     'supp-mgr':loadSuppMgr,'cust-mgr':loadCustMgr,
@@ -1555,6 +1684,8 @@ function loadPage(id){
 }
 
 const fmt=(n,d=2)=>n==null?'—':Number(n).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:d});
+
+
 const thb=n=>'฿'+fmt(n);
 function badge(s){
   const m={Active:'bg','RM':'bb','PK':'bo','✅ ปกติ':'bg','🟡 ใกล้':'ba','🔴 ต่ำ':'br','❌ หมด':'br',
@@ -1665,7 +1796,7 @@ async function loadFG(){
         <td class="mn" style="color:var(--red)">${fmt(r.qty_sold||0,0)}</td>
         <td class="mn" style="font-weight:700;color:${av<=0?'var(--red)':'var(--navy)'}">${fmt(av,0)}</td>
         <td class="mn">${r.stock_min||'—'}</td>
-        <td>${stockB(av,r.stock_min)}</td>
+        <td>${r._in_stock_table===false?'<span class="badge" style="background:#F3F4F6;color:#6B7280;font-size:10px">ยังไม่รับเข้า</span>':stockB(av,r.stock_min)}</td>
       </tr>`;
     }).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px">ยังไม่มีข้อมูล Stock FG</td></tr>';
   }catch(e){
@@ -1677,7 +1808,6 @@ async function loadFG(){
 // ════════════════════════════════════════════════════════════
 //  BOM MANAGER
 // ════════════════════════════════════════════════════════════
-let _bomProds=[],_bomWIPs=[];
 async function loadBOMMgr(){
   const listEl=document.getElementById('bom-sku-list');
   if(!listEl)return;
@@ -2000,24 +2130,48 @@ async function delBOMRow(id,code,table){
 // ════════════════════════════════════════════════════════════
 //  PRODUCTION MODULE
 // ════════════════════════════════════════════════════════════
-let _woBOM=[];
 async function loadProduction(){
   try{
     if(!window._cachedProds?.length) window._cachedProds=await sbG('master_product',{s:'sku,name_en,batch_kg'});
     const prods=window._cachedProds||[];
     if(prods.length){_bomProds=prods;}
-    const wos=await sbG('production_plan',{ord:'created_at.desc',lim:10});
-    document.getElementById('wo-list').innerHTML=wos.length?wos.map(w=>`
-      <div style="border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:6px;font-size:13px">
-        <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span class="mn" style="color:var(--accent)">${w.pp_no}</span>${badge(w.status||'รอ')}</div>
-        <div style="font-weight:600">${w.product_name||w.sku_code}</div>
-        <div style="color:var(--text3);font-size:11px">${w.num_batches} Batch | ${w.start_date||'—'} | ${w.operator||''}</div>
-        <div style="display:flex;gap:5px;margin-top:6px">
-          <button class="btn btnG sm" onclick="finalizeProduction(${w.id},'${w.pp_no}')">✅ ยืนยันเสร็จ+Stock</button>
-          <button class="btn btnS sm" onclick="updateWO(${w.id},'กำลังผลิต')">▶ เริ่ม</button>
-          <button class="btn btnT sm" onclick="printWORecord(${w.id})">🖨️ Print</button>
+    const statusFilter=document.getElementById('wo-status-filter')?.value||'';
+    const woFilter=statusFilter?{ord:'created_at.desc',f:[`status=eq.${statusFilter}`]}:{ord:'created_at.desc',lim:30};
+    const wos=await sbG('production_plan',woFilter);
+    document.getElementById('wo-list').innerHTML=wos.length?wos.map(w=>{
+    const statusColor={'จองแล้ว':'var(--amber)','กำลังผลิต':'var(--accent)','เสร็จแล้ว':'var(--green)','จองแล้ว (WIP)':'var(--purple)'}[w.status]||'var(--text3)';
+    const isWIPwo=(w.pp_no||'').includes('WIP');
+    return`<div style="border:1px solid var(--border);border-left:3px solid ${statusColor};border-radius:6px;padding:10px 12px;margin-bottom:6px;background:white" id="wo-card-${w.id}">
+      <div style="display:flex;align-items:flex-start;gap:8px">
+        <input type="checkbox" class="wo-checkbox" value="${w.id}"
+          data-pp="${w.pp_no}" data-sku="${w.sku_code}" data-batches="${w.num_batches}" data-name="${(w.product_name||w.sku_code).replace(/"/g,'')}"
+          onchange="woCheckboxChange()"
+          style="width:16px;height:16px;margin-top:3px;cursor:pointer;flex-shrink:0">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;margin-bottom:4px">
+            <div style="display:flex;align-items:center;gap:6px">
+              <span class="mn" style="color:${statusColor};font-size:12px;font-weight:700">${w.pp_no}</span>
+              <span style="font-size:11px;color:white;background:${statusColor};border-radius:4px;padding:1px 6px">${w.status||'รอ'}</span>
+              ${isWIPwo?'<span style="font-size:10px;background:var(--purple);color:white;border-radius:4px;padding:1px 5px">WIP</span>':''}
+            </div>
+            <span style="font-size:11px;color:var(--text3)">${w.start_date||'—'}</span>
+          </div>
+          <div style="font-weight:600;font-size:13px;margin-bottom:2px">${w.product_name||w.sku_code}</div>
+          <div style="font-size:11px;color:var(--text3)">
+            ${w.num_batches} Batch × ${w.batch_kg||50}kg
+            ${w.operator?' | 👤 '+w.operator:''}
+            ${w.note?'<br><span style="color:var(--text3)">'+w.note+'</span>':''}
+          </div>
+          <div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap">
+            <button class="btn btnG sm" onclick="finalizeProduction(${w.id},'${w.pp_no}')">✅ ยืนยัน+Stock</button>
+            <button class="btn btnS sm" onclick="updateWO(${w.id},'กำลังผลิต')">▶ เริ่ม</button>
+            <button class="btn btnT sm" onclick="printWORecord(${w.id})">🖨️ Print</button>
+            <button class="btn btnD sm" onclick="updateWO(${w.id},'ยกเลิก')">✕ ยกเลิก</button>
+          </div>
         </div>
-      </div>`).join(''):'<div style="color:var(--text3);font-size:13px">ยังไม่มี Work Order</div>';
+      </div>
+    </div>`;
+  }).join(''):'<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">ยังไม่มี Work Order</div>';
   }catch(e){console.error(e);}
 }
 
@@ -2057,46 +2211,353 @@ async function loadWOBOM(){
   }catch(e){console.error(e);}
 }
 
-async function runMRC(){await loadWOBOM();}
+// ── runMRC: ตรวจ Stock + สรุป MRC ──────────────────────────────
+async function runMRC(){
+  await loadWOBOM();
+  const sku=document.getElementById('wo-sku')?.value||'';
+  const n=parseInt(document.getElementById('wo-n')?.value)||1;
+  const batchKg=parseFloat(document.getElementById('wo-batch-size')?.value)||50;
+  const lossPct=parseFloat(document.getElementById('wo-loss')?.value)||0;
+  const lossX=1+(lossPct/100);
+  if(!sku){msgEl('mrc-result','กรุณาเลือก SKU ก่อนครับ','e');return;}
+  msgEl('mrc-result','<span class="spin"></span> กำลังตรวจสอบ Stock...','i');
+  try{
+    const [bom,rmStock,wipStock]=await Promise.all([
+      sbG('bom_master',{f:[`sku_code=eq.${sku}`]}),
+      sbG('stock_material'),
+      sbG('wip_stock',{s:'code,qty_produced,qty_issued'})
+    ]);
+    const rmMap={},wipMap={};
+    rmStock.forEach(r=>rmMap[r.code]={av:avRM(r),out:Number(r.qty_out||0),name:r.name||r.code});
+    wipStock.forEach(w=>wipMap[w.code]={av:avWIP(w),iss:Number(w.qty_issued||0)});
 
+    let allOk=true;
+    const rows=bom.map(r=>{
+      const need=Number(r.qty_per_batch||0)*n*lossX;
+      const isWIP=(r.mat_code||'').startsWith('WIP');
+      const cur=isWIP?wipMap[r.mat_code]?.av||0:rmMap[r.mat_code]?.av||0;
+      const ok=cur>=need;
+      if(!ok)allOk=false;
+      const short=ok?0:need-cur;
+      return{...r,need,cur,ok,short,isWIP};
+    });
+
+    // แสดงผล MRC
+    const mrcEl=document.getElementById('mrc-result');
+    mrcEl.innerHTML=`
+      <div style="font-weight:700;font-size:13px;margin-bottom:8px;color:${allOk?'var(--green)':'var(--red)'}">
+        ${allOk?'✅ Stock พอสำหรับการผลิต':'⚠️ Stock บางรายการไม่พอ — ต้องสั่งซื้อเพิ่ม'}
+      </div>
+      <div class="tw" style="max-height:260px;overflow-y:auto">
+      <table>
+        <thead><tr style="position:sticky;top:0;background:var(--bg2)">
+          <th>รหัส</th><th>ชื่อ</th><th>Type</th>
+          <th style="color:var(--amber)">ต้องการ (kg)</th>
+          <th style="color:var(--green)">มีใน Stock</th>
+          <th>สถานะ</th>
+          <th style="color:var(--red)">ขาด</th>
+        </tr></thead>
+        <tbody>
+          ${rows.map(r=>`<tr style="background:${r.ok?'':'rgba(239,68,68,.06)'}">
+            <td class="mn" style="color:${r.isWIP?'var(--purple)':'var(--accent)'}">${r.mat_code}</td>
+            <td style="font-size:12px">${r.mat_name||rmMap[r.mat_code]?.name||r.mat_code}</td>
+            <td><span class="badge ${r.isWIP?'bp':'bb'}">${r.isWIP?'WIP':'RM'}</span></td>
+            <td class="mn" style="font-weight:700">${fmt(r.need,3)}</td>
+            <td class="mn" style="color:${r.ok?'var(--green)':'var(--red)'}">${fmt(r.cur,3)}</td>
+            <td>${r.ok?'<span class="badge bg">✅ พอ</span>':'<span class="badge br">❌ ขาด</span>'}</td>
+            <td class="mn" style="color:var(--red);font-weight:700">${r.short>0?fmt(r.short,3):'—'}</td>
+          </tr>`).join('')}
+        </tbody>
+        <tfoot><tr style="background:var(--bg3);font-weight:700">
+          <td colspan="3">รวม ${rows.length} รายการ | ${n} Batch × ${batchKg}kg</td>
+          <td class="mn">${fmt(rows.reduce((s,r)=>s+r.need,0),3)} kg</td>
+          <td colspan="3" style="color:${allOk?'var(--green)':'var(--red)'}">
+            ${allOk?'พร้อมผลิต':'ขาด '+rows.filter(r=>!r.ok).length+' รายการ'}
+          </td>
+        </tfoot>
+      </table></div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn btnP" onclick="createWorkOrder()" ${allOk?'':'style="opacity:.5"'}>
+          ⚙️ ${allOk?'สั่งผลิต (จอง Stock)':'สั่งผลิต (มี Shortage)'}
+        </button>
+        <button class="btn btnT sm" onclick="showMRCSummary()">📊 รายงาน MRC</button>
+        <button class="btn btnN sm" onclick="printMRCReport()">🖨️ พิมพ์ MRC</button>
+        ${!allOk?`<button class="btn btnS sm" onclick="showPOSuggestion()">🛒 สร้าง PO ขาด</button>`:''}
+      </div>`;
+    // เก็บข้อมูล MRC ไว้ใช้
+    window._lastMRC={sku,n,batchKg,lossPct,rows,allOk};
+  }catch(e){msgEl('mrc-result','❌ '+e.message,'e');console.error('runMRC:',e);}
+}
+
+// ── createWorkOrder: สร้าง WO + จอง Stock ────────────────────
 async function createWorkOrder(){
   const sku=document.getElementById('wo-sku')?.value||'';
   const n=parseInt(document.getElementById('wo-n').value)||1;
   const dt=document.getElementById('wo-dt').value;
-  const op=document.getElementById('wo-op').value||CU?.full_name;
-  const machine=document.getElementById('wo-machine').value;
-  const method=document.getElementById('wo-method').value;
+  const op=document.getElementById('wo-op')?.value||CU?.full_name||'';
+  const machine=document.getElementById('wo-machine')?.value||'';
+  const method=document.getElementById('wo-method')?.value||'';
   if(!sku){alert('กรุณาเลือก SKU');return;}
-  if(!confirm(`สั่งผลิต ${sku} ${n} Batch\nและตัด Stock วัตถุดิบ ${_woBOM.length} รายการ\n\nยืนยันไหมครับ?`))return;
+  const mrc=window._lastMRC;
+  if(!mrc||mrc.sku!==sku){
+    if(!confirm('ยังไม่ได้ตรวจ MRC — สั่งผลิตโดยไม่ตรวจ Stock ยืนยันไหมครับ?'))return;
+  }
+  if(!confirm(`สั่งผลิต ${sku} จำนวน ${n} Batch
+⚠️ จะ "จอง" Stock ไว้ ยังไม่ตัดจริง
+ตัด Stock จริงเมื่อผลิตเสร็จครับ
+
+ยืนยันไหมครับ?`))return;
   try{
-    msgEl('mrc-result','<span class="spin"></span> กำลังสั่งผลิตและตัด Stock...','i');
-    const[bom,rmStock,wipStock]=await Promise.all([sbG('bom_master',{f:[`sku_code=eq.${sku}`]}),sbG('stock_material'),sbG('wip_stock')]);
+    msgEl('mrc-result','<span class="spin"></span> กำลังสร้าง Work Order...','i');
+    const prod=(await sbG('master_product',{s:'sku,name_en,batch_kg',f:[`sku=eq.${sku}`]}))[0];
+    const batchKg=parseFloat(document.getElementById('wo-batch-size')?.value)||Number(prod?.batch_kg)||50;
+    const ppNo='WO-'+new Date().getFullYear()+String(new Date().getMonth()+1).padStart(2,'0')+'-'+Date.now().toString().slice(-4);
+    const woData={
+      pp_no:ppNo,
+      sku_code:sku,
+      product_name:prod?.name_en||sku,
+      num_batches:n,
+      batch_kg:batchKg,
+      start_date:dt,
+      status:'จองแล้ว', // ← จอง ไม่ตัดทันที
+      operator:op,
+      note:[machine?`เครื่องจักร: ${machine}`:'',method?`วิธี: ${method}`:''].filter(Boolean).join(' | ')
+    };
+    await sbP('production_plan',woData);
+    await logA('CREATE','production',`สร้าง WO ${ppNo} ${sku} ${n}batch (จอง Stock)`,ppNo);
+    msgEl('mrc-result',`
+      <div style="background:rgba(27,122,62,.1);border:1px solid var(--green);border-radius:8px;padding:14px">
+        <div style="font-size:14px;font-weight:800;color:var(--green);margin-bottom:8px">✅ Work Order สร้างแล้ว!</div>
+        <div style="font-size:13px;color:var(--navy)"><b>${ppNo}</b></div>
+        <div style="font-size:12px;margin-top:6px;color:var(--text3)">
+          SKU: ${sku} | ${n} Batch × ${batchKg}kg | สถานะ: จอง Stock<br>
+          ⚠️ Stock ยังไม่ถูกตัด — ตัด Stock จริงเมื่อผลิตเสร็จ
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn btnP sm" onclick="confirmWODeduct('${ppNo}','${sku}',${n})">
+            ✂️ ตัด Stock จริง (ผลิตเสร็จแล้ว)
+          </button>
+          <button class="btn btnT sm" onclick="buildDocHTML('${sku}',${n},'${dt}','${op}','${machine}')">
+            🖨️ พิมพ์ Batch Record
+          </button>
+          <button class="btn btnS sm" onclick="loadProduction()">📋 ดู WO ทั้งหมด</button>
+        </div>
+      </div>`,'');
+  }catch(e){msgEl('mrc-result','❌ '+e.message,'e');}
+}
+
+// ── confirmWODeduct: ตัด Stock จริง ──────────────────────────
+async function confirmWODeduct(ppNo,sku,n){
+  if(!confirm(`ยืนยันตัด Stock จริงสำหรับ WO: ${ppNo}
+SKU: ${sku} ${n} Batch
+
+ดำเนินการได้เลยไหมครับ?`))return;
+  try{
+    msgEl('mrc-result','<span class="spin"></span> กำลังตัด Stock...','i');
+    const lossPct=parseFloat(document.getElementById('wo-loss')?.value)||0;
+    const lossX=1+(lossPct/100);
+    const [bom,rmStock,wipStock]=await Promise.all([
+      sbG('bom_master',{f:[`sku_code=eq.${sku}`]}),
+      sbG('stock_material'),
+      sbG('wip_stock',{s:'code,qty_produced,qty_issued'})
+    ]);
     const rmMap={},wipMap={};
-    rmStock.forEach(r=>rmMap[r.code]={id:r.id,av:avRM(r),out:Number(r.qty_out||0)});
-    wipStock.forEach(w=>wipMap[w.code]={id:w.id,av:avWIP(w),iss:Number(w.qty_issued||0)});
-    // Validate
+    rmStock.forEach(r=>rmMap[r.code]={av:avRM(r),out:Number(r.qty_out||0)});
+    wipStock.forEach(w=>wipMap[w.code]={av:avWIP(w),iss:Number(w.qty_issued||0)});
+    // ตรวจก่อนตัด
     for(const r of bom){
-      const need=Number(r.qty_per_batch||0)*n;
-      const isWIP=r.mat_code?.startsWith('WIP');
+      const need=Number(r.qty_per_batch||0)*n*lossX;
+      const isWIP=(r.mat_code||'').startsWith('WIP');
       const cur=isWIP?wipMap[r.mat_code]?.av||0:rmMap[r.mat_code]?.av||0;
-      if(cur<need){msgEl('mrc-result',`❌ Stock ไม่พอ: ${r.mat_code} ต้องการ ${fmt(need,3)} มีแค่ ${fmt(cur,3)}`,'e');return;}
-    }
-    // Deduct
-    for(const r of bom){
-      const need=Number(r.qty_per_batch||0)*n;if(need<=0)continue;
-      if(r.mat_code?.startsWith('WIP')){
-        const w=wipMap[r.mat_code];if(w)await sbU('wip_stock',{qty_issued:w.iss+need},`code=eq.${r.mat_code}`);
-      }else{
-        const m=rmMap[r.mat_code];if(m)await sbU('stock_material',{qty_out:m.out+need},`code=eq.${r.mat_code}`);
+      if(cur<need){
+        if(!confirm(`⚠️ ${r.mat_code} ต้องการ ${fmt(need,3)} kg มีแค่ ${fmt(cur,3)} kg
+ตัดเท่าที่มีได้เลยไหมครับ?`))return;
       }
     }
-    const ppNo='PP-'+new Date().getFullYear()+'-'+Date.now().toString().slice(-5);
-    const prod=(await sbG('master_product',{f:[`sku=eq.${sku}`]}))[0];
-    await sbP('production_plan',{pp_no:ppNo,sku_code:sku,product_name:prod?.name_en||sku,num_batches:n,batch_kg:prod?.batch_kg||50,start_date:dt,status:'กำลังผลิต',operator:op,note:[machine?`เครื่องจักร: ${machine}`:'',method?`วิธีผลิต: ${method}`:''].filter(Boolean).join(' | ')});
-    await logA('CREATE','production',`สั่งผลิต ${ppNo} sku=${sku} ${n}batch ตัด ${bom.length} รายการ`,ppNo);
-    msgEl('mrc-result',`✅ สั่งผลิตสำเร็จ!<br><b>${ppNo}</b><br>ตัด Stock ${bom.length} รายการแล้ว`,'s');
-    setTimeout(()=>loadProduction(),1500);
+    // ตัด Stock
+    let cutCount=0;
+    for(const r of bom){
+      const need=Number(r.qty_per_batch||0)*n*lossX;if(need<=0)continue;
+      if((r.mat_code||'').startsWith('WIP')){
+        const w=wipMap[r.mat_code];
+        if(w){await sbU('wip_stock',{qty_issued:w.iss+need},`code=eq.${r.mat_code}`);cutCount++;}
+      }else{
+        const m=rmMap[r.mat_code];
+        if(m){await sbU('stock_material',{qty_out:m.out+need},`code=eq.${r.mat_code}`);cutCount++;}
+      }
+    }
+    // อัพเดต status WO
+    await sbU('production_plan',{status:'กำลังผลิต'},`pp_no=eq.${ppNo}`);
+    await logA('UPDATE','production',`ตัด Stock WO ${ppNo} ${cutCount} รายการ`,ppNo);
+    window._cachedRM=null;window._cachedWIPStock=null;
+    msgEl('mrc-result',`
+      <div style="background:rgba(27,122,62,.1);border:1px solid var(--green);border-radius:8px;padding:12px">
+        <div style="font-weight:700;color:var(--green)">✅ ตัด Stock เรียบร้อย!</div>
+        <div style="font-size:12px;margin-top:4px">WO: ${ppNo} | ตัด ${cutCount} รายการ | สถานะ: กำลังผลิต</div>
+        <button class="btn btnP sm" style="margin-top:8px" onclick="loadProduction()">📋 ดู WO</button>
+      </div>`,'');
   }catch(e){msgEl('mrc-result','❌ '+e.message,'e');}
+}
+
+// ── MRC Summary Report ────────────────────────────────────────
+function showMRCSummary(){
+  const mrc=window._lastMRC;
+  if(!mrc){alert('กรุณาตรวจ MRC ก่อนครับ');return;}
+  const mnName=['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'][new Date().getMonth()+1];
+  const shortage=mrc.rows.filter(r=>!r.ok);
+  openMo('📊 รายงาน Material Requirement (MRC)',`
+    <div style="font-size:12px;margin-bottom:8px;color:var(--text3)">
+      SKU: <b>${mrc.sku}</b> | ${mrc.n} Batch × ${mrc.batchKg}kg | Loss ${mrc.lossPct}%
+    </div>
+    ${shortage.length>0?`
+    <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;padding:10px;margin-bottom:10px">
+      <div style="font-weight:700;color:var(--red);margin-bottom:8px">🛒 รายการที่ต้องสั่งซื้อ/ผลิตเพิ่ม (${shortage.length} รายการ)</div>
+      <table style="width:100%;font-size:12px;border-collapse:collapse">
+        <thead><tr style="background:rgba(239,68,68,.1)">
+          <th style="padding:4px 8px;text-align:left">รหัส</th>
+          <th style="padding:4px 8px;text-align:left">ชื่อ</th>
+          <th style="padding:4px 8px;text-align:right">ต้องการ</th>
+          <th style="padding:4px 8px;text-align:right">มีอยู่</th>
+          <th style="padding:4px 8px;text-align:right;color:var(--red)">ขาด</th>
+        </tr></thead>
+        <tbody>
+          ${shortage.map(r=>`<tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:4px 8px;font-family:monospace;color:${r.isWIP?'var(--purple)':'var(--accent)'}">${r.mat_code}</td>
+            <td style="padding:4px 8px">${r.mat_name||r.mat_code}</td>
+            <td style="padding:4px 8px;text-align:right">${fmt(r.need,3)} kg</td>
+            <td style="padding:4px 8px;text-align:right;color:var(--red)">${fmt(r.cur,3)} kg</td>
+            <td style="padding:4px 8px;text-align:right;font-weight:700;color:var(--red)">${fmt(r.short,3)} kg</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`:'<div class="al ali" style="margin-bottom:10px">✅ Stock พอทุกรายการ ไม่ต้องสั่งซื้อเพิ่ม</div>'}
+    <div style="background:var(--bg3);border-radius:8px;padding:10px;font-size:12px">
+      <div style="font-weight:700;margin-bottom:6px">📋 รายการวัตถุดิบทั้งหมดที่ต้องใช้</div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:var(--bg2)">
+          <th style="padding:4px 8px;text-align:left">รหัส</th>
+          <th style="padding:4px 8px;text-align:left">ชื่อ</th>
+          <th style="padding:4px 8px;text-align:right">ต้องการ (kg)</th>
+          <th style="padding:4px 8px;text-align:right">Stock</th>
+          <th style="padding:4px 8px">สถานะ</th>
+        </tr></thead>
+        <tbody>
+          ${mrc.rows.map(r=>`<tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:4px 8px;font-family:monospace;font-size:11px;color:${r.isWIP?'var(--purple)':'var(--accent)'}">${r.mat_code}</td>
+            <td style="padding:4px 8px;font-size:12px">${r.mat_name||r.mat_code}</td>
+            <td style="padding:4px 8px;text-align:right;font-weight:700">${fmt(r.need,3)}</td>
+            <td style="padding:4px 8px;text-align:right;color:${r.ok?'var(--green)':'var(--red)'}">${fmt(r.cur,3)}</td>
+            <td style="padding:4px 8px">${r.ok?'<span style="color:var(--green)">✅ พอ</span>':'<span style="color:var(--red)">❌ ขาด '+fmt(r.short,3)+' kg</span>'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btnP sm" onclick="printMRCReport();closeMo()">🖨️ พิมพ์</button>
+      <button class="btn btnN sm" onclick="closeMo()">ปิด</button>
+    </div>`);
+}
+
+function showPOSuggestion(){
+  const mrc=window._lastMRC;
+  if(!mrc)return;
+  const shortage=mrc.rows.filter(r=>!r.ok&&!r.isWIP);
+  if(!shortage.length){alert('ไม่มีรายการ RM ที่ขาด');return;}
+  openMo('🛒 รายการสั่งซื้อที่แนะนำ',`
+    <div style="font-size:12px;color:var(--text3);margin-bottom:10px">
+      รายการ RM ที่ต้องสั่งซื้อเพิ่มสำหรับ WO นี้:
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="background:var(--bg2)">
+        <th style="padding:6px">รหัส RM</th><th style="padding:6px">ชื่อ</th>
+        <th style="padding:6px;text-align:right">ขาด (kg)</th>
+        <th style="padding:6px;text-align:right">แนะนำสั่ง (+buffer 20%)</th>
+      </tr></thead>
+      <tbody>
+        ${shortage.map(r=>`<tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:6px;font-family:monospace;color:var(--accent)">${r.mat_code}</td>
+          <td style="padding:6px">${r.mat_name||r.mat_code}</td>
+          <td style="padding:6px;text-align:right;color:var(--red);font-weight:700">${fmt(r.short,3)} kg</td>
+          <td style="padding:6px;text-align:right;color:var(--amber);font-weight:700">${fmt(r.short*1.2,2)} kg</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    <div class="al ali" style="margin-top:10px;font-size:11px">
+      💡 buffer 20% เผื่อสูญเสียระหว่างผลิต
+    </div>
+    <button class="btn btnP sm" style="margin-top:10px;width:100%" onclick="closeMo()">ตกลง</button>`);
+}
+
+function printMRCReport(){
+  const mrc=window._lastMRC;
+  if(!mrc){alert('กรุณาตรวจ MRC ก่อนครับ');return;}
+  const today=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+  const win=window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>MRC Report</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body{font-family:Sarabun,sans-serif;padding:15px;font-size:9pt}
+    @page{margin:10mm;size:A4 portrait}
+    @media print{body{-webkit-print-color-adjust:exact!important}}
+    table{width:100%;border-collapse:collapse}
+    th{background:#1B3A5C;color:white;padding:5px 8px;font-size:8.5pt}
+    td{padding:4px 8px;border-bottom:1px solid #eee;font-size:8.5pt}
+    .ok{color:#059669} .no{color:#DC2626;font-weight:700}
+    .hdr{display:flex;justify-content:space-between;border-bottom:2px solid #1B3A5C;padding-bottom:8px;margin-bottom:12px}
+  </style></head><body>
+  <div class="hdr">
+    <div><b style="font-size:12pt;color:#1B3A5C">บริษัท ฟิตเอ็กซ์โป จำกัด</b><br>
+    <span style="font-size:8pt;color:#555">รายงานความต้องการวัตถุดิบ (MRC)</span></div>
+    <div style="text-align:right"><b style="font-size:11pt">Material Requirement Report</b><br>
+    <span style="font-size:8pt;color:#555">วันที่: ${today}</span></div>
+  </div>
+  <div style="background:#F0F4FF;padding:8px;border-radius:4px;margin-bottom:12px;font-size:9pt">
+    <b>SKU:</b> ${mrc.sku} &nbsp;|&nbsp; <b>จำนวน Batch:</b> ${mrc.n} &nbsp;|&nbsp;
+    <b>Batch Size:</b> ${mrc.batchKg} kg &nbsp;|&nbsp; <b>Loss:</b> ${mrc.lossPct}%
+  </div>
+  ${mrc.rows.filter(r=>!r.ok).length>0?`
+  <div style="font-weight:700;color:#DC2626;margin-bottom:6px">🛒 รายการที่ต้องสั่งซื้อ/ผลิตเพิ่ม</div>
+  <table style="margin-bottom:14px">
+    <thead><tr style="background:#FEE2E2">
+      <th style="background:#DC2626">รหัส</th><th style="background:#DC2626">ชื่อวัตถุดิบ</th>
+      <th style="background:#DC2626">ต้องการ (kg)</th><th style="background:#DC2626">มีอยู่ (kg)</th>
+      <th style="background:#DC2626">ขาด (kg)</th><th style="background:#DC2626">แนะนำสั่ง (+20%)</th>
+    </tr></thead>
+    <tbody>
+      ${mrc.rows.filter(r=>!r.ok).map(r=>`<tr>
+        <td style="font-family:monospace;font-size:8pt">${r.mat_code}</td>
+        <td>${r.mat_name||r.mat_code}</td>
+        <td style="text-align:right">${fmt(r.need,3)}</td>
+        <td style="text-align:right;color:#DC2626">${fmt(r.cur,3)}</td>
+        <td style="text-align:right;color:#DC2626;font-weight:700">${fmt(r.short,3)}</td>
+        <td style="text-align:right;color:#D97706;font-weight:700">${fmt(r.short*1.2,2)}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>`:'<div style="color:#059669;font-weight:700;margin-bottom:12px">✅ Stock พอทุกรายการ</div>'}
+  <div style="font-weight:700;margin-bottom:6px">📋 รายการวัตถุดิบทั้งหมด</div>
+  <table>
+    <thead><tr><th>#</th><th>รหัส</th><th>ชื่อ</th><th>ประเภท</th>
+    <th>ต้องการ</th><th>Stock</th><th>สถานะ</th></tr></thead>
+    <tbody>
+      ${mrc.rows.map((r,i)=>`<tr style="${r.ok?'':'background:#FEF2F2'}">
+        <td style="text-align:center">${i+1}</td>
+        <td style="font-family:monospace;font-size:8pt">${r.mat_code}</td>
+        <td>${r.mat_name||r.mat_code}</td>
+        <td>${r.isWIP?'WIP':'RM'}</td>
+        <td style="text-align:right">${fmt(r.need,3)} kg</td>
+        <td style="text-align:right;color:${r.ok?'#059669':'#DC2626'}">${fmt(r.cur,3)} kg</td>
+        <td class="${r.ok?'ok':'no'}">${r.ok?'✅ พอ':'❌ ขาด '+fmt(r.short,3)+' kg'}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>
+  <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px">
+    <div style="text-align:center;border-top:1px solid #555;padding-top:4px;font-size:8pt">ผู้จัดทำ MRC</div>
+    <div style="text-align:center;border-top:1px solid #555;padding-top:4px;font-size:8pt">หัวหน้าฝ่ายผลิต</div>
+    <div style="text-align:center;border-top:1px solid #555;padding-top:4px;font-size:8pt">ผู้อนุมัติ</div>
+  </div>
+  \x3Cscript>window.onload=()=>{window.print();setTimeout(()=>window.close(),3000);}<\/script>
+  </body></html>`);
+  win.document.close();
 }
 
 async function updateWO(id,status){
@@ -2432,7 +2893,6 @@ async function updateSOStatus(id,status){await sbU('sales_order',{status},`id=eq
 // ════════════════════════════════════════════════════════════
 //  MASTER DATA MANAGERS (with full CRUD)
 // ════════════════════════════════════════════════════════════
-let _matData=[];
 async function loadMatMgr(){
   const tb=document.getElementById('mat-tb');
   if(tb)tb.innerHTML='<tr><td colspan="11" style="text-align:center;padding:20px"><span class="spin"></span></td></tr>';
@@ -2592,7 +3052,57 @@ async function saveMat(id){
   }
 }
 async function editMat(id){const r=(await sbG('master_material',{f:[`id=eq.${id}`]}))[0];openMo(`✏️ แก้ไข: ${r.code}`,matForm(r));}
-async function delMat(id,code){if(!confirm(`ลบ ${code}?`))return;await sbD('master_material',`id=eq.${id}`);await logA('DELETE','materials',`ลบ ${code}`);loadMatMgr();}
+async function delMat(id,code){
+  // ตรวจว่าอยู่ใน BOM ไหมก่อน
+  try{
+    const bomUsage=await sbG('bom_master',{f:[`mat_code=eq.${code}`],s:'sku_code,mat_code'});
+    const wipBomUsage=await sbG('wip_bom',{f:[`mat_code=eq.${code}`],s:'wip_code,mat_code'}).catch(()=>[]);
+    const allUsage=[...bomUsage,...wipBomUsage];
+    
+    if(allUsage.length>0){
+      const skuList=[...new Set(allUsage.map(b=>b.sku_code||b.wip_code))].join(', ');
+      openMo(`⚠️ ยืนยันการลบ: ${code}`,`
+        <div class="al ale mb3">
+          <b>⚠️ วัสดุนี้ถูกใช้ใน BOM ${allUsage.length} รายการ!</b><br>
+          <span style="font-size:12px">SKU/WIP: ${skuList}</span>
+        </div>
+        <div style="font-size:13px;margin-bottom:16px;color:var(--text3)">
+          ถ้าลบออกจากทะเบียน ข้อมูลใน BOM จะหายชื่อวัสดุ<br>
+          แต่สูตรการผลิตยังคงอยู่ (เหลือแค่รหัส <b>${code}</b>)<br><br>
+          <b>แนะนำ:</b> เปลี่ยนสถานะเป็น "Inactive" แทนการลบครับ
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btnD" onclick="doDelMat(${id},'${code}');closeMo()">
+            🗑 ลบออกจากทะเบียน (BOM ยังเก็บรหัสไว้)
+          </button>
+          <button class="btn btnS" onclick="closeMo()">ยกเลิก</button>
+        </div>`);
+    } else {
+      if(!confirm(`ลบ ${code} "${(_matData.find(m=>m.id===id)?.name||'')}"?
+
+ยืนยันการลบครับ`))return;
+      await doDelMat(id,code);
+    }
+  }catch(e){
+    if(!confirm(`ลบ ${code}?
+(ไม่สามารถตรวจ BOM ได้: ${e.message})`))return;
+    await doDelMat(id,code);
+  }
+}
+
+async function doDelMat(id,code){
+  try{
+    await sbD('master_material',`id=eq.${id}`);
+    await logA('DELETE','materials',`ลบ ${code}`);
+    // ล้าง cache
+    window._cachedRM=null;
+    _matData=_matData.filter(m=>m.id!==id);
+    renderMatTable(_matData);
+    console.log(`✅ ลบ ${code} แล้ว`);
+  }catch(e){
+    alert('❌ ลบไม่ได้: '+e.message);
+  }
+}
 
 function showMatImages(id,code){
   const m=_matData.find(x=>x.id===id);if(!m)return;
@@ -2609,7 +3119,6 @@ function showMatImages(id,code){
     </div>`);
 }
 
-let _prodData=[];
 async function loadProdMgr(){
   try{_prodData=await sbG('master_product',{s:'sku,name_en,batch_kg,price_sell,fda_number,status'});renderProdTable();}catch(e){console.error(e);}
 }
@@ -2877,21 +3386,45 @@ async function submitReceiveRM(){
   try{
     // 1. อัพเดต stock_material summary
     const cur=await sbG('stock_material',{f:[`code=eq.${code}`]});
-    const updateData={qty_in:(cur[0]?Number(cur[0].qty_in||0):0)+qty, unit, lot_no:lot, receive_date:rcvDate};
-    if(exp)updateData.exp_date=exp;
-    if(supp)updateData.supplier_code=supp;
-    if(note)updateData.note=note;
-    if(cur[0]){await sbU('stock_material',updateData,`code=eq.${code}`);}
-    else{await sbP('stock_material',{code,name,unit,qty_in:qty,stock_min:0,lot_no:lot,receive_date:rcvDate,exp_date:exp,supplier_code:supp,note});}
+    // อัพเดต qty_in + ข้อมูล lot ล่าสุด
+    const updateData={
+      qty_in:(cur[0]?Number(cur[0].qty_in||0):0)+qty,
+      unit, lot_no:lot, receive_date:rcvDate,
+    };
+    if(exp) updateData.exp_date=exp;
+    if(supp) updateData.supplier=supp;  // ใช้ supplier ไม่ใช่ supplier_code
+    if(note) updateData.note=note;
+    if(cur[0]){
+      await sbU('stock_material',updateData,`code=eq.${code}`);
+    }else{
+      // สร้าง row ใหม่ใน stock_material (เฉพาะ column ที่มีแน่นอน)
+      // ดึง balance_opening จาก master มาด้วย
+      const masterRow=_matData.find(m=>m.code===code)||{};
+      const masterBal=Number(masterRow.balance_opening||0);
+      const newRow={code,name,unit,
+        qty_in:qty, qty_out:0,
+        balance_opening:masterBal, // ใช้ยอดจากทะเบียน
+        stock_min:masterRow.stock_min||0,
+        lot_no:lot, receive_date:rcvDate};
+      if(exp)newRow.exp_date=exp;
+      if(supp)newRow.supplier=supp;
+      if(note)newRow.note=note;
+      await sbP('stock_material',newRow);
+    }
 
-    // 2. บันทึก lot_entries (FIFO)
-    await sbP('lot_entries',{
-      material_code:code, material_name:name||cur[0]?.name||'',
-      lot_no:lot||`LOT-${rcvDate?.replace(/-/g,'')}-${code}`,
-      receive_date:rcvDate, qty_received:qty, qty_remaining:qty,
-      unit, supplier_code:supp, price_per_unit:price,
-      exp_date:exp, po_no:po, note, created_by:CU?.full_name||'',
-    });
+    // 2. บันทึก lot_entries (FIFO) — try/catch ถ้าตาราง/column ไม่มี
+    try{
+      await sbP('lot_entries',{
+        material_code:code, material_name:name||cur[0]?.name||'',
+        lot_no:lot||`LOT-${(rcvDate||'').replace(/-/g,'')}-${code}`,
+        receive_date:rcvDate, qty_received:qty, qty_remaining:qty,
+        unit, price_per_unit:price, exp_date:exp, po_no:po,
+        note, created_by:CU?.full_name||'',
+      });
+    }catch(lotErr){
+      console.warn('lot_entries skip:',lotErr.message);
+      // ไม่ error ถ้า lot_entries ยังไม่ได้สร้าง
+    }
 
     await logA('RECEIVE','stock_rm',`รับ ${code} ${qty} ${unit} LOT:${lot||'—'} วันที่:${rcvDate}`,code);
     window._cachedRM=null;window._cachedWIPStock=null;
@@ -3228,7 +3761,7 @@ async function printMasterList(type){
 async function pdfMasterList(type){
   const htmlContent=await buildMasterPrintHTML(type);
   const win=window.open('','_blank');
-  win.document.write(htmlContent.replace('</body>','<script>window.onload=()=>{window.print();setTimeout(()=>window.close(),3000);}<\/script></body>'));
+  win.document.write(htmlContent.replace('</body>','\x3Cscript>window.onload=()=>{window.print();setTimeout(()=>window.close(),3000);}<\/script></body>'));
   win.document.close();
 }
 
@@ -3947,7 +4480,7 @@ async function doInvPDF(sn){
     .ipd-table{width:100%;border-collapse:collapse;font-size:8.5pt;margin-bottom:6px}.ipd-table th{background:#EBF3FA;padding:5px 7px;text-align:center;font-size:7.5pt;font-weight:800;border:1px solid #bbb}.ipd-table td{padding:4px 7px;border:1px solid #ccc;vertical-align:middle}
     .wb2{width:100%;height:19px;border:none;border-bottom:1.5px solid #777;background:#FFFDE7;font-size:8pt;padding:0 3px;text-align:right}
     .ipd-sig{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;border-top:2px solid #ddd;padding-top:8px;margin-top:10px}.ipd-sig-cell{padding:5px 12px;text-align:center;border-right:1px solid #ddd}.ipd-sig-cell:last-child{border-right:none}.ipd-sig-lbl{font-size:8pt;font-weight:700;color:#555;margin-bottom:24px}.ipd-sig-line{border-bottom:1px solid #555;margin:0 8px}.ipd-sig-name{font-size:7.5pt;color:#777;margin-top:3px}
-    </style></head><body>${html}<script>window.onload=()=>{window.print();setTimeout(()=>window.close(),2000);}<\/script></body></html>`);
+    </style></head><body>${html}\x3Cscript>window.onload=()=>{window.print();setTimeout(()=>window.close(),2000);}<\/script></body></html>`);
   win.document.close();
 }
 
@@ -3955,7 +4488,7 @@ async function doInvPDF(sn){
 // ════════════════════════════════════════════════════════════
 //  SHARED MATERIAL AUTOCOMPLETE (RM/PK)
 // ════════════════════════════════════════════════════════════
-let _matCache=[], _matDropIdx={};
+let _matCache=[];
 
 async function loadMatCache(){
   if(_matCache.length)return;
@@ -4246,37 +4779,135 @@ async function hrLoadAttendance(){
 }
 
 async function hrEditAtt(id){
-  const d=(await sbG('attendance',{f:[`id=eq.${id}`]}))[0];if(!d)return;
-  openMo(`✏️ แก้ไขเวลางาน ${hrDate(d.att_date)}`,`
+  // admin only
+  if(CU?.role!=='admin'){alert('เฉพาะ Admin เท่านั้นครับ');return;}
+  const rows=await sbG('attendance',{f:[`id=eq.${id}`]});
+  const d=rows[0];if(!d)return;
+  const emp=_hrEmps.find(e=>e.emp_code===d.emp_code);
+  const empName=emp?`${emp.first_name} ${emp.last_name}`:d.emp_code;
+  // คำนวณเวลาทำงาน (นาที) จาก check_in/check_out
+  function calcMins(inVal,outVal){
+    if(!inVal||!outVal)return 0;
+    return Math.round((new Date(outVal)-new Date(inVal))/60000);
+  }
+  openMo(`✏️ แก้ไขเวลางาน — ${empName} | ${hrDate(d.att_date)}`,`
+    <div style="background:var(--bg3);border-radius:8px;padding:10px;margin-bottom:12px;font-size:12px">
+      👤 <b>${empName}</b> (${d.emp_code}) | วันที่: <b>${hrDate(d.att_date)}</b>
+      ${CU?.role==='admin'?'<span class="badge bb" style="margin-left:8px">Admin Edit</span>':''}
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="fgrp"><label class="flbl">เข้างาน</label><input type="datetime-local" class="fc2" id="hrea-in" value="${d.check_in?new Date(d.check_in).toISOString().slice(0,16):''}"></div>
-      <div class="fgrp"><label class="flbl">ออกงาน</label><input type="datetime-local" class="fc2" id="hrea-out" value="${d.check_out?new Date(d.check_out).toISOString().slice(0,16):''}"></div>
-      <div class="fgrp"><label class="flbl">สาย (นาที)</label><input type="number" class="fc2" id="hrea-late" value="${d.late_min||0}"></div>
-      <div class="fgrp"><label class="flbl">OT (นาที)</label><input type="number" class="fc2" id="hrea-ot" value="${d.ot_min||0}"></div>
+      <div class="fgrp">
+        <label class="flbl">⏰ เวลาเข้างาน</label>
+        <input type="datetime-local" class="fc2" id="hrea-in"
+          value="${d.check_in?new Date(d.check_in).toISOString().slice(0,16):''}"
+          onchange="hrCalcAttMins()">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">🚪 เวลาออกงาน</label>
+        <input type="datetime-local" class="fc2" id="hrea-out"
+          value="${d.check_out?new Date(d.check_out).toISOString().slice(0,16):''}"
+          onchange="hrCalcAttMins()">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">⏱️ ชั่วโมงทำงาน</label>
+        <input type="number" class="fc2" id="hrea-work" step="0.1"
+          value="${d.actual_work_min?fmt(d.actual_work_min/60,1):0}"
+          placeholder="คำนวณอัตโนมัติ">
+        <div style="font-size:10px;color:var(--text3)">นาที: <span id="hrea-work-min">${d.actual_work_min||0}</span></div>
+      </div>
+      <div class="fgrp">
+        <label class="flbl">🕐 สาย (นาที)</label>
+        <input type="number" class="fc2" id="hrea-late" value="${d.late_min||0}" min="0">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">🌙 OT (นาที)</label>
+        <input type="number" class="fc2" id="hrea-ot" value="${d.ot_min||0}" min="0">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">📋 สถานะ</label>
+        <select class="fc2" id="hrea-status">
+          <option value="present" ${d.status==='present'?'selected':''}>✅ มาทำงาน</option>
+          <option value="late" ${d.status==='late'?'selected':''}>⏰ มาสาย</option>
+          <option value="absent" ${d.status==='absent'?'selected':''}>❌ ขาด</option>
+          <option value="leave" ${d.status==='leave'?'selected':''}>🏖️ ลา</option>
+          <option value="holiday" ${d.status==='holiday'?'selected':''}>🎌 วันหยุด</option>
+          <option value="wfh" ${d.status==='wfh'?'selected':''}>🏠 WFH</option>
+        </select>
+      </div>
     </div>
-    <div class="fgrp"><label class="flbl">สถานะ</label>
-      <select class="fc2" id="hrea-status">
-        <option value="present" ${d.status==='present'?'selected':''}>✅ มาทำงาน</option>
-        <option value="late" ${d.status==='late'?'selected':''}>⏰ มาสาย</option>
-        <option value="absent" ${d.status==='absent'?'selected':''}>❌ ขาด</option>
-        <option value="leave" ${d.status==='leave'?'selected':''}>🏖️ ลา</option>
-        <option value="holiday" ${d.status==='holiday'?'selected':''}>🎌 วันหยุด</option>
-      </select>
+    <div class="fgrp">
+      <label class="flbl">📝 หมายเหตุ (ระบุเหตุผลที่แก้ไข)</label>
+      <input type="text" class="fc2" id="hrea-rem" value="${d.remark||''}"
+        placeholder="เช่น แก้ไขโดย Admin เนื่องจากลืม Check-out">
     </div>
-    <div class="fgrp"><label class="flbl">หมายเหตุ</label><input type="text" class="fc2" id="hrea-rem" value="${d.remark||''}"></div>
-    <button class="btn btnP" style="width:100%" onclick="hrSaveAttEdit(${id})">💾 บันทึก</button>
+    <div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:6px;padding:8px;font-size:11px;margin-bottom:10px">
+      ⚠️ การแก้ไขจะถูกบันทึก Log ไว้ทุกครั้งครับ
+    </div>
+    <button class="btn btnP" style="width:100%" onclick="hrSaveAttEdit(${id})">💾 บันทึกการแก้ไข</button>
     <div id="hrea-msg" style="margin-top:8px"></div>`);
 }
 
+// คำนวณเวลาทำงานอัตโนมัติเมื่อเปลี่ยน check_in/check_out
+function hrCalcAttMins(){
+  const inVal=document.getElementById('hrea-in')?.value;
+  const outVal=document.getElementById('hrea-out')?.value;
+  if(inVal&&outVal){
+    const mins=Math.max(0,Math.round((new Date(outVal)-new Date(inVal))/60000));
+    const workEl=document.getElementById('hrea-work');
+    const minEl=document.getElementById('hrea-work-min');
+    if(workEl) workEl.value=fmt(mins/60,1);
+    if(minEl) minEl.textContent=mins;
+    // คำนวณ OT อัตโนมัติ (ถ้าเกิน 8 ชั่วโมง)
+    const otEl=document.getElementById('hrea-ot');
+    if(otEl&&mins>480) otEl.value=mins-480;
+    // คำนวณสาย (เทียบกับ 08:30)
+    if(inVal){
+      const inDate=new Date(inVal);
+      const startTime=new Date(inDate);
+      startTime.setHours(8,30,0,0);
+      const lateEl=document.getElementById('hrea-late');
+      if(lateEl){
+        const lateMin=Math.max(0,Math.round((inDate-startTime)/60000));
+        lateEl.value=lateMin;
+        // อัพเดต status
+        const statusEl=document.getElementById('hrea-status');
+        if(statusEl&&lateMin>0) statusEl.value='late';
+        else if(statusEl) statusEl.value='present';
+      }
+    }
+  }
+}
+
 async function hrSaveAttEdit(id){
-  const cin=document.getElementById('hrea-in').value;
-  const cout=document.getElementById('hrea-out').value;
-  let workMin=0;
-  if(cin&&cout)workMin=Math.max(0,Math.round((new Date(cout)-new Date(cin))/60000)-60);
+  if(CU?.role!=='admin'){alert('เฉพาะ Admin เท่านั้นครับ');return;}
+  const cin=document.getElementById('hrea-in')?.value;
+  const cout=document.getElementById('hrea-out')?.value;
+  const workHr=parseFloat(document.getElementById('hrea-work')?.value)||0;
+  const workMin=Math.round(workHr*60);
+  const remark=document.getElementById('hrea-rem')?.value||'';
+  const status=document.getElementById('hrea-status')?.value||'present';
+  const lateMin=parseInt(document.getElementById('hrea-late')?.value)||0;
+  const otMin=parseInt(document.getElementById('hrea-ot')?.value)||0;
+  msgEl('hrea-msg','<span class="spin"></span> กำลังบันทึก...','i');
   try{
-    await sbU('attendance',{check_in:cin?new Date(cin).toISOString():null,check_out:cout?new Date(cout).toISOString():null,late_min:parseInt(document.getElementById('hrea-late').value)||0,ot_min:parseInt(document.getElementById('hrea-ot').value)||0,status:document.getElementById('hrea-status').value,remark:document.getElementById('hrea-rem').value,actual_work_min:workMin},`id=eq.${id}`);
-    msgEl('hrea-msg','✅ บันทึก','s');setTimeout(()=>{closeMo();hrLoadAttendance();},800);
-  }catch(e){msgEl('hrea-msg','❌ '+e.message,'e');}
+    const updateData={
+      check_in: cin?new Date(cin).toISOString():null,
+      check_out: cout?new Date(cout).toISOString():null,
+      actual_work_min: workMin,
+      late_min: lateMin,
+      ot_min: otMin,
+      status,
+      remark: remark?`[แก้ไขโดย ${CU?.full_name||'Admin'} ${new Date().toLocaleDateString('th-TH')}] ${remark}`:remark,
+    };
+    await sbU('attendance', updateData, `id=eq.${id}`);
+    await logA('UPDATE','attendance',
+      `แก้ไขเวลางาน id=${id} เข้า=${cin||'—'} ออก=${cout||'—'} สถานะ=${status} หมายเหตุ=${remark}`);
+    msgEl('hrea-msg','✅ บันทึกการแก้ไขสำเร็จ','s');
+    setTimeout(()=>{closeMo();hrLoadAttendance();},800);
+  }catch(e){
+    msgEl('hrea-msg','❌ '+e.message,'e');
+    console.error('hrSaveAttEdit:',e);
+  }
 }
 
 function hrPrintAtt(){const h=document.getElementById('hr-att-tb')?.closest('.tw')?.outerHTML||'';document.getElementById('inv-print-html')?.remove();hrBuildPDF(h,'ประวัติเวลางาน');}
@@ -4598,7 +5229,7 @@ function hrBuildPDF(content,title){
     <div><div style="font-size:13pt;font-weight:800;color:#1B3A5C">บริษัท ฟิตเอ็กซ์โป จำกัด</div><div style="font-size:8pt;color:#555">ระบบ HR | FitExpo ERP v4</div></div>
     <div style="text-align:right"><div style="font-size:14pt;font-weight:900;color:#1B3A5C">${title}</div><div style="font-size:8pt;color:#666">พิมพ์วันที่: ${today}</div></div>
   </div>${content}
-  <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),3000);}<\/script></body></html>`);
+  \x3Cscript>window.onload=()=>{window.print();setTimeout(()=>window.close(),3000);}<\/script></body></html>`);
   win.document.close();
 }
 
@@ -4880,7 +5511,7 @@ function pdfHRHolidays(){
   const yr=parseInt(document.getElementById('hr-hol-year')?.value)||new Date().getFullYear();
   buildHolidayHTML(yr).then(content=>{
     const win=window.open('','_blank');
-    win.document.write(content.replace('</body>','<script>window.onload=()=>{window.print();setTimeout(()=>window.close(),3000);}<\/script></body>'));
+    win.document.write(content.replace('</body>','\x3Cscript>window.onload=()=>{window.print();setTimeout(()=>window.close(),3000);}<\/script></body>'));
     win.document.close();
   });
 }
@@ -4889,7 +5520,6 @@ function pdfHRHolidays(){
 // ════════════════════════════════════════════════════════════
 //  SKU / WIP AUTOCOMPLETE (ผลิตสินค้า / ผลิต WIP / พิมพ์สูตร)
 // ════════════════════════════════════════════════════════════
-let _skuDropIdx={};
 
 async function getSkuData(mode){
   // ดึงจาก cache เสมอ ถ้าไม่มีค่อย fetch
@@ -4952,10 +5582,10 @@ function skuSelect(prefix,mode,i){
   _skuDropIdx[prefix]=-1;
 
   // ใส่ค่าลง hidden input
-  const hiddenId=prefix==='wo'?'wo-sku':prefix==='wl'?'wl-code':'prt-code';
+  const hiddenId=prefix==='wo'?'wo-sku':prefix==='wl'?'wl-code':prefix==='pp'?'pp-sku':'prt-code';
   const hidden=document.getElementById(hiddenId);
   // prt-code ต้องการ format fg::sku หรือ wip::code
-  const val=prefix==='prt'?(item.type==='WIP'?`wip::${item.code}`:`fg::${item.code}`):item.code;
+  const val=(prefix==='prt')?(item.type==='WIP'?`wip::${item.code}`:`fg::${item.code}`):item.code;
   if(hidden)hidden.value=val;
 
   // อัพเดต search box
@@ -4972,13 +5602,18 @@ function skuSelect(prefix,mode,i){
 
   // เรียก action ที่เกี่ยวข้อง
   if(prefix==='wo'){
-    // ผลิตสินค้า — โหลด BOM preview
+    // ผลิตสินค้า — โหลด BOM preview + auto-fill unit weight
     loadWOBOM();
+    woAutoFillUnitWeight(item.code);
   } else if(prefix==='wl'){
     // ผลิต WIP — โหลด batch size
     const wip=item.raw;
     const batchEl=document.getElementById('wl-batch');
     if(batchEl&&wip?.batch_kg)batchEl.value=wip.batch_kg;
+  } else if(prefix==='pp'){
+    // วางแผนผลิต — แสดง SKU ที่เลือก
+    const searchEl2=document.getElementById('pp-sku-search');
+    if(searchEl2)searchEl2.value=`${item.code} — ${item.name||''}`;
   } else if(prefix==='prt'){
     // พิมพ์สูตร — โหลด preview
     loadPrintPreview();
@@ -5011,7 +5646,7 @@ function skuAutoKey(prefix,e){
 }
 
 function clearSkuSearch(prefix){
-  const hiddenId=prefix==='wo'?'wo-sku':prefix==='wl'?'wl-code':'prt-code';
+  const hiddenId=prefix==='wo'?'wo-sku':prefix==='wl'?'wl-code':prefix==='pp'?'pp-sku':'prt-code';
   const hidden=document.getElementById(hiddenId);if(hidden)hidden.value='';
   const searchEl=document.getElementById(prefix+'-search');if(searchEl)searchEl.value='';
   const selBox=document.getElementById(prefix+'-selected');if(selBox)selBox.style.display='none';
@@ -5051,7 +5686,6 @@ function doPrintPreview(){
 // ════════════════════════════════════════════════════════════
 //  BOM SCALE CALCULATOR — คำนวณวัตถุดิบตาม Batch Size + Loss
 // ════════════════════════════════════════════════════════════
-let _currentBOMRows = []; // เก็บ BOM rows ของ SKU ที่เลือกอยู่
 
 async function calcBOMScaled(){
   const sku = document.getElementById('wo-sku')?.value||'';
@@ -5157,30 +5791,44 @@ function getName(r){
 // ════════════════════════════════════════════════════════════
 
 // ── Stock RM & PK ────────────────────────────────────────────
-let _rmData=[];
 async function loadRM(){
   const tb=document.getElementById('rm-tb');
   if(tb)tb.innerHTML='<tr><td colspan="15" style="text-align:center;padding:20px"><span class="spin"></span> กำลังโหลด...</td></tr>';
   _rmFilterType='all'; _rmFilterQ='';
   try{
-    // โหลด stock + master พร้อมกัน แล้ว JOIN ชื่อ
-    const [stock, master] = await Promise.all([
-      sbG('stock_material'),
-      sbG('master_material',{s:'code,name,unit,category,stock_min,exp_date,supplier,images'})
+    // โหลด master + stock พร้อมกัน
+    // ใช้ MASTER เป็นฐาน → ทุกรายการใน master_material จะโชว์เสมอ
+    const [master, stock] = await Promise.all([
+      sbG('master_material',{s:'id,code,name,unit,category,stock_min,exp_date,supplier,images',ord:'code.asc'}),
+      sbG('stock_material').catch(()=>[])
     ]);
-    const masterMap={};
-    (master||[]).forEach(m=>{ masterMap[m.code]=m; });
-    _rmData=(stock||[]).map(s=>({
-      ...s,
-      name: s.name||masterMap[s.code]?.name||'',
-      unit: s.unit||masterMap[s.code]?.unit||'kg',
-      // category ใช้จาก master เท่านั้น (stock ไม่มี column นี้)
-      _category: masterMap[s.code]?.category||'',
-      stock_min: s.stock_min??masterMap[s.code]?.stock_min??0,
-      exp_date: s.exp_date||masterMap[s.code]?.exp_date||'',
-      supplier: s.supplier||masterMap[s.code]?.supplier||'',
-      images: s.images||masterMap[s.code]?.images||[],
-    }));
+    // สร้าง stock map สำหรับ lookup ยอดคงเหลือ
+    const stockMap={};
+    (stock||[]).forEach(s=>{ stockMap[s.code]=s; });
+    // JOIN: master เป็นฐาน → ไม่มีตกหล่น
+    _rmData=(master||[]).map(m=>{
+      const s=stockMap[m.code]||{};
+      return {
+        id: m.id,
+        code: m.code,
+        name: m.name||'',
+        unit: m.unit||'kg',
+        _category: m.category||'',
+        stock_min: m.stock_min||0,
+        exp_date: s.exp_date||m.exp_date||'',
+        supplier: s.supplier||m.supplier||'',
+        images: s.images||m.images||[],
+        lot_no: s.lot_no||'',
+        receive_date: s.receive_date||'',
+        // ยอด stock (ถ้าไม่มีใน stock_material ยอด = 0)
+        balance_opening: Number(s.balance_opening||0),
+        qty_in: Number(s.qty_in||0),
+        qty_out: Number(s.qty_out||0),
+        // เก็บ stock id สำหรับ update
+        _stock_id: s.id||null,
+        _in_stock_table: !!s.id, // มีใน stock_material ไหม
+      };
+    });
     window._cachedRM=_rmData;
     applyRMFilter();
   }catch(e){
@@ -5199,10 +5847,11 @@ function renderRMTable(data){
   tb.innerHTML=data.map(r=>{
     const av=avRM(r);
     const tp=(r.code||'').startsWith('PK')?'PK':'RM';
+    const notInStock=r._in_stock_table===false;
     const thumb=(r.images&&r.images[0])?
       `<img src="${r.images[0]}" style="width:30px;height:30px;object-fit:cover;border-radius:3px;border:1px solid var(--border)" onerror="this.style.display='none'">`:
       `<span style="font-size:18px">${tp==='PK'?'📦':'🧱'}</span>`;
-    return`<tr>
+    return`<tr style="${notInStock?'opacity:0.6;background:rgba(0,0,0,.02)':''}">
       <td style="text-align:center">${thumb}</td>
       <td class="mn" style="color:${tp==='PK'?'var(--orange)':'var(--accent)'};white-space:nowrap">${r.code}</td>
       <td style="font-size:13px;max-width:180px">${r.name||''}</td>
@@ -5358,7 +6007,6 @@ async function loadCustMgr(){
 // ════════════════════════════════════════════════════════════
 //  MAT MANAGER — FILTER, SORT
 // ════════════════════════════════════════════════════════════
-let _matFilterType='all', _matFilterQ='';
 
 function filterMatType(type, el){
   _matFilterType=type;
@@ -5550,7 +6198,6 @@ async function delWIP(code){
 // ════════════════════════════════════════════════════════════
 //  STOCK RM FILTER / SORT (แยกจาก mat-mgr filter)
 // ════════════════════════════════════════════════════════════
-let _rmFilterType='all', _rmFilterQ='';
 
 function setRMFilter(type, el){
   _rmFilterType=type;
@@ -5594,7 +6241,6 @@ function applyRMFilter(){
 //           + ประมวลรัษฎากร มาตรา 40(1)
 // ════════════════════════════════════════════════════════════
 
-let _payrollData = []; // เก็บข้อมูล payroll รอบปัจจุบัน
 
 // ── กฎหมายไทย ────────────────────────────────────────────────
 const TAX_BRACKETS = [
@@ -5994,7 +6640,7 @@ function hrPrintPayslip(){
     .mn{font-family:monospace}
   </style></head><body>
   ${preview.innerHTML}
-  <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),3000);}<\/script>
+  \x3Cscript>window.onload=()=>{window.print();setTimeout(()=>window.close(),3000);}<\/script>
   </body></html>`);
   win.document.close();
 }
@@ -6053,12 +6699,1309 @@ function hrPrintPayrollSummary(){
   <div style="margin-top:20px;font-size:8.5pt;color:#666;border-top:1px solid #ddd;padding-top:8px">
     อ้างอิง: ประกันสังคม 5% (สูงสุด 750 บ.) | ภาษีตามบัญชีอัตราภาษีเงินได้บุคคลธรรมดา ม.48(1) ประมวลรัษฎากร
   </div>
-  <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),3000);}<\/script>
+  \x3Cscript>window.onload=()=>{window.print();setTimeout(()=>window.close(),3000);}<\/script>
   </body></html>`);
   win.document.close();
 }
 
 function hrExportPayroll(){ hrPrintPayrollSummary(); }
+
+
+// ════════════════════════════════════════════════════════════
+//  WORK ORDER BATCH CALCULATOR
+//  คำนวณจำนวน batch จากเป้าหมายการผลิต
+// ════════════════════════════════════════════════════════════
+function calcWOBatch(){
+  const sku = document.getElementById('wo-sku')?.value||'';
+  const targetQty = parseFloat(document.getElementById('wo-target-qty')?.value)||0;
+  const targetUnit = document.getElementById('wo-target-unit')?.value||'pcs';
+  const unitWeight = parseFloat(document.getElementById('wo-unit-weight')?.value)||0;
+  const lossPct = parseFloat(document.getElementById('wo-loss')?.value)||0;
+  const resultEl = document.getElementById('wo-calc-result');
+
+  if(!targetQty||targetQty<=0){
+    if(resultEl)resultEl.style.display='none';
+    return;
+  }
+
+  // ดึง batch_kg จาก SKU ที่เลือก
+  const prod=(window._cachedProds||[]).find(p=>p.sku===sku);
+  const batchKg = parseFloat(document.getElementById('wo-batch-size')?.value) || 
+                  Number(prod?.batch_kg) || 50;
+  const yieldPct = Number(prod?.yield_pct||95)/100;
+  const lossMultiplier = 1 + (lossPct/100);
+
+  // คำนวณ kg ที่ต้องการผลิต
+  let targetKg = 0;
+  let targetKgDisplay = '';
+
+  if(targetUnit==='kg'){
+    targetKg = targetQty;
+    targetKgDisplay = `${fmt(targetQty,1)} kg`;
+  } else if(targetUnit==='pcs'){
+    if(!unitWeight){
+      if(resultEl){
+        resultEl.style.display='block';
+        resultEl.innerHTML='⚠️ กรุณาระบุน้ำหนักต่อชิ้น (กรัม) ครับ';
+      }
+      return;
+    }
+    targetKg = (targetQty * unitWeight) / 1000; // g → kg
+    targetKgDisplay = `${fmt(targetQty,0)} ชิ้น × ${unitWeight}g = ${fmt(targetKg,2)} kg`;
+  } else if(targetUnit==='box'){
+    if(!unitWeight){
+      if(resultEl){resultEl.style.display='block';resultEl.innerHTML='⚠️ กรุณาระบุน้ำหนักต่อกล่อง (กรัม) ครับ';}
+      return;
+    }
+    targetKg = (targetQty * unitWeight) / 1000;
+    targetKgDisplay = `${fmt(targetQty,0)} กล่อง × ${unitWeight}g = ${fmt(targetKg,2)} kg`;
+  } else if(targetUnit==='pack'){
+    if(!unitWeight){
+      if(resultEl){resultEl.style.display='block';resultEl.innerHTML='⚠️ กรุณาระบุน้ำหนักต่อแพ็ค (กรัม) ครับ';}
+      return;
+    }
+    targetKg = (targetQty * unitWeight) / 1000;
+    targetKgDisplay = `${fmt(targetQty,0)} แพ็ค × ${unitWeight}g = ${fmt(targetKg,2)} kg`;
+  }
+
+  // คำนวณ input ที่ต้องใส่ (รวม loss)
+  const inputNeededKg = targetKg * lossMultiplier / yieldPct;
+
+  // คำนวณจำนวน batch
+  const batchesExact = inputNeededKg / batchKg;
+  const batchesCeil = Math.ceil(batchesExact);
+  const actualOutputKg = batchesCeil * batchKg * yieldPct;
+
+  // คำนวณผลผลิตจริง
+  let actualOutputDisplay = '';
+  if(targetUnit==='pcs'&&unitWeight>0){
+    const actualPcs = Math.floor((actualOutputKg * 1000) / unitWeight);
+    actualOutputDisplay = `≈ ${fmt(actualPcs,0)} ชิ้น`;
+  } else if((targetUnit==='box'||targetUnit==='pack')&&unitWeight>0){
+    const actualUnits = Math.floor((actualOutputKg * 1000) / unitWeight);
+    actualOutputDisplay = `≈ ${fmt(actualUnits,0)} ${targetUnit==='box'?'กล่อง':'แพ็ค'}`;
+  } else {
+    actualOutputDisplay = `≈ ${fmt(actualOutputKg,2)} kg`;
+  }
+
+  // BOM วัตถุดิบ
+  const bomRows = _currentBOMRows||_woBOM||[];
+  const rmTotal = bomRows.filter(r=>(r.mat_code||r.rm_code||'').startsWith('RM'))
+                         .reduce((s,r)=>s+Number(r.qty_per_batch||0),0);
+  const totalRMNeeded = rmTotal * batchesCeil * lossMultiplier;
+
+  // แสดงผล
+  if(resultEl){
+    resultEl.style.display='block';
+    resultEl.innerHTML=`
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px">
+        <div style="text-align:center;background:white;border-radius:8px;padding:10px;border:1px solid rgba(27,122,62,.2)">
+          <div style="font-size:10px;color:var(--text3);margin-bottom:2px">เป้าหมาย</div>
+          <div style="font-size:15px;font-weight:800;color:var(--accent)">${targetKgDisplay}</div>
+        </div>
+        <div style="text-align:center;background:white;border-radius:8px;padding:10px;border:1px solid rgba(27,122,62,.2)">
+          <div style="font-size:10px;color:var(--text3);margin-bottom:2px">Batch Size</div>
+          <div style="font-size:15px;font-weight:800;color:var(--purple)">${fmt(batchKg,1)} kg/batch</div>
+        </div>
+        <div style="text-align:center;background:rgba(27,94,199,.1);border-radius:8px;padding:10px;border:2px solid var(--accent)">
+          <div style="font-size:10px;color:var(--text3);margin-bottom:2px">🔥 ต้องผลิต</div>
+          <div style="font-size:22px;font-weight:900;color:var(--accent)">${batchesCeil} BATCH</div>
+          <div style="font-size:10px;color:var(--text3)">(${fmt(batchesExact,2)} แบท แน่นอน)</div>
+        </div>
+        <div style="text-align:center;background:rgba(27,122,62,.08);border-radius:8px;padding:10px;border:1px solid rgba(27,122,62,.2)">
+          <div style="font-size:10px;color:var(--text3);margin-bottom:2px">ผลผลิตที่ได้</div>
+          <div style="font-size:15px;font-weight:800;color:var(--green)">${actualOutputDisplay}</div>
+          <div style="font-size:10px;color:var(--text3)">${fmt(actualOutputKg,2)} kg</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12px;margin-bottom:8px">
+        <div style="background:white;border-radius:6px;padding:8px;border:1px solid var(--border)">
+          <div style="color:var(--text3);margin-bottom:2px">วัตถุดิบรวม (RM)</div>
+          <div style="font-weight:700;color:var(--amber)">${fmt(totalRMNeeded,2)} kg</div>
+          <div style="color:var(--text3);font-size:10px">${batchesCeil} batch × ${fmt(rmTotal,3)} kg/batch${lossPct>0?` × ${lossMultiplier}`:''}</div>
+        </div>
+        <div style="background:white;border-radius:6px;padding:8px;border:1px solid var(--border)">
+          <div style="color:var(--text3);margin-bottom:2px">Loss %</div>
+          <div style="font-weight:700;color:${lossPct>0?'var(--red)':'var(--green)'}">${lossPct}% ${lossPct>0?'(×'+lossMultiplier+')':''}</div>
+        </div>
+        <div style="background:white;border-radius:6px;padding:8px;border:1px solid var(--border)">
+          <div style="color:var(--text3);margin-bottom:2px">Yield</div>
+          <div style="font-weight:700;color:var(--accent)">${fmt(yieldPct*100,1)}%</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button class="btn btnP sm" onclick="applyWOCalc(${batchesCeil},${batchKg})">
+          ✅ ใช้ <b>${batchesCeil} batch</b> นี้
+        </button>
+        ${batchesCeil>1?`<button class="btn btnS sm" onclick="applyWOCalc(${batchesCeil-1},${batchKg})">
+          📉 ลดเป็น ${batchesCeil-1} batch
+        </button>`:''}
+        <button class="btn btnS sm" onclick="applyWOCalc(${batchesCeil+1},${batchKg})">
+          📈 เพิ่มเป็น ${batchesCeil+1} batch
+        </button>
+      </div>`;
+  }
+}
+
+// ── apply ผลการคำนวณเข้า form ──────────────────────────────────
+function applyWOCalc(batches, batchKg){
+  const nEl=document.getElementById('wo-n');
+  const bsEl=document.getElementById('wo-batch-size');
+  if(nEl)nEl.value=batches;
+  if(bsEl)bsEl.value=batchKg;
+  calcBOMScaled();
+  // scroll ลงไปที่ BOM preview
+  const preview=document.getElementById('wo-scaled-preview');
+  if(preview)setTimeout(()=>preview.scrollIntoView({behavior:'smooth',block:'start'}),300);
+}
+
+// ── auto-fill unit weight จาก SKU ──────────────────────────────
+function woAutoFillUnitWeight(sku){
+  const prod=(window._cachedProds||[]).find(p=>p.sku===sku);
+  const uwEl=document.getElementById('wo-unit-weight');
+  if(uwEl&&prod?.size_g&&!uwEl.value){
+    uwEl.value=prod.size_g;
+  }
+  const bsEl=document.getElementById('wo-batch-size');
+  if(bsEl&&prod?.batch_kg&&!bsEl.value){
+    bsEl.value=prod.batch_kg;
+  }
+}
+
+
+// ════════════════════════════════════════════════════════════
+//  PRODUCTION PLAN — Multi-SKU MRC Calculator
+// ════════════════════════════════════════════════════════════
+let _ppItems = []; // [{sku, name, batches, batchKg, bom:[]}]
+
+function loadProdPlan(){
+  // init date และ operator
+  const dateEl=document.getElementById('pp-date');
+  if(dateEl&&!dateEl.value) dateEl.value=new Date().toISOString().slice(0,10);
+  const opEl=document.getElementById('pp-op');
+  if(opEl&&!opEl.value) opEl.value=CU?.full_name||'';
+  // setup autocomplete ถ้ายังไม่ได้ทำ
+  renderPPList();
+}
+
+// ── เพิ่ม SKU เข้า plan ────────────────────────────────────
+async function ppAddSKU(){
+  const sku=document.getElementById('pp-sku')?.value?.trim();
+  const batches=parseInt(document.getElementById('pp-batches')?.value)||1;
+  if(!sku){alert('กรุณาเลือก SKU ครับ');return;}
+  // ตรวจซ้ำ
+  if(_ppItems.find(x=>x.sku===sku)){
+    if(!confirm(`${sku} มีอยู่แล้ว — เพิ่ม batch อีก ${batches}?`))return;
+    _ppItems.find(x=>x.sku===sku).batches+=batches;
+    renderPPList();return;
+  }
+  // โหลดข้อมูล SKU + BOM
+  try{
+    const [prod,bom]=await Promise.all([
+      sbG('master_product',{s:'sku,name_en,batch_kg',f:[`sku=eq.${sku}`]}),
+      sbG('bom_master',{f:[`sku_code=eq.${sku}`]})
+    ]);
+    const p=prod[0];
+    if(!p){alert('ไม่พบ SKU นี้ใน master ครับ');return;}
+    _ppItems.push({
+      sku,
+      name:p.name_en||sku,
+      batches,
+      batchKg:Number(p.batch_kg)||50,
+      bom:bom||[],
+    });
+    // clear search
+    document.getElementById('pp-sku-search').value='';
+    document.getElementById('pp-sku').value='';
+    document.getElementById('pp-batches').value='1';
+    renderPPList();
+  }catch(e){alert('❌ '+e.message);}
+}
+
+// ── render รายการ SKU ────────────────────────────────────────
+function renderPPList(){
+  const el=document.getElementById('pp-sku-list');
+  if(!el)return;
+  if(!_ppItems.length){
+    el.innerHTML='<div style="text-align:center;color:var(--text3);padding:30px;font-size:13px">ยังไม่มีรายการ — เพิ่มสินค้าด้านบนครับ</div>';
+    return;
+  }
+  el.innerHTML=`<table style="width:100%;border-collapse:collapse">
+    <thead><tr style="background:var(--bg2);font-size:12px">
+      <th style="padding:6px 8px;text-align:left">SKU</th>
+      <th style="padding:6px 8px;text-align:left">ชื่อสินค้า</th>
+      <th style="padding:6px 8px;text-align:center">Batch</th>
+      <th style="padding:6px 8px;text-align:center">Batch Size</th>
+      <th style="padding:6px 8px;text-align:center">รวม kg</th>
+      <th style="padding:6px 8px;text-align:center">BOM</th>
+      <th style="padding:6px 8px"></th>
+    </tr></thead>
+    <tbody>
+      ${_ppItems.map((item,i)=>`<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:6px 8px;font-family:monospace;color:var(--accent);font-size:12px">${item.sku}</td>
+        <td style="padding:6px 8px;font-size:13px;font-weight:600">${item.name}</td>
+        <td style="padding:6px 8px;text-align:center">
+          <input type="number" value="${item.batches}" min="1" style="width:60px;text-align:center;border:1px solid var(--border);border-radius:4px;padding:3px"
+            onchange="_ppItems[${i}].batches=parseInt(this.value)||1;renderPPList()">
+        </td>
+        <td style="padding:6px 8px;text-align:center;color:var(--text3)">${item.batchKg} kg</td>
+        <td style="padding:6px 8px;text-align:center;font-weight:700">${fmt(item.batches*item.batchKg,0)} kg</td>
+        <td style="padding:6px 8px;text-align:center">
+          <span class="badge ${item.bom.length?'bg':'br'}">${item.bom.length} รายการ</span>
+        </td>
+        <td style="padding:6px 8px;text-align:center">
+          <button class="btn btnD sm" onclick="_ppItems.splice(${i},1);renderPPList()">✕</button>
+        </td>
+      </tr>`).join('')}
+    </tbody>
+    <tfoot><tr style="background:var(--bg3);font-weight:700;font-size:12px">
+      <td colspan="2" style="padding:6px 8px">รวม ${_ppItems.length} สินค้า</td>
+      <td style="padding:6px 8px;text-align:center">${_ppItems.reduce((s,x)=>s+x.batches,0)} batch</td>
+      <td colspan="2" style="padding:6px 8px;text-align:center">${fmt(_ppItems.reduce((s,x)=>s+x.batches*x.batchKg,0),0)} kg</td>
+      <td colspan="2"></td>
+    </tfoot>
+  </table>`;
+}
+
+// ── คำนวณ MRC รวมทุก SKU ────────────────────────────────────
+async function ppCalcAll(){
+  if(!_ppItems.length){alert('กรุณาเพิ่มสินค้าก่อนครับ');return;}
+  const resultEl=document.getElementById('pp-result');
+  resultEl.innerHTML='<div class="al ali"><span class="spin"></span> กำลังคำนวณ MRC...</div>';
+
+  const lossPct=parseFloat(document.getElementById('pp-loss')?.value)||0;
+  const lossX=1+(lossPct/100);
+
+  try{
+    // โหลด stock ทั้งหมดครั้งเดียว
+    const [rmStock,wipStock]=await Promise.all([
+      sbG('stock_material'),
+      sbG('wip_stock',{s:'code,qty_produced,qty_issued'}).catch(()=>[])
+    ]);
+    const rmMap={},wipMap={};
+    rmStock.forEach(r=>rmMap[r.code]={av:avRM(r),name:r.name||r.code,unit:r.unit||'kg'});
+    wipStock.forEach(w=>wipMap[w.code]={av:avWIP(w)});
+
+    // รวม BOM ของทุก SKU
+    // ── โหลด WIP BOM ทั้งหมดล่วงหน้า ─────────────────────────
+    // เพื่อ expand WIP ที่ไม่พอเป็น RM
+    const wipBomCache={}; // wipCode → [{mat_code,mat_name,qty_per_batch,unit}]
+    async function getWIPBom(wipCode){
+      if(wipBomCache[wipCode])return wipBomCache[wipCode];
+      try{
+        const rows=await sbG('wip_bom',{f:[`wip_code=eq.${wipCode}`]});
+        wipBomCache[wipCode]=rows||[];
+      }catch(e){
+        // ลอง bom_master ถ้าไม่มี wip_bom table
+        try{
+          const rows=await sbG('bom_master',{f:[`sku_code=eq.${wipCode}`]});
+          wipBomCache[wipCode]=rows||[];
+        }catch(e2){ wipBomCache[wipCode]=[]; }
+      }
+      return wipBomCache[wipCode];
+    }
+
+    // ── รวม BOM ของทุก SKU ───────────────────────────────────
+    const matNeededFG={};   // วัตถุดิบที่ FG ต้องการจาก BOM ตรงๆ
+    const wipNeeded={};     // WIP ที่ FG ต้องการ
+
+    for(const item of _ppItems){
+      if(!item.bom.length){
+        item.bom=await sbG('bom_master',{f:[`sku_code=eq.${item.sku}`]});
+      }
+      for(const row of item.bom){
+        const code=row.mat_code||row.rm_code||'';
+        if(!code)continue;
+        const need=Number(row.qty_per_batch||0)*item.batches*lossX;
+        if(code.startsWith('WIP')){
+          // เก็บ WIP ที่ต้องการแยก
+          if(!wipNeeded[code]) wipNeeded[code]={
+            name:row.mat_name||code, unit:row.unit||'kg',
+            need:0, cur:wipMap[code]?.av||0, skus:[]
+          };
+          wipNeeded[code].need+=need;
+          if(!wipNeeded[code].skus.includes(item.sku)) wipNeeded[code].skus.push(item.sku);
+        } else {
+          if(!matNeededFG[code]) matNeededFG[code]={
+            name:row.mat_name||rmMap[code]?.name||code,
+            unit:row.unit||rmMap[code]?.unit||'kg',
+            isWIP:false, cur:rmMap[code]?.av||0, need:0, skus:[], fromWIP:[]
+          };
+          matNeededFG[code].need+=need;
+          if(!matNeededFG[code].skus.includes(item.sku)) matNeededFG[code].skus.push(item.sku);
+        }
+      }
+    }
+
+    // ── ตรวจ WIP shortage → expand เป็น RM ──────────────────
+    const wipPlanNeeded={}; // WIP ที่ต้องผลิตเพิ่ม
+    for(const [wipCode, wData] of Object.entries(wipNeeded)){
+      const short=Math.max(0, wData.need - wData.cur);
+      if(short>0){
+        // WIP ไม่พอ — ต้องผลิตเพิ่ม
+        const wipMaster=(window._cachedWIPs||[]).find(w=>w.code===wipCode)||{batch_kg:50};
+        const batchKgWIP=Number(wipMaster.batch_kg)||50;
+        const batchesWIP=Math.ceil(short/batchKgWIP);
+        const actualWIPProd=batchesWIP*batchKgWIP;
+        wipPlanNeeded[wipCode]={
+          name:wData.name, need:wData.need, cur:wData.cur, short,
+          batchesNeeded:batchesWIP, batchKg:batchKgWIP,
+          actualProd:actualWIPProd, skus:wData.skus
+        };
+        // โหลด BOM ของ WIP แล้วคำนวณ RM ที่ต้องใช้ผลิต WIP
+        const wipBom=await getWIPBom(wipCode);
+        for(const wr of wipBom){
+          const rmCode=wr.mat_code||wr.rm_code||'';
+          if(!rmCode)continue;
+          const rmNeed=Number(wr.qty_per_batch||0)*batchesWIP*lossX;
+          if(!matNeededFG[rmCode]) matNeededFG[rmCode]={
+            name:wr.mat_name||rmMap[rmCode]?.name||rmCode,
+            unit:wr.unit||rmMap[rmCode]?.unit||'kg',
+            isWIP:false, cur:rmMap[rmCode]?.av||0, need:0, skus:[], fromWIP:[]
+          };
+          matNeededFG[rmCode].need+=rmNeed;
+          if(!matNeededFG[rmCode].fromWIP.includes(wipCode))
+            matNeededFG[rmCode].fromWIP.push(wipCode);
+        }
+      }
+    }
+
+    // รวม matNeeded จาก FG + WIP expansion
+    const matNeeded={...matNeededFG};
+    // เพิ่ม WIP ที่ยังพอเข้าไปด้วย (เพื่อแสดงในตาราง)
+    for(const [wipCode,wData] of Object.entries(wipNeeded)){
+      matNeeded[wipCode]={
+        name:wData.name, unit:wData.unit, isWIP:true,
+        cur:wData.cur, need:wData.need, skus:wData.skus, fromWIP:[],
+        wipPlan:wipPlanNeeded[wipCode]||null,
+      };
+    }
+
+    // จัดเรียง: ขาดก่อน
+    const rows=Object.entries(matNeeded).map(([code,d])=>({
+      code,...d,
+      ok:d.cur>=d.need,
+      short:Math.max(0,d.need-d.cur),
+    })).sort((a,b)=>a.ok-b.ok||(a.code.localeCompare(b.code)));
+
+    const allOk=rows.every(r=>r.ok);
+    const shortage=rows.filter(r=>!r.ok);
+
+    // ── แสดงผล ─────────────────────────────────────────────
+    resultEl.innerHTML=`
+      <!-- สรุปบน -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+        <div class="card" style="text-align:center;padding:12px">
+          <div style="font-size:10px;color:var(--text3)">สินค้าที่จะผลิต</div>
+          <div style="font-size:22px;font-weight:800;color:var(--accent)">${_ppItems.length}</div>
+          <div style="font-size:11px;color:var(--text3)">SKU</div>
+        </div>
+        <div class="card" style="text-align:center;padding:12px">
+          <div style="font-size:10px;color:var(--text3)">Batch รวม</div>
+          <div style="font-size:22px;font-weight:800;color:var(--purple)">${_ppItems.reduce((s,x)=>s+x.batches,0)}</div>
+          <div style="font-size:11px;color:var(--text3)">batch</div>
+        </div>
+        <div class="card" style="text-align:center;padding:12px">
+          <div style="font-size:10px;color:var(--text3)">วัตถุดิบทั้งหมด</div>
+          <div style="font-size:22px;font-weight:800;color:${allOk?'var(--green)':'var(--amber)'}">${rows.length}</div>
+          <div style="font-size:11px;color:var(--text3)">รายการ</div>
+        </div>
+        <div class="card" style="text-align:center;padding:12px;background:${shortage.length?'rgba(239,68,68,.08)':'rgba(27,122,62,.08)'}">
+          <div style="font-size:10px;color:var(--text3)">RM ต้องสั่งซื้อ</div>
+          <div style="font-size:22px;font-weight:800;color:${shortage.length?'var(--red)':'var(--green)'}">${shortage.length}</div>
+          <div style="font-size:11px;color:${shortage.length?'var(--red)':'var(--green)'}">${shortage.length?'รายการขาด':'✅ RM พร้อม'}</div>
+        </div>
+        <div class="card" style="text-align:center;padding:12px;background:${Object.keys(wipPlanNeeded).length?'rgba(139,92,246,.08)':'rgba(27,122,62,.08)'}">
+          <div style="font-size:10px;color:var(--text3)">WIP ต้องผลิต</div>
+          <div style="font-size:22px;font-weight:800;color:${Object.keys(wipPlanNeeded).length?'var(--purple)':'var(--green)'}">${Object.keys(wipPlanNeeded).length}</div>
+          <div style="font-size:11px;color:var(--text3)">${Object.keys(wipPlanNeeded).length?'สายการผลิต':'✅ WIP พร้อม'}</div>
+        </div>
+      </div>
+
+      <!-- WIP Production Plan (ถ้ามี) -->
+      ${Object.keys(wipPlanNeeded).length?`
+      <div class="card" style="border:1px solid rgba(139,92,246,.3);margin-bottom:12px">
+        <div style="font-weight:700;color:var(--purple);margin-bottom:10px">
+          🏭 WIP ที่ต้องสั่งผลิตเพิ่ม (${Object.keys(wipPlanNeeded).length} รายการ)
+        </div>
+        <div class="tw" style="max-height:200px;overflow-y:auto">
+        <table>
+          <thead><tr style="position:sticky;top:0;background:var(--bg2)">
+            <th>รหัส WIP</th><th>ชื่อ WIP</th><th>ใช้ใน SKU</th>
+            <th style="color:var(--purple)">ต้องการ</th>
+            <th style="color:var(--green)">มีอยู่</th>
+            <th style="color:var(--red)">ขาด</th>
+            <th style="color:var(--accent)">ต้องผลิต</th>
+            <th>จำนวน Batch</th>
+          </tr></thead>
+          <tbody>
+            ${Object.entries(wipPlanNeeded).map(([code,w])=>`<tr style="background:rgba(139,92,246,.04)">
+              <td class="mn" style="color:var(--purple);font-size:11px">${code}</td>
+              <td style="font-size:12px;font-weight:600">${w.name}</td>
+              <td style="font-size:10px;color:var(--text3)">${w.skus.join(', ')}</td>
+              <td class="mn" style="font-weight:700">${fmt(w.need,3)} kg</td>
+              <td class="mn" style="color:${w.cur>0?'var(--green)':'var(--red)'}">${fmt(w.cur,3)} kg</td>
+              <td class="mn" style="color:var(--red);font-weight:800">${fmt(w.short,3)} kg</td>
+              <td class="mn" style="color:var(--accent);font-weight:800">${fmt(w.actualProd,1)} kg</td>
+              <td style="text-align:center">
+                <span class="badge bb">${w.batchesNeeded} batch × ${w.batchKg}kg</span>
+              </td>
+            </tr>`).join('')}
+          </tbody>
+        </table></div>
+        <div class="al ali" style="margin-top:8px;font-size:12px">
+          💡 วัตถุดิบที่ต้องใช้ผลิต WIP เพิ่มเติมได้รวมอยู่ในตาราง RM ด้านล่างแล้วครับ
+        </div>
+      </div>`:''}
+
+      <!-- รายการขาด (ถ้ามี) -->
+      ${shortage.length?`
+      <div class="card" style="border:1px solid rgba(239,68,68,.3);margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="font-weight:700;color:var(--red)">🛒 รายการที่ต้องสั่งซื้อ (${shortage.length} รายการ)</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btnP sm" onclick="ppPrintMRC()">🖨️ พิมพ์ MRC</button>
+            <button class="btn btnN sm" onclick="ppCreatePO()">📋 สร้าง PO</button>
+          </div>
+        </div>
+        <div class="tw" style="max-height:280px;overflow-y:auto">
+        <table>
+          <thead><tr style="position:sticky;top:0;background:var(--bg2)">
+            <th>รหัส</th><th>ชื่อวัตถุดิบ</th><th>ใช้ใน SKU</th><th>Type</th>
+            <th style="color:var(--amber)">ต้องการ</th>
+            <th style="color:var(--green)">มีใน Stock</th>
+            <th style="color:var(--red)">ขาด</th>
+            <th style="color:var(--orange)">แนะนำสั่ง+20%</th>
+          </tr></thead>
+          <tbody>
+            ${shortage.map(r=>`<tr style="background:rgba(239,68,68,.04)">
+              <td class="mn" style="color:${r.isWIP?'var(--purple)':'var(--accent)'};font-size:11px">${r.code}</td>
+              <td style="font-size:12px;font-weight:600">${r.name}</td>
+              <td style="font-size:10px;color:var(--text3)">${r.skus.join(', ')}</td>
+              <td><span class="badge ${r.isWIP?'bp':'bb'}">${r.isWIP?'WIP':'RM'}</span></td>
+              <td class="mn" style="font-weight:700">${fmt(r.need,3)} ${r.unit}</td>
+              <td class="mn" style="color:var(--red)">${fmt(r.cur,3)} ${r.unit}</td>
+              <td class="mn" style="color:var(--red);font-weight:800">${fmt(r.short,3)} ${r.unit}</td>
+              <td class="mn" style="color:var(--orange);font-weight:700">${fmt(r.short*1.2,2)} ${r.unit}</td>
+            </tr>`).join('')}
+          </tbody>
+          <tfoot><tr style="background:var(--bg3);font-weight:700">
+            <td colspan="4">รวมรายการที่ขาด</td>
+            <td colspan="2"></td>
+            <td class="mn" style="color:var(--red)">${fmt(shortage.reduce((s,r)=>s+r.short,0),2)}</td>
+            <td class="mn" style="color:var(--orange)">${fmt(shortage.reduce((s,r)=>s+r.short*1.2,0),2)}</td>
+          </tfoot>
+        </table></div>
+      </div>`:''}
+
+      <!-- รายการวัตถุดิบทั้งหมด -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="font-weight:700">📋 วัตถุดิบรวมทั้งหมด (${rows.length} รายการ)</div>
+          <button class="btn btnT sm" onclick="ppPrintAll()">🖨️ พิมพ์รายการทั้งหมด</button>
+        </div>
+        <div class="tw" style="max-height:400px;overflow-y:auto">
+        <table>
+          <thead><tr style="position:sticky;top:0;background:var(--bg2)">
+            <th>#</th><th>รหัส</th><th>ชื่อวัตถุดิบ</th><th>ใช้ใน SKU</th>
+            <th>Type</th><th>ต้องการ</th><th>Stock</th><th>สถานะ</th>
+          </tr></thead>
+          <tbody>
+            ${rows.map((r,i)=>`<tr style="background:${r.ok?'':'rgba(239,68,68,.04)'}">
+              <td style="text-align:center;color:var(--text3)">${i+1}</td>
+              <td class="mn" style="color:${r.isWIP?'var(--purple)':'var(--accent)'};font-size:11px">${r.code}</td>
+              <td style="font-size:12px">${r.name}</td>
+              <td style="font-size:10px;color:var(--text3)">${r.skus.join(', ')}</td>
+              <td><span class="badge ${r.isWIP?'bp':'bb'}">${r.isWIP?'WIP':'RM'}</span></td>
+              <td class="mn" style="font-weight:700">${fmt(r.need,3)} ${r.unit}</td>
+              <td class="mn" style="color:${r.ok?'var(--green)':'var(--red)'}">${fmt(r.cur,3)} ${r.unit}</td>
+              <td>${r.ok?'<span class="badge bg">✅ พอ</span>':'<span class="badge br">❌ ขาด '+fmt(r.short,3)+' '+r.unit+'</span>'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table></div>
+      </div>
+
+      <!-- ปุ่มสร้าง WO -->
+      <div style="display:flex;gap:10px;margin-top:12px">
+        <button class="btn btnP" style="flex:1" onclick="ppCreateAllWO()">
+          ⚙️ สร้าง Work Order ทุกรายการ
+        </button>
+        <button class="btn btnT sm" onclick="ppPrintAll()">🖨️ พิมพ์แผน</button>
+      </div>`;
+
+    // เก็บ rows สำหรับ print
+    window._ppMRCRows=rows;
+    window._ppMRCShortage=shortage;
+    window._ppWIPPlan=wipPlanNeeded;
+
+  }catch(e){
+    resultEl.innerHTML=`<div class="al ale">❌ ${e.message}</div>`;
+    console.error('ppCalcAll:',e);
+  }
+}
+
+// ── ล้างรายการ ─────────────────────────────────────────────
+function ppClearAll(){
+  if(_ppItems.length&&!confirm('ล้างรายการทั้งหมด?'))return;
+  _ppItems=[];
+  renderPPList();
+  document.getElementById('pp-result').innerHTML='';
+  window._ppMRCRows=[];
+  window._ppMRCShortage=[];
+}
+
+// ── สร้าง WO ทุก SKU ─────────────────────────────────────────
+async function ppCreateAllWO(){
+  if(!_ppItems.length){alert('ไม่มีรายการ');return;}
+  const wipPlan=window._ppWIPPlan||{};
+  const wipCount=Object.keys(wipPlan).length;
+  if(!confirm(`สร้าง Work Order:\n• FG: ${_ppItems.length} รายการ${wipCount?`\n• WIP: ${wipCount} รายการ (ผลิตก่อน)`:''}\n\nสถานะ "จองแล้ว" — ยังไม่ตัด Stock`))return;
+  const dt=document.getElementById('pp-date')?.value||new Date().toISOString().slice(0,10);
+  const op=document.getElementById('pp-op')?.value||CU?.full_name||'';
+  let success=0,fail=0;
+  // ── 1. WO สำหรับ WIP ก่อน ─────────────────────────────────
+  for(const [wipCode,wData] of Object.entries(wipPlan)){
+    try{
+      const ppNo='WO-WIP-'+Date.now().toString().slice(-6);
+      await sbP('production_plan',{
+        pp_no:ppNo,sku_code:wipCode,product_name:`[WIP] ${wData.name}`,
+        num_batches:wData.batchesNeeded,batch_kg:wData.batchKg,
+        start_date:dt,status:'จองแล้ว (WIP)',operator:op,
+        note:`WIP สำหรับ: ${wData.skus.join(', ')} | ขาด ${fmt(wData.short,2)} kg`
+      });
+      await logA('CREATE','production',`WO-WIP ${ppNo} ${wipCode} ${wData.batchesNeeded}batch`,ppNo);
+      success++;
+      await new Promise(r=>setTimeout(r,150));
+    }catch(e){fail++;console.error('WIP',wipCode,e);}
+  }
+  // ── 2. WO สำหรับ FG ─────────────────────────────────────
+  for(const item of _ppItems){
+    try{
+      const ppNo='WO-'+Date.now().toString().slice(-6);
+      await sbP('production_plan',{
+        pp_no:ppNo,sku_code:item.sku,product_name:item.name,
+        num_batches:item.batches,batch_kg:item.batchKg,
+        start_date:dt,status:'จองแล้ว',operator:op,
+        note:`Multi-plan ${_ppItems.length} SKU`
+      });
+      await logA('CREATE','production',`WO ${ppNo} ${item.sku} ${item.batches}batch`,ppNo);
+      success++;
+      await new Promise(r=>setTimeout(r,150));
+    }catch(e){fail++;console.error(item.sku,e);}
+  }
+  alert(`✅ สร้าง WO ${success} รายการ${fail?`\n❌ ล้มเหลว ${fail} รายการ`:''}`);
+  if(success)nav('production');
+}
+
+
+function ppPrintMRC(){
+  const shortage=window._ppMRCShortage||[];
+  if(!shortage.length){alert('ไม่มีรายการขาด');return;}
+  const today=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+  const skuSummary=_ppItems.map(x=>`${x.sku}×${x.batches}batch`).join(', ');
+  const win=window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>MRC Report</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body{font-family:Sarabun,sans-serif;padding:15px;font-size:9pt}
+    @page{margin:10mm;size:A4 portrait}
+    @media print{body{-webkit-print-color-adjust:exact!important}}
+    table{width:100%;border-collapse:collapse}
+    th{background:#1B3A5C;color:white;padding:5px 8px;font-size:8pt}
+    td{padding:4px 8px;border-bottom:1px solid #eee;font-size:8.5pt}
+    .hdr{display:flex;justify-content:space-between;border-bottom:2px solid #1B3A5C;padding-bottom:8px;margin-bottom:10px}
+    .shortage{background:#FEF2F2}
+  </style></head><body>
+  <div class="hdr">
+    <div><b style="font-size:13pt;color:#1B3A5C">บริษัท ฟิตเอ็กซ์โป จำกัด</b><br>
+    <span style="font-size:8pt">รายงานความต้องการวัตถุดิบ + แผนผลิต WIP (MRC Report)</span></div>
+    <div style="text-align:right"><b style="font-size:11pt">Material Requirement</b><br>
+    <span style="font-size:8pt">${today}</span></div>
+  </div>
+  <div style="background:#EBF3FA;padding:8px;border-radius:4px;margin-bottom:10px;font-size:9pt">
+    <b>แผนการผลิต:</b> ${skuSummary}
+  </div>
+  ${Object.keys(window._ppWIPPlan||{}).length?`
+  <div style="font-weight:700;color:#7C3AED;margin-bottom:4px">🏭 WIP ที่ต้องสั่งผลิตก่อน</div>
+  <table style="margin-bottom:12px">
+    <thead><tr style="background:#EDE9FE">
+      <th style="background:#7C3AED">รหัส WIP</th><th style="background:#7C3AED">ชื่อ</th>
+      <th style="background:#7C3AED">ขาด (kg)</th><th style="background:#7C3AED">ต้องผลิต (kg)</th>
+      <th style="background:#7C3AED">Batch</th>
+    </tr></thead>
+    <tbody>
+      ${Object.entries(window._ppWIPPlan||{}).map(([c,w])=>`<tr>
+        <td style="font-family:monospace;font-size:8pt">${c}</td>
+        <td>${w.name}</td>
+        <td style="text-align:right;color:#DC2626;font-weight:700">${fmt(w.short,3)} kg</td>
+        <td style="text-align:right;color:#7C3AED;font-weight:700">${fmt(w.actualProd,1)} kg</td>
+        <td style="text-align:center">${w.batchesNeeded} batch × ${w.batchKg}kg</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>`:''}
+  <table>
+    <thead><tr>
+      <th>#</th><th>รหัส</th><th>ชื่อวัตถุดิบ</th><th>ใช้ใน</th>
+      <th>ต้องการ</th><th style="background:#DC2626">มีอยู่</th>
+      <th style="background:#DC2626">ขาด</th><th style="background:#D97706">แนะนำสั่ง+20%</th>
+    </tr></thead>
+    <tbody>
+      ${shortage.map((r,i)=>`<tr class="shortage">
+        <td style="text-align:center">${i+1}</td>
+        <td style="font-family:monospace;font-size:8pt">${r.code}</td>
+        <td>${r.name}</td>
+        <td style="font-size:8pt;color:#555">${r.skus.join(', ')}</td>
+        <td style="text-align:right;font-weight:700">${fmt(r.need,3)} ${r.unit}</td>
+        <td style="text-align:right;color:#DC2626">${fmt(r.cur,3)} ${r.unit}</td>
+        <td style="text-align:right;color:#DC2626;font-weight:800">${fmt(r.short,3)} ${r.unit}</td>
+        <td style="text-align:right;color:#D97706;font-weight:700">${fmt(r.short*1.2,2)} ${r.unit}</td>
+      </tr>`).join('')}
+    </tbody>
+    <tfoot><tr style="background:#FEE2E2;font-weight:800">
+      <td colspan="6" style="text-align:right">รวมต้องสั่งซื้อ:</td>
+      <td style="text-align:right;color:#DC2626">${fmt(shortage.reduce((s,r)=>s+r.short,0),2)}</td>
+      <td style="text-align:right;color:#D97706">${fmt(shortage.reduce((s,r)=>s+r.short*1.2,0),2)}</td>
+    </tfoot>
+  </table>
+  <div style="margin-top:20px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px">
+    <div style="text-align:center;border-top:1px solid #555;padding-top:4px;font-size:8pt">จัดทำโดย</div>
+    <div style="text-align:center;border-top:1px solid #555;padding-top:4px;font-size:8pt">ฝ่ายวางแผนการผลิต</div>
+    <div style="text-align:center;border-top:1px solid #555;padding-top:4px;font-size:8pt">ผู้อนุมัติ</div>
+  </div>
+  \x3Cscript>window.onload=()=>{window.print();setTimeout(()=>window.close(),3000);}<\/script>
+  </body></html>`);
+  win.document.close();
+}
+
+function ppPrintAll(){
+  const rows=window._ppMRCRows||[];
+  if(!rows.length){alert('กรุณาคำนวณ MRC ก่อนครับ');return;}
+  ppPrintMRC(); // ใช้ฟังก์ชันเดียวกันแต่แสดงทุกรายการ
+}
+
+function ppCreatePO(){
+  alert('ฟีเจอร์ PO กำลังพัฒนาครับ — กรุณาพิมพ์ MRC แล้วสร้าง PO ด้วยตนเองก่อนนะครับ');
+}
+
+
+// ════════════════════════════════════════════════════════════
+//  WORK ORDER RE-CALCULATE MRC
+// ════════════════════════════════════════════════════════════
+
+// Toggle checkbox ทั้งหมด
+function woToggleAll(checked){
+  document.querySelectorAll('.wo-checkbox').forEach(cb=>{
+    cb.checked=checked;
+  });
+  woCheckboxChange();
+}
+
+// เมื่อ checkbox เปลี่ยน
+function woCheckboxChange(){
+  const selected=document.querySelectorAll('.wo-checkbox:checked');
+  const btn=document.getElementById('wo-recalc-btn');
+  const allCb=document.getElementById('wo-select-all');
+  const all=document.querySelectorAll('.wo-checkbox');
+  // อัพเดต select-all state
+  if(allCb){
+    allCb.checked=selected.length===all.length&&all.length>0;
+    allCb.indeterminate=selected.length>0&&selected.length<all.length;
+  }
+  // แสดง/ซ่อนปุ่ม
+  if(btn) btn.style.display=selected.length>0?'':'none';
+  const printBtn=document.getElementById('wo-print-mrc-btn');
+  if(printBtn) printBtn.style.display=(window._woRecalcRows?.length&&selected.length>0)?'':'none';
+  // highlight card ที่เลือก
+  document.querySelectorAll('.wo-checkbox').forEach(cb=>{
+    const card=document.getElementById(`wo-card-${cb.value}`);
+    if(card) card.style.background=cb.checked?'rgba(27,94,199,.04)':'';
+  });
+}
+
+// คำนวณ MRC ใหม่สำหรับ WO ที่เลือก
+async function woReCalcSelected(){
+  const selected=[...document.querySelectorAll('.wo-checkbox:checked')];
+  if(!selected.length){alert('กรุณาเลือก Work Order ก่อนครับ');return;}
+
+  const resultEl=document.getElementById('wo-recalc-result');
+  resultEl.innerHTML='<div class="al ali"><span class="spin"></span> กำลังคำนวณ MRC ใหม่...</div>';
+  resultEl.scrollIntoView({behavior:'smooth',block:'start'});
+
+  try{
+    // รวบรวม WO ที่เลือก
+    const inclWIP=document.getElementById('wo-incl-wip')?.checked!==false;
+    const selectedWOs=selected.map(cb=>({
+      id:cb.value,
+      pp_no:cb.dataset.pp,
+      sku:cb.dataset.sku,
+      batches:parseInt(cb.dataset.batches)||1,
+      name:cb.dataset.name,
+      isWIPwo:(cb.dataset.sku||'').startsWith('WIP'),
+    })).filter(wo=>inclWIP||!wo.isWIPwo); // filter WIP WO ถ้า checkbox ไม่ได้ติ๊ก
+
+    // โหลด stock ทั้งหมดครั้งเดียว
+    const [rmStock, wipStock] = await Promise.all([
+      sbG('stock_material'),
+      sbG('wip_stock',{s:'code,qty_produced,qty_issued'}).catch(()=>[])
+    ]);
+    const rmMap={},wipMap={};
+    rmStock.forEach(r=>rmMap[r.code]={av:avRM(r),name:r.name||r.code,unit:r.unit||'kg'});
+    wipStock.forEach(w=>wipMap[w.code]={av:avWIP(w)});
+
+    // รวม BOM ของทุก WO ที่เลือก
+    const matNeeded={};
+
+    for(const wo of selectedWOs){
+      const isWIPwo=wo.sku.startsWith('WIP');
+      let bom=[];
+      try{
+        bom=await sbG('bom_master',{f:[`sku_code=eq.${wo.sku}`]});
+        if(!bom.length&&isWIPwo){
+          bom=await sbG('wip_bom',{f:[`wip_code=eq.${wo.sku}`]}).catch(()=>[]);
+        }
+      }catch(e){ bom=[]; }
+      for(const row of bom){
+        const code=row.mat_code||row.rm_code||'';
+        if(!code)continue;
+        const need=Number(row.qty_per_batch||0)*wo.batches;
+        const isWIPmat=code.startsWith('WIP');
+        if(!matNeeded[code]){
+          const cur=isWIPmat?(wipMap[code]?.av||0):(rmMap[code]?.av||0);
+          matNeeded[code]={
+            name:row.mat_name||rmMap[code]?.name||code,
+            unit:row.unit||rmMap[code]?.unit||'kg',
+            isWIP:isWIPmat,cur,need:0,wos:[],
+            fromWIP:isWIPwo,
+          };
+        }
+        matNeeded[code].need+=need;
+        if(!matNeeded[code].wos.find(x=>x.pp===wo.pp_no))
+          matNeeded[code].wos.push({pp:wo.pp_no,sku:wo.sku,batches:wo.batches,isWIP:isWIPwo});
+      }
+    }
+
+    // จัดเรียง: ขาดก่อน
+    const rows=Object.entries(matNeeded).map(([code,d])=>({
+      code,...d,
+      ok:d.cur>=d.need,
+      short:Math.max(0,d.need-d.cur),
+    })).sort((a,b)=>a.ok-b.ok||(a.code.localeCompare(b.code)));
+
+    const shortage=rows.filter(r=>!r.ok);
+    const allOk=shortage.length===0;
+
+    // ── แสดงผล ─────────────────────────────────────────────
+    resultEl.innerHTML=`
+      <div class="card" style="border:1px solid ${allOk?'rgba(27,122,62,.3)':'rgba(239,68,68,.3)'}">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+          <div>
+            <div style="font-weight:800;font-size:14px;color:${allOk?'var(--green)':'var(--red)'}">
+              ${allOk?'✅ Stock พอสำหรับ WO ที่เลือกทั้งหมด':'⚠️ Stock บางรายการไม่พอ'}
+            </div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px">
+              WO ที่เลือก: ${selectedWOs.length} รายการ |
+              วัตถุดิบรวม: ${rows.length} รายการ |
+              ขาด: <span style="color:${shortage.length?'var(--red)':'var(--green)'};font-weight:700">${shortage.length} รายการ</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btnT sm" onclick="woRecalcPrint()">🖨️ พิมพ์ MRC</button>
+            ${!allOk?`<button class="btn btnP sm" onclick="nav('prod-plan')">📅 ไปวางแผนผลิต</button>`:''}
+          </div>
+        </div>
+
+        <!-- WO ที่เลือก -->
+        <div style="background:var(--bg3);border-radius:6px;padding:8px;margin-bottom:12px;font-size:11px">
+          <b>WO ที่นำมาคำนวณ:</b> ${selectedWOs.map(w=>`<span class="badge bb" style="margin:2px">${w.pp_no} (${w.sku}×${w.batches})</span>`).join('')}
+        </div>
+
+        ${shortage.length?`
+        <!-- รายการขาด -->
+        <div style="font-weight:700;color:var(--red);margin-bottom:6px">🛒 รายการที่ Stock ไม่พอ (${shortage.length} รายการ)</div>
+        <div class="tw" style="max-height:250px;overflow-y:auto;margin-bottom:12px">
+        <table>
+          <thead><tr style="position:sticky;top:0;background:var(--bg2)">
+            <th>รหัส</th><th>ชื่อ</th><th>ใช้ใน WO</th><th>Type</th>
+            <th style="color:var(--amber)">ต้องการรวม</th>
+            <th style="color:var(--green)">Stock คงเหลือ</th>
+            <th style="color:var(--red)">ขาด</th>
+            <th style="color:var(--orange)">แนะนำสั่ง+20%</th>
+          </tr></thead>
+          <tbody>
+            ${shortage.map(r=>`<tr style="background:rgba(239,68,68,.04)">
+              <td class="mn" style="color:${r.isWIP?'var(--purple)':'var(--accent)'};font-size:11px">${r.code}</td>
+              <td style="font-size:12px;font-weight:600">${r.name}</td>
+              <td style="font-size:10px;color:var(--text3)">${r.wos.map(w=>w.pp).join(', ')}</td>
+              <td><span class="badge ${r.isWIP?'bp':'bb'}">${r.isWIP?'WIP':'RM'}</span></td>
+              <td class="mn" style="font-weight:700">${fmt(r.need,3)} ${r.unit}</td>
+              <td class="mn" style="color:var(--red)">${fmt(r.cur,3)} ${r.unit}</td>
+              <td class="mn" style="color:var(--red);font-weight:800">${fmt(r.short,3)} ${r.unit}</td>
+              <td class="mn" style="color:var(--orange);font-weight:700">${fmt(r.short*1.2,2)} ${r.unit}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table></div>`:''}
+
+        <!-- รายการทั้งหมด -->
+        <div style="font-weight:700;margin-bottom:6px">📋 วัตถุดิบทั้งหมด (${rows.length} รายการ)</div>
+        <div class="tw" style="max-height:300px;overflow-y:auto">
+        <table>
+          <thead><tr style="position:sticky;top:0;background:var(--bg2)">
+            <th>#</th><th>รหัส</th><th>ชื่อ</th><th>ใช้ใน WO</th>
+            <th>Type</th><th>ต้องการรวม</th><th>Stock</th><th>สถานะ</th>
+          </tr></thead>
+          <tbody>
+            ${rows.map((r,i)=>`<tr style="background:${r.ok?'':'rgba(239,68,68,.04)'}">
+              <td style="text-align:center;color:var(--text3)">${i+1}</td>
+              <td class="mn" style="color:${r.isWIP?'var(--purple)':'var(--accent)'};font-size:11px">${r.code}</td>
+              <td style="font-size:12px">${r.name}</td>
+              <td style="font-size:10px;color:var(--text3)">${r.wos.map(w=>`${w.pp}(${w.batches}b)`).join(', ')}</td>
+              <td><span class="badge ${r.isWIP?'bp':'bb'}">${r.isWIP?'WIP':'RM'}</span></td>
+              <td class="mn" style="font-weight:700">${fmt(r.need,3)} ${r.unit}</td>
+              <td class="mn" style="color:${r.ok?'var(--green)':'var(--red)'}">${fmt(r.cur,3)} ${r.unit}</td>
+              <td>${r.ok?'<span class="badge bg">✅ พอ</span>':'<span class="badge br">❌ ขาด '+fmt(r.short,3)+' '+r.unit+'</span>'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table></div>
+      </div>`;
+
+    // เก็บไว้สำหรับ print
+    window._woRecalcRows=rows;
+    // แสดงปุ่ม print
+    const pb=document.getElementById('wo-print-mrc-btn');
+    if(pb) pb.style.display='';
+    window._woRecalcShortage=shortage;
+    window._woRecalcWOs=selectedWOs;
+
+  }catch(e){
+    resultEl.innerHTML=`<div class="al ale">❌ ${e.message}</div>`;
+    console.error('woReCalcSelected:',e);
+  }
+}
+
+// พิมพ์ MRC Report จาก WO recalc
+function woRecalcPrint(){
+  const rows=window._woRecalcRows||[];
+  const shortage=window._woRecalcShortage||[];
+  const wos=window._woRecalcWOs||[];
+  if(!rows.length){alert('กรุณาคำนวณก่อนครับ');return;}
+  const today=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+  const win=window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>WO MRC Report</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body{font-family:Sarabun,sans-serif;padding:15px;font-size:9pt}
+    @page{margin:10mm;size:A4 portrait}
+    @media print{body{-webkit-print-color-adjust:exact!important}}
+    table{width:100%;border-collapse:collapse}
+    th{background:#1B3A5C;color:white;padding:5px 8px;font-size:8pt}
+    td{padding:4px 8px;border-bottom:1px solid #eee;font-size:8.5pt}
+    .hdr{display:flex;justify-content:space-between;border-bottom:2px solid #1B3A5C;padding-bottom:8px;margin-bottom:10px}
+    .ok{color:#059669}.no{color:#DC2626;font-weight:700}
+  </style></head><body>
+  <div class="hdr">
+    <div><b style="font-size:13pt;color:#1B3A5C">บริษัท ฟิตเอ็กซ์โป จำกัด</b><br>
+    <span style="font-size:8pt">MRC Report — ตรวจสอบวัตถุดิบสำหรับ Work Order</span></div>
+    <div style="text-align:right"><b>Material Requirement Check</b><br>
+    <span style="font-size:8pt">${today}</span></div>
+  </div>
+  <div style="background:#EBF3FA;padding:8px;border-radius:4px;margin-bottom:10px;font-size:9pt">
+    <b>Work Order ที่ตรวจสอบ (${wos.length} รายการ):</b><br>
+    ${wos.map(w=>`${w.pp_no}: ${w.sku} × ${w.batches} batch`).join(' | ')}
+  </div>
+  ${shortage.length?`
+  <b style="color:#DC2626">รายการที่ Stock ไม่พอ (${shortage.length} รายการ)</b>
+  <table style="margin:6px 0 14px">
+    <thead><tr>
+      <th>รหัส</th><th>ชื่อวัตถุดิบ</th><th>ใช้ใน WO</th>
+      <th>ต้องการ</th><th>Stock</th><th>ขาด</th><th>แนะนำสั่ง+20%</th>
+    </tr></thead>
+    <tbody>
+      ${shortage.map(r=>`<tr style="background:#FEF2F2">
+        <td style="font-family:monospace;font-size:8pt">${r.code}</td>
+        <td>${r.name}</td>
+        <td style="font-size:8pt;color:#555">${r.wos.map(w=>w.pp).join(', ')}</td>
+        <td style="text-align:right;font-weight:700">${fmt(r.need,3)} ${r.unit}</td>
+        <td style="text-align:right;color:#DC2626">${fmt(r.cur,3)} ${r.unit}</td>
+        <td class="no" style="text-align:right">${fmt(r.short,3)} ${r.unit}</td>
+        <td style="text-align:right;color:#D97706;font-weight:700">${fmt(r.short*1.2,2)} ${r.unit}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>`:'<div style="color:#059669;font-weight:700;margin-bottom:14px">✅ Stock พอสำหรับ WO ที่เลือกทั้งหมด</div>'}
+  <b>รายการวัตถุดิบทั้งหมด (${rows.length} รายการ)</b>
+  <table style="margin-top:6px">
+    <thead><tr><th>#</th><th>รหัส</th><th>ชื่อ</th><th>Type</th>
+    <th>ต้องการรวม</th><th>Stock</th><th>สถานะ</th></tr></thead>
+    <tbody>
+      ${rows.map((r,i)=>`<tr style="${r.ok?'':'background:#FEF2F2'}">
+        <td style="text-align:center">${i+1}</td>
+        <td style="font-family:monospace;font-size:8pt">${r.code}</td>
+        <td>${r.name}</td>
+        <td>${r.isWIP?'WIP':'RM'}</td>
+        <td style="text-align:right;font-weight:700">${fmt(r.need,3)} ${r.unit}</td>
+        <td style="text-align:right;color:${r.ok?'#059669':'#DC2626'}">${fmt(r.cur,3)} ${r.unit}</td>
+        <td class="${r.ok?'ok':'no'}">${r.ok?'✅ พอ':'❌ ขาด '+fmt(r.short,3)+' '+r.unit}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>
+  <div style="margin-top:20px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px">
+    <div style="text-align:center;border-top:1px solid #555;padding-top:4px;font-size:8pt">ผู้ตรวจสอบ</div>
+    <div style="text-align:center;border-top:1px solid #555;padding-top:4px;font-size:8pt">ฝ่ายวางแผนการผลิต</div>
+    <div style="text-align:center;border-top:1px solid #555;padding-top:4px;font-size:8pt">ผู้อนุมัติ</div>
+  </div>
+  \x3Cscript>window.onload=()=>{window.print();setTimeout(()=>window.close(),3000);}<\/script>
+  </body></html>`);
+  win.document.close();
+}
+
+
+// ════════════════════════════════════════════════════════════
+//  MATERIAL DUPLICATE CHECKER & MERGER
+// ════════════════════════════════════════════════════════════
+
+// ตรวจหา duplicate codes ใน master_material
+async function checkDupMaterials(){
+  const data=await sbG('master_material',{s:'id,code,name,unit,category,balance_opening,stock_min,price_per_unit',ord:'code.asc'});
+  // จัดกลุ่มตาม code
+  const groups={};
+  (data||[]).forEach(m=>{
+    if(!groups[m.code]) groups[m.code]=[];
+    groups[m.code].push(m);
+  });
+  const dups=Object.entries(groups).filter(([c,arr])=>arr.length>1);
+  if(!dups.length){
+    alert('✅ ไม่พบรหัสวัตถุดิบซ้ำครับ');
+    return;
+  }
+  // แสดง modal รายการซ้ำ
+  const rows=dups.map(([code,arr])=>`
+    <div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">
+      <div style="font-weight:700;color:var(--accent);margin-bottom:8px;font-family:monospace">${code}</div>
+      <table style="width:100%;font-size:12px;border-collapse:collapse">
+        <thead><tr style="background:var(--bg2)">
+          <th style="padding:4px 8px;text-align:left">เลือก</th>
+          <th style="padding:4px 8px;text-align:left">ID</th>
+          <th style="padding:4px 8px;text-align:left">ชื่อ (เก็บไว้)</th>
+          <th style="padding:4px 8px;text-align:left">หน่วย</th>
+          <th style="padding:4px 8px;text-align:right">Balance เปิด</th>
+          <th style="padding:4px 8px;text-align:right">ราคา</th>
+        </tr></thead>
+        <tbody>
+          ${arr.map((m,i)=>`<tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:4px 8px">
+              <input type="radio" name="keep-${code}" value="${m.id}" ${i===0?'checked':''}>
+            </td>
+            <td style="padding:4px 8px;color:var(--text3);font-size:11px">${m.id}</td>
+            <td style="padding:4px 8px;font-weight:600">${m.name||'—'}</td>
+            <td style="padding:4px 8px">${m.unit||'kg'}</td>
+            <td style="padding:4px 8px;text-align:right">${m.balance_opening||0}</td>
+            <td style="padding:4px 8px;text-align:right">${m.price_per_unit||0}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button class="btn btnP sm" onclick="closeMo();fixDupByCode('${code}')">
+          🔧 แก้ไข Merge "${code}"
+        </button>
+        <div style="font-size:11px;color:var(--text3);display:flex;align-items:center">
+          เลือก radio ด้านซ้ายว่าจะ "เก็บชื่อ" ไหน
+        </div>
+      </div>
+    </div>`).join('');
+
+  openMo(`🔍 พบรหัสซ้ำ ${dups.length} รายการ`,`
+    <div class="al ale mb3" style="font-size:12px">
+      ⚠️ พบรหัสซ้ำ ${dups.length} กลุ่ม — เลือกรายการที่จะ "เก็บไว้" แล้วกด Merge
+    </div>
+    <div style="max-height:500px;overflow-y:auto">
+      ${rows}
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:8px;background:var(--bg3);padding:8px;border-radius:6px">
+      💡 Merge จะ: (1) เก็บรายการที่เลือก (2) ย้าย stock/BOM ไปยังรายการที่เก็บ (3) ลบรายการที่ซ้ำออก
+    </div>`);
+}
+
+// Merge duplicate materials
+async function mergeDupMat(code, allIds){
+  // หา id ที่เลือกไว้
+  const keepId=document.querySelector(`input[name="keep-${code}"]:checked`)?.value;
+  if(!keepId){alert('กรุณาเลือกรายการที่จะเก็บไว้ก่อนครับ');return;}
+  const deleteIds=allIds.filter(id=>String(id)!==String(keepId));
+  if(!deleteIds.length){alert('ไม่มีรายการที่จะลบครับ');return;}
+
+  const keepRow=(await sbG('master_material',{f:[`id=eq.${keepId}`]}))[0];
+  if(!confirm(`Merge รหัส "${code}"\nเก็บไว้: "${keepRow?.name}" (ID: ${keepId})\nลบ: ${deleteIds.length} รายการ\n\n⚠️ BOM และ Stock จะยังใช้รหัสเดิม (${code}) ซึ่งถูกต้องแล้วครับ\n\nยืนยันไหมครับ?`))return;
+
+  const msgEl=document.createElement('div');
+  msgEl.innerHTML='<span class="spin"></span> กำลัง Merge...';
+  document.querySelector(`input[name="keep-${code}"]`)?.closest('div')?.appendChild(msgEl);
+
+  try{
+    let done=0;
+    for(const delId of deleteIds){
+      // 1. ดึงข้อมูล stock ของรายการที่จะลบ
+      const delStock=await sbG('stock_material',{f:[`code=eq.${code}`,`id=neq.${keepId}`]}).catch(()=>[]);
+      // 2. Merge balance_opening เข้ากับรายการที่เก็บ
+      if(delStock.length>0){
+        const keepStock=await sbG('stock_material',{f:[`code=eq.${code}`]});
+        // อาจมีหลาย stock rows — รวม qty_in
+        // ไม่ต้องทำอะไรเพราะ code เหมือนกัน stock จะถูก load ถูกต้องอยู่แล้ว
+      }
+      // 3. ลบ master_material ที่ซ้ำ
+      await sbD('master_material',`id=eq.${delId}`);
+      await logA('DELETE','materials',`Merge ลบ dup ${code} id=${delId} → เก็บ id=${keepId}`);
+      done++;
+    }
+    msgEl.innerHTML=`✅ Merge สำเร็จ ลบ ${done} รายการซ้ำ`;
+    setTimeout(()=>{
+      closeMo();
+      loadMatMgr();
+      window._cachedRM=null;
+    },800);
+  }catch(e){
+    msgEl.innerHTML=`❌ ${e.message}`;
+  }
+}
+
+
+// ════════════════════════════════════════════════════════════
+//  FIX DUPLICATE — ค้นหาและลบรหัสซ้ำโดยตรง
+// ════════════════════════════════════════════════════════════
+
+// แก้ duplicate สำหรับ code ที่ระบุ — เก็บ record ที่ชื่อสมบูรณ์กว่า
+async function fixDupByCode(targetCode){
+  const code = targetCode || prompt('กรอกรหัสวัตถุดิบที่ซ้ำ เช่น RM-SWT-GLY-LIQ:','RE-SWT-GLY-LIQ');
+  if(!code) return;
+
+  openMo(`🔧 แก้ไขรหัสซ้ำ: ${code}`, `<div class="al ali"><span class="spin"></span> กำลังโหลดข้อมูล...</div>`);
+
+  try{
+    // ดึงทุก record ที่มี code นี้
+    const records = await sbG('master_material', {
+      f:[`code=eq.${code}`],
+      s:'id,code,name,unit,category,balance_opening,stock_min,price_per_unit,supplier,note',
+      ord:'id.asc'
+    });
+
+    if(!records.length){
+      document.querySelector('.mo-body').innerHTML = `<div class="al ale">ไม่พบรหัส ${code} ในระบบครับ</div>`;
+      return;
+    }
+    if(records.length === 1){
+      document.querySelector('.mo-body').innerHTML = `<div class="al ali">✅ รหัส ${code} ไม่มีซ้ำ มีแค่ 1 รายการ: <b>${records[0].name}</b></div>`;
+      return;
+    }
+
+    // แสดงตัวเลือก
+    const moBody = document.querySelector('.mo-body') || document.querySelector('.mo-content');
+    if(moBody) moBody.innerHTML = `
+      <div class="al ale mb3" style="font-size:12px">
+        พบ ${records.length} รายการที่รหัส <b>${code}</b> — เลือกรายการที่จะ <b>เก็บไว้</b>:
+      </div>
+      ${records.map((r,i)=>`
+        <div style="border:1px solid ${i===0?'var(--accent)':'var(--border)'};border-radius:8px;padding:12px;margin-bottom:8px;cursor:pointer"
+             onclick="document.querySelectorAll('.dup-radio').forEach(x=>x.checked=false);this.querySelector('.dup-radio').checked=true;document.querySelectorAll('.dup-card').forEach(x=>x.style.border='1px solid var(--border)');this.style.border='2px solid var(--accent)'"
+             class="dup-card">
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="radio" class="dup-radio" name="dup-keep" value="${r.id}" ${i===0?'checked':''} style="width:18px;height:18px">
+            <div>
+              <div style="font-weight:700;font-size:14px">${r.name||'(ไม่มีชื่อ)'}</div>
+              <div style="font-size:11px;color:var(--text3)">
+                ID: ${r.id} | หน่วย: ${r.unit||'kg'} | หมวด: ${r.category||'—'} |
+                Balance: ${r.balance_opening||0} | ราคา: ${r.price_per_unit||0}
+              </div>
+            </div>
+          </div>
+        </div>`).join('')}
+      <div style="background:var(--bg3);border-radius:8px;padding:10px;font-size:12px;margin-top:8px">
+        💡 ระบบจะ: เก็บรายการที่เลือก + รวม stock + ลบรายการที่ซ้ำออก + อัพเดต BOM ให้ชี้ไปที่รหัสเดิม (ไม่กระทบ BOM เพราะรหัสเหมือนกัน)
+      </div>
+      <button class="btn btnP" style="width:100%;margin-top:12px" onclick="doMergeDup('${code}',${JSON.stringify(records.map(r=>r.id))})">
+        ✅ Merge — เก็บรายการที่เลือก ลบที่เหลือ
+      </button>
+      <div id="merge-msg" style="margin-top:8px"></div>
+    `;
+  }catch(e){
+    const b=document.querySelector('.mo-body');
+    if(b) b.innerHTML=`<div class="al ale">❌ ${e.message}</div>`;
+  }
+}
+
+async function doMergeDup(code, allIds){
+  const keepId = document.querySelector('input[name="dup-keep"]:checked')?.value;
+  if(!keepId){ alert('กรุณาเลือกรายการที่จะเก็บก่อนครับ'); return; }
+
+  const deleteIds = allIds.map(String).filter(id=>id!==String(keepId));
+  msgEl('merge-msg','<span class="spin"></span> กำลัง Merge...','i');
+
+  try{
+    const keepRec = (await sbG('master_material',{f:[`id=eq.${keepId}`]}))[0];
+
+    // รวม stock: เอา balance_opening สูงสุด หรือรวมกัน
+    const stockRows = await sbG('stock_material',{f:[`code=eq.${code}`]});
+    if(stockRows.length > 1){
+      // รวม qty_in ทั้งหมด เก็บไว้ที่ row แรก ลบที่เหลือ
+      const totalQtyIn = stockRows.reduce((s,r)=>s+Number(r.qty_in||0),0);
+      const totalQtyOut = stockRows.reduce((s,r)=>s+Number(r.qty_out||0),0);
+      const maxBal = Math.max(...stockRows.map(r=>Number(r.balance_opening||0)));
+      // อัพเดต stock row แรก
+      await sbU('stock_material',{qty_in:totalQtyIn,qty_out:totalQtyOut,balance_opening:maxBal},`code=eq.${code}`);
+      // ลบ stock ที่ซ้ำ (ถ้า id ต่างกัน)
+      const stockIds = stockRows.map(r=>r.id);
+      for(let i=1;i<stockIds.length;i++){
+        await sbD('stock_material',`id=eq.${stockIds[i]}`).catch(()=>{});
+      }
+    }
+
+    // ลบ master_material ที่ซ้ำ (เก็บแค่ keepId)
+    let deleted=0;
+    for(const delId of deleteIds){
+      await sbD('master_material',`id=eq.${delId}`);
+      deleted++;
+    }
+
+    await logA('UPDATE','materials',`Merge dup ${code}: เก็บ id=${keepId}(${keepRec?.name}) ลบ ${deleted} รายการ`);
+    window._cachedRM=null;
+    _matData=[];
+
+    msgEl('merge-msg',`✅ Merge สำเร็จ! เก็บ "${keepRec?.name}" ลบ ${deleted} รายการซ้ำแล้ว`,'s');
+    setTimeout(()=>{
+      closeMo();
+      if(document.getElementById('pg-mat-mgr')?.style.display!=='none') loadMatMgr();
+      if(document.getElementById('pg-rm')?.style.display!=='none') loadRM();
+    },1200);
+  }catch(e){
+    msgEl('merge-msg','❌ '+e.message,'e');
+    console.error('doMergeDup:',e);
+  }
+}
+
+
+// ── เพิ่มรายการเวลางานย้อนหลัง (Admin only) ──────────────────
+function hrAddAttBackdate(){
+  if(CU?.role!=='admin'){alert('เฉพาะ Admin เท่านั้นครับ');return;}
+  const today=new Date().toISOString().slice(0,10);
+  openMo('➕ เพิ่มรายการเวลางานย้อนหลัง',`
+    <div style="background:rgba(27,94,199,.06);border-radius:8px;padding:10px;margin-bottom:12px;font-size:12px">
+      📋 สำหรับ Admin เพิ่มข้อมูลย้อนหลังหรือแก้ไขวันที่ขาดไป
+    </div>
+    <div class="fgrp">
+      <label class="flbl">👤 พนักงาน *</label>
+      <select class="fc2" id="hrab-emp">
+        <option value="">— เลือกพนักงาน —</option>
+        ${(_hrEmps||[]).map(e=>`<option value="${e.emp_code}">${e.emp_code} — ${e.first_name} ${e.last_name}</option>`).join('')}
+      </select>
+    </div>
+    <div class="fgrp">
+      <label class="flbl">📅 วันที่ *</label>
+      <input type="date" class="fc2" id="hrab-date" value="${today}" max="${today}">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fgrp">
+        <label class="flbl">⏰ เวลาเข้างาน</label>
+        <input type="time" class="fc2" id="hrab-in" value="08:30" onchange="hrCalcAttMinsAdd()">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">🚪 เวลาออกงาน</label>
+        <input type="time" class="fc2" id="hrab-out" value="17:30" onchange="hrCalcAttMinsAdd()">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">⏱️ ชั่วโมงทำงาน</label>
+        <input type="number" class="fc2" id="hrab-work" value="9" step="0.5" min="0">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">🕐 สาย (นาที)</label>
+        <input type="number" class="fc2" id="hrab-late" value="0" min="0">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">🌙 OT (นาที)</label>
+        <input type="number" class="fc2" id="hrab-ot" value="0" min="0">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">📋 สถานะ</label>
+        <select class="fc2" id="hrab-status">
+          <option value="present">✅ มาทำงาน</option>
+          <option value="late">⏰ มาสาย</option>
+          <option value="absent">❌ ขาด</option>
+          <option value="leave">🏖️ ลา</option>
+          <option value="holiday">🎌 วันหยุด</option>
+          <option value="wfh">🏠 WFH</option>
+        </select>
+      </div>
+    </div>
+    <div class="fgrp">
+      <label class="flbl">📝 หมายเหตุ</label>
+      <input type="text" class="fc2" id="hrab-rem" placeholder="เหตุผลที่เพิ่มย้อนหลัง...">
+    </div>
+    <button class="btn btnP" style="width:100%;margin-top:4px" onclick="hrSaveAttBackdate()">
+      💾 บันทึกรายการย้อนหลัง
+    </button>
+    <div id="hrab-msg" style="margin-top:8px"></div>`);
+}
+
+function hrCalcAttMinsAdd(){
+  const inT=document.getElementById('hrab-in')?.value;
+  const outT=document.getElementById('hrab-out')?.value;
+  if(inT&&outT){
+    const date=document.getElementById('hrab-date')?.value||new Date().toISOString().slice(0,10);
+    const mins=Math.max(0,Math.round((new Date(`${date}T${outT}`)-new Date(`${date}T${inT}`))/60000));
+    const workEl=document.getElementById('hrab-work');
+    if(workEl) workEl.value=fmt(mins/60,1);
+    // คำนวณสาย
+    const lateEl=document.getElementById('hrab-late');
+    if(lateEl){
+      const inDate=new Date(`${date}T${inT}`);
+      const start=new Date(`${date}T08:30`);
+      const late=Math.max(0,Math.round((inDate-start)/60000));
+      lateEl.value=late;
+      const st=document.getElementById('hrab-status');
+      if(st) st.value=late>0?'late':'present';
+    }
+  }
+}
+
+async function hrSaveAttBackdate(){
+  const empCode=document.getElementById('hrab-emp')?.value;
+  const date=document.getElementById('hrab-date')?.value;
+  const inT=document.getElementById('hrab-in')?.value;
+  const outT=document.getElementById('hrab-out')?.value;
+  const workHr=parseFloat(document.getElementById('hrab-work')?.value)||0;
+  const status=document.getElementById('hrab-status')?.value||'present';
+  const lateMin=parseInt(document.getElementById('hrab-late')?.value)||0;
+  const otMin=parseInt(document.getElementById('hrab-ot')?.value)||0;
+  const remark=document.getElementById('hrab-rem')?.value||'';
+  if(!empCode){msgEl('hrab-msg','กรุณาเลือกพนักงานก่อนครับ','e');return;}
+  if(!date){msgEl('hrab-msg','กรุณาเลือกวันที่ครับ','e');return;}
+  msgEl('hrab-msg','<span class="spin"></span> กำลังบันทึก...','i');
+  try{
+    // ตรวจว่ามี record วันนั้นอยู่แล้วไหม
+    const existing=await sbG('attendance',{f:[`emp_code=eq.${empCode}`,`att_date=eq.${date}`]});
+    const attData={
+      emp_code:empCode,
+      att_date:date,
+      check_in: inT?new Date(`${date}T${inT}`).toISOString():null,
+      check_out: outT?new Date(`${date}T${outT}`).toISOString():null,
+      actual_work_min: Math.round(workHr*60),
+      late_min:lateMin,
+      ot_min:otMin,
+      status,
+      remark:`[เพิ่มย้อนหลังโดย ${CU?.full_name||'Admin'} ${new Date().toLocaleDateString('th-TH')}] ${remark}`,
+    };
+    if(existing.length>0){
+      if(!confirm(`${empCode} มีข้อมูลวันที่ ${date} อยู่แล้ว (สถานะ: ${existing[0].status})\nต้องการแทนที่ด้วยข้อมูลใหม่ไหมครับ?`))return;
+      await sbU('attendance',attData,`emp_code=eq.${empCode}&att_date=eq.${date}`);
+      await logA('UPDATE','attendance',`แก้ไขย้อนหลัง ${empCode} ${date} สถานะ=${status}`);
+      msgEl('hrab-msg','✅ อัพเดตรายการย้อนหลังสำเร็จ','s');
+    }else{
+      await sbP('attendance',attData);
+      await logA('CREATE','attendance',`เพิ่มย้อนหลัง ${empCode} ${date} สถานะ=${status}`);
+      msgEl('hrab-msg','✅ เพิ่มรายการย้อนหลังสำเร็จ','s');
+    }
+    setTimeout(()=>{closeMo();hrLoadAttendance();},800);
+  }catch(e){
+    msgEl('hrab-msg','❌ '+e.message,'e');
+    console.error('hrSaveAttBackdate:',e);
+  }
+}
 
 // ════════════════════════════════════════════════════════════
 //  CLOCK
