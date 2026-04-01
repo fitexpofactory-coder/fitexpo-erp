@@ -1514,7 +1514,7 @@ let _payrollData=[], _lastMRC=null;
 //  ⚙️ CONFIG 
 // ════════════════════════════════════════════════════════════
 const SB='https://meehbfcmnmposarkejuh.supabase.co';
-let KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1lZWhiZmNtbm1wb3NhcmtlanVoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NjQyNTMsImV4cCI6MjA5MDA0MDI1M30.vbd9TxJr4D4ccPqjm1lw9XD4FwgrCOErqjXkKpUzLkk'; // 
+let KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1lZWhiZmNtbm1wb3NhcmtlanVoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NjQyNTMsImV4cCI6MjA5MDA0MDI1M30.vbd9TxJr4D4ccPqjm1lw9XD4FwgrCOErqjXkKpUzLkk'; //
 
 // ════════════════════════════════════════════════════════════
 //  SESSION
@@ -1797,8 +1797,9 @@ async function loadFG(){
         <td class="mn" style="font-weight:700;color:${av<=0?'var(--red)':'var(--navy)'}">${fmt(av,0)}</td>
         <td class="mn">${r.stock_min||'—'}</td>
         <td>${r._in_stock_table===false?'<span class="badge" style="background:#F3F4F6;color:#6B7280;font-size:10px">ยังไม่รับเข้า</span>':stockB(av,r.stock_min)}</td>
+        <td><button class="btn btnS sm" onclick="editStockBalance('fg','${r.sku}',${av},${r.qty_in||0},${r.qty_sold||0})">✏️ แก้ยอด</button></td>
       </tr>`;
-    }).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px">ยังไม่มีข้อมูล Stock FG</td></tr>';
+    }).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px">ยังไม่มีข้อมูล Stock FG</td></tr>';
   }catch(e){
     if(tb)tb.innerHTML=`<tr><td colspan="7" style="color:var(--red);padding:12px">❌ ${e.message}</td></tr>`;
     console.error('loadFG:',e);
@@ -5873,6 +5874,7 @@ function renderRMTable(data){
       <td style="font-size:11px;color:var(--text3)">${r.receive_date?new Date(r.receive_date).toLocaleDateString('th-TH'):'—'}</td>
       <td style="white-space:nowrap">
         <button class="btn btnS sm" onclick="editMat(${r.id})" title="แก้ไข Master">✏️</button>
+        <button class="btn btnN sm" onclick="editStockBalance('rm','${r.code}',${av},${r.balance_opening||0},${r.qty_in||0},${r.qty_out||0})" title="แก้ยอดคงเหลือ">⚖️</button>
         <button class="btn btnP sm" onclick="showReceiveRM('${r.code}','${(r.name||'').replace(/'/g,"\'")}')">📥</button>
         <button class="btn btnD sm" onclick="showIssueRM('${r.code}')">📤</button>
       </td>
@@ -5929,8 +5931,9 @@ async function loadWIPStock(){
         <td class="mn" style="font-weight:700">${fmt(av,1)}</td>
         <td class="mn">${w.stock_min||'—'}</td>
         <td>${stockB(av,w.stock_min)}</td>
+        <td><button class="btn btnS sm" onclick="editStockBalance('wip','${w.code}',${av},${w.qty_produced},${w.qty_issued})">✏️ แก้ยอด</button></td>
       </tr>`;
-    }).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px">ยังไม่มีข้อมูล WIP — ผลิต WIP ก่อนครับ</td></tr>';
+    }).join(''):'<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:20px">ยังไม่มีข้อมูล WIP — ผลิต WIP ก่อนครับ</td></tr>';
   }catch(e){
     if(tb)tb.innerHTML=`<tr><td colspan="8" style="color:var(--red);padding:12px">❌ ${e.message}</td></tr>`;
     console.error('loadWIPStock:',e);
@@ -8005,6 +8008,199 @@ async function hrSaveAttBackdate(){
   }catch(e){
     msgEl('hrab-msg','❌ '+e.message,'e');
     console.error('hrSaveAttBackdate:',e);
+  }
+}
+
+
+// ════════════════════════════════════════════════════════════
+//  EDIT STOCK BALANCE — แก้ไขยอดคงเหลือโดยตรง (Admin)
+// ════════════════════════════════════════════════════════════
+function editStockBalance(type, code, currentAv, arg1, arg2, arg3){
+  // type: 'rm' | 'wip' | 'fg'
+  // RM:  arg1=balance_opening, arg2=qty_in, arg3=qty_out
+  // WIP: arg1=qty_produced, arg2=qty_issued
+  // FG:  arg1=qty_in, arg2=qty_sold
+
+  const typeLabel={'rm':'RM & PK','wip':'WIP','fg':'สินค้า FG'}[type]||type;
+  const typeColor={'rm':'var(--accent)','wip':'var(--purple)','fg':'var(--green)'}[type]||'var(--navy)';
+
+  // สร้าง fields ตาม type
+  let fieldsHtml='';
+  if(type==='rm'){
+    fieldsHtml=`
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+        <div class="fgrp">
+          <label class="flbl">Balance เปิด (kg)</label>
+          <input type="number" class="fc2" id="esb-open" value="${arg1||0}" step="0.001" min="0">
+        </div>
+        <div class="fgrp">
+          <label class="flbl">รับเข้ารวม (kg)</label>
+          <input type="number" class="fc2" id="esb-in" value="${arg2||0}" step="0.001" min="0">
+        </div>
+        <div class="fgrp">
+          <label class="flbl">เบิกออกรวม (kg)</label>
+          <input type="number" class="fc2" id="esb-out" value="${arg3||0}" step="0.001" min="0">
+        </div>
+      </div>
+      <div style="background:var(--bg3);border-radius:6px;padding:8px;font-size:12px;margin-top:4px">
+        คงเหลือ = Balance เปิด + รับเข้า − เบิกออก = 
+        <b id="esb-preview">${fmt(currentAv,3)} kg</b>
+      </div>`;
+  } else if(type==='wip'){
+    fieldsHtml=`
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="fgrp">
+          <label class="flbl">ผลิตเข้ารวม (kg)</label>
+          <input type="number" class="fc2" id="esb-prod" value="${arg1||0}" step="0.001" min="0" onchange="esbPreviewWIP()">
+        </div>
+        <div class="fgrp">
+          <label class="flbl">เบิกออกรวม (kg)</label>
+          <input type="number" class="fc2" id="esb-issued" value="${arg2||0}" step="0.001" min="0" onchange="esbPreviewWIP()">
+        </div>
+      </div>
+      <div style="background:var(--bg3);border-radius:6px;padding:8px;font-size:12px;margin-top:4px">
+        คงเหลือ = ผลิตเข้า − เบิกออก = <b id="esb-preview">${fmt(currentAv,3)} kg</b>
+      </div>`;
+  } else if(type==='fg'){
+    fieldsHtml=`
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="fgrp">
+          <label class="flbl">รับเข้ารวม (ชิ้น)</label>
+          <input type="number" class="fc2" id="esb-in" value="${arg1||0}" step="1" min="0" onchange="esbPreviewFG()">
+        </div>
+        <div class="fgrp">
+          <label class="flbl">ขายออกรวม (ชิ้น)</label>
+          <input type="number" class="fc2" id="esb-sold" value="${arg2||0}" step="1" min="0" onchange="esbPreviewFG()">
+        </div>
+      </div>
+      <div style="background:var(--bg3);border-radius:6px;padding:8px;font-size:12px;margin-top:4px">
+        คงเหลือ = รับเข้า − ขาย = <b id="esb-preview">${fmt(currentAv,0)} ชิ้น</b>
+      </div>`;
+  }
+
+  openMo(`⚖️ แก้ไขยอดคงเหลือ ${typeLabel}`,`
+    <div style="background:rgba(0,0,0,.04);border-radius:8px;padding:10px;margin-bottom:12px">
+      <span style="font-family:monospace;font-weight:700;color:${typeColor}">${code}</span>
+      <span style="margin-left:8px;color:var(--text3);font-size:12px">คงเหลือปัจจุบัน: <b>${fmt(currentAv,3)}</b></span>
+    </div>
+    ${fieldsHtml}
+    <div class="fgrp" style="margin-top:10px">
+      <label class="flbl">📝 เหตุผลที่แก้ไข *</label>
+      <input type="text" class="fc2" id="esb-reason" placeholder="เช่น ปรับยอดหลังนับ Stock จริง, ยอด opening สินค้า..." required>
+    </div>
+    <div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:6px;padding:8px;font-size:11px;margin-bottom:10px">
+      ⚠️ การแก้ไขยอดจะถูกบันทึก Log ทุกครั้ง — ใช้เมื่อนับ Stock จริงแล้วพบว่าไม่ตรงระบบครับ
+    </div>
+    <button class="btn btnP" style="width:100%" onclick="saveStockBalance('${type}','${code}')">
+      💾 บันทึกยอดใหม่
+    </button>
+    <div id="esb-msg" style="margin-top:8px"></div>`);
+
+  // bind oninput สำหรับ RM preview
+  if(type==='rm'){
+    setTimeout(()=>{
+      ['esb-open','esb-in','esb-out'].forEach(id=>{
+        const el=document.getElementById(id);
+        if(el) el.addEventListener('input',()=>{
+          const o=parseFloat(document.getElementById('esb-open')?.value)||0;
+          const i=parseFloat(document.getElementById('esb-in')?.value)||0;
+          const out=parseFloat(document.getElementById('esb-out')?.value)||0;
+          const p=document.getElementById('esb-preview');
+          if(p) p.textContent=fmt(o+i-out,3)+' kg';
+        });
+      });
+    },200);
+  }
+}
+
+function esbPreviewWIP(){
+  const prod=parseFloat(document.getElementById('esb-prod')?.value)||0;
+  const iss=parseFloat(document.getElementById('esb-issued')?.value)||0;
+  const p=document.getElementById('esb-preview');
+  if(p) p.textContent=fmt(prod-iss,3)+' kg';
+}
+
+function esbPreviewFG(){
+  const i=parseFloat(document.getElementById('esb-in')?.value)||0;
+  const s=parseFloat(document.getElementById('esb-sold')?.value)||0;
+  const p=document.getElementById('esb-preview');
+  if(p) p.textContent=fmt(i-s,0)+' ชิ้น';
+}
+
+async function saveStockBalance(type, code){
+  const reason=document.getElementById('esb-reason')?.value?.trim();
+  if(!reason){msgEl('esb-msg','กรุณาระบุเหตุผลครับ','e');return;}
+  msgEl('esb-msg','<span class="spin"></span> กำลังบันทึก...','i');
+  try{
+    let updateData={};
+    let table='';
+    let idField='';
+    if(type==='rm'){
+      table='stock_material';
+      idField=`code=eq.${code}`;
+      updateData={
+        balance_opening: parseFloat(document.getElementById('esb-open')?.value)||0,
+        qty_in: parseFloat(document.getElementById('esb-in')?.value)||0,
+        qty_out: parseFloat(document.getElementById('esb-out')?.value)||0,
+      };
+      // ตรวจว่ามีใน stock_material ไหม
+      const existing=await sbG('stock_material',{f:[`code=eq.${code}`]});
+      if(!existing.length){
+        // สร้างใหม่
+        const masterRow=(_matData||[]).find(m=>m.code===code)||{};
+        await sbP('stock_material',{code,...updateData,name:masterRow.name||code,unit:masterRow.unit||'kg',stock_min:masterRow.stock_min||0});
+        await logA('UPDATE','stock_rm',`ปรับยอด RM ${code}: bal=${updateData.balance_opening} in=${updateData.qty_in} out=${updateData.qty_out} | ${reason}`);
+        window._cachedRM=null;
+        msgEl('esb-msg','✅ สร้างและบันทึกยอดสำเร็จ','s');
+        setTimeout(()=>{closeMo();loadRM();},800);return;
+      }
+    } else if(type==='wip'){
+      table='wip_stock';
+      idField=`code=eq.${code}`;
+      updateData={
+        qty_produced: parseFloat(document.getElementById('esb-prod')?.value)||0,
+        qty_issued: parseFloat(document.getElementById('esb-issued')?.value)||0,
+      };
+      // ตรวจว่ามีใน wip_stock ไหม
+      const existWIP=await sbG('wip_stock',{f:[`code=eq.${code}`]}).catch(()=>[]);
+      if(!existWIP.length){
+        await sbP('wip_stock',{code,...updateData});
+        await logA('UPDATE','stock_wip',`ปรับยอด WIP ${code}: produced=${updateData.qty_produced} issued=${updateData.qty_issued} | ${reason}`);
+        window._cachedWIPStock=null;
+        msgEl('esb-msg','✅ สร้างและบันทึกยอดสำเร็จ','s');
+        setTimeout(()=>{closeMo();loadWIPStock();},800);return;
+      }
+    } else if(type==='fg'){
+      table='stock_product';
+      idField=`sku=eq.${code}`;
+      updateData={
+        qty_in: parseFloat(document.getElementById('esb-in')?.value)||0,
+        qty_sold: parseFloat(document.getElementById('esb-sold')?.value)||0,
+      };
+      const existFG=await sbG('stock_product',{f:[`sku=eq.${code}`]}).catch(()=>[]);
+      if(!existFG.length){
+        await sbP('stock_product',{sku:code,...updateData});
+        await logA('UPDATE','stock_fg',`ปรับยอด FG ${code}: in=${updateData.qty_in} sold=${updateData.qty_sold} | ${reason}`);
+        msgEl('esb-msg','✅ สร้างและบันทึกยอดสำเร็จ','s');
+        setTimeout(()=>{closeMo();loadFG();},800);return;
+      }
+    }
+    // UPDATE
+    await sbU(table,updateData,idField);
+    await logA('UPDATE',`stock_${type}`,
+      `ปรับยอด ${type.toUpperCase()} ${code}: ${JSON.stringify(updateData)} | ${reason}`);
+    // clear caches
+    window._cachedRM=null;window._cachedWIPStock=null;
+    msgEl('esb-msg','✅ บันทึกยอดสำเร็จ','s');
+    setTimeout(()=>{
+      closeMo();
+      if(type==='rm') loadRM();
+      else if(type==='wip') loadWIPStock();
+      else if(type==='fg') loadFG();
+    },800);
+  }catch(e){
+    msgEl('esb-msg','❌ '+e.message,'e');
+    console.error('saveStockBalance:',e);
   }
 }
 
