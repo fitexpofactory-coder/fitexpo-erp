@@ -4648,12 +4648,17 @@ function hrStBadge(s){return{pending:'<span class="badge ba">⏳ รอ</span>',
 async function hrLoadCheckIn(){
   const today=new Date().toISOString().slice(0,10);
   try{
-    const att=await sbG('attendance',{f:[`emp_code=eq.${CU?.username||CU?.emp_code||''}`,`att_date=eq.${today}`]});
+    await hrInit(); // ensure _hrEmps loaded
+    // หา emp_code ที่ถูกต้องจาก employee record
+    const emp=_hrEmps.find(e=>e.emp_code===CU?.emp_code||e.emp_code===CU?.username||e.email===CU?.email);
+    const empCode=emp?.emp_code||CU?.emp_code||CU?.username||'';
+    if(!empCode){console.warn('hrLoadCheckIn: no empCode');hrUpdateCIUI();return;}
+    const att=await sbG('attendance',{f:[`emp_code=eq.${empCode}`,`att_date=eq.${today}`]});
     _hrTodayAtt=att[0]||null;
     hrUpdateCIUI();
     hrLoadCIHistory();
     hrLoadCIStats();
-  }catch(e){console.warn(e);}
+  }catch(e){console.warn('hrLoadCheckIn:',e);}
 }
 
 function hrUpdateCIUI(){
