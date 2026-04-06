@@ -1312,7 +1312,7 @@ textarea.fc2{resize:vertical;min-height:60px}
 
 <!-- HR ATTENDANCE -->
 <div id="pg-hr-attendance" class="pg">
-  <div class="ch2 mb3" style="flex-wrap:wrap;gap:6px">
+  <div class="ch2 mb3" style="flex-wrap:wrap;gap:6px" id="hr-att-toolbar">
     <input type="month" class="fc2" id="hr-att-month" style="width:160px">
     <select class="fc2" id="hr-att-emp" style="width:220px">
       <option value="all">👥 ทุกคน (All)</option>
@@ -1320,8 +1320,7 @@ textarea.fc2{resize:vertical;min-height:60px}
     <button class="btn btnP sm" onclick="hrLoadAttendance()">🔍 โหลด</button>
     <button class="btn btnT sm" onclick="hrPrintAtt()">🖨️ พิมพ์</button>
     <button class="btn btnS sm" onclick="hrLoadAttendance()">🔄</button>
-    ${CU?.role==='admin'||CU?.role==='hr'?`
-      <button class="btn btnN sm" onclick="hrAddAttBackdate()">➕ เพิ่มย้อนหลัง</button>`:``}
+    <span id="hr-att-admin-btns"></span>
   </div>
   <div class="g4 mb3">
     <div class="kpi kb"><div class="kl">มาทำงาน</div><div class="kv" id="hr-att-p" style="color:var(--accent)">—</div></div>
@@ -5657,13 +5656,39 @@ async function hrLoadCIStats(){
 // ── ATTENDANCE ────────────────────────────────────────────
 async function hrLoadAttendance(){
   await hrInit();
+  // set default month
+  const monthEl=document.getElementById('hr-att-month');
+  if(monthEl&&!monthEl.value) monthEl.value=new Date().toISOString().slice(0,7);
   const sel=document.getElementById('hr-att-emp');
   const empCode=sel?.value||'all';
-  const month=document.getElementById('hr-att-month').value||new Date().toISOString().slice(0,7);
+  const month=monthEl?.value||new Date().toISOString().slice(0,7);
+
+  // populate employee dropdown (admin เห็นทุกคน)
+  const isAdmin=CU?.role==='admin'||CU?.role==='hr';
+  if(sel&&sel.options.length<=1&&_hrEmps.length>0){
+    const curVal=sel.value;
+    sel.innerHTML='<option value="all">👥 ทุกคน (All)</option>';
+    if(isAdmin){
+      _hrEmps.forEach(e=>{
+        const o=document.createElement('option');
+        o.value=e.emp_code;
+        o.textContent=`${e.emp_code} — ${e.first_name||''} ${e.last_name||''}`;
+        sel.appendChild(o);
+      });
+      sel.value=curVal||'all';
+    }
+  }
+
+  // แสดงปุ่ม admin
+  const adminBtns=document.getElementById('hr-att-admin-btns');
+  if(adminBtns){
+    adminBtns.innerHTML=isAdmin
+      ?`<button class="btn btnN sm" onclick="hrAddAttBackdate()">➕ เพิ่มย้อนหลัง</button>
+        <button class="btn btnT sm" onclick="hrPrintAllAttSummary()">🖨️ พิมพ์สรุปทุกคน</button>`
+      :'';
+  }
   const[yr,mn]=month.split('-');
   const from=`${yr}-${mn}-01`,to=`${yr}-${mn}-${new Date(yr,mn,0).getDate()}`;
-  const isAdmin=CU?.role==='admin'||CU?.role==='hr';
-
   // กำหนด filter
   let flt;
   if(!isAdmin){
