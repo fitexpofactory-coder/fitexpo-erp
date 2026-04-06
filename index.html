@@ -193,32 +193,32 @@ textarea.fc2{resize:vertical;min-height:60px}
 
 /* ═══ DOCUMENT A4 ═════════════════════════════════════════════ */
 .pdoc{background:white;font-family:'Sarabun',sans-serif;font-size:9pt;page-break-inside:auto;overflow:hidden;color:#111;padding:12px;margin-bottom:20px;border:1px solid var(--border);border-radius:4px}
-.pdoc-hdr{display:grid;grid-template-columns:auto 1fr auto;gap:10px;border-bottom:3px solid var(--navy);padding-bottom:10px;margin-bottom:10px;align-items:start}
-.pdoc-co{font-size:12.5pt;font-weight:800;color:var(--navy);margin-bottom:2px}
-.pdoc-co-sub{font-size:7.5pt;color:#555;line-height:1.5}
+.pdoc-hdr{display:grid;grid-template-columns:auto 1fr auto;gap:8px;border-bottom:2.5px solid var(--navy);padding-bottom:6px;margin-bottom:6px;align-items:center}
+.pdoc-co{font-size:11pt;font-weight:800;color:var(--navy);margin-bottom:1px}
+.pdoc-co-sub{font-size:7pt;color:#555;line-height:1.4}
 .pdoc-tit{text-align:center}
-.pdoc-tit-main{font-size:16pt;font-weight:900;color:var(--navy)}
-.pdoc-tit-sub{font-size:8.5pt;color:#555;margin-top:3px}
-.pdoc-no{text-align:right;font-size:8.5pt}
-.pdoc-no-val{font-family:monospace;font-size:11pt;font-weight:700;color:var(--navy);margin-top:2px}
-.pdoc-info{display:grid;border:1px solid #ccc;margin-bottom:8px}
-.pdoc-info-row{display:grid;border-bottom:1px solid #ddd}
+.pdoc-tit-main{font-size:14pt;font-weight:900;color:var(--navy)}
+.pdoc-tit-sub{font-size:8pt;color:#555;margin-top:2px}
+.pdoc-no{text-align:right;font-size:8pt}
+.pdoc-no-val{font-family:monospace;font-size:10pt;font-weight:700;color:var(--navy);margin-top:1px}
+.pdoc-info{display:grid;border:1px solid #ccc;margin-bottom:5px}
+.pdoc-info-row{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid #ddd}
 .pdoc-info-row:last-child{border-bottom:none}
-.pdoc-cell{padding:6px 10px;border-right:1px solid #ddd;font-size:9pt}
+.pdoc-cell{padding:4px 8px;border-right:1px solid #ddd;font-size:8.5pt}
 .pdoc-cell:last-child{border-right:none}
-.pdoc-cell-lbl{font-size:7.5pt;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:2px}
-.pdoc-sec{background:var(--navy);color:white;padding:5px 10px;font-size:8.5pt;font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin-bottom:0}
+.pdoc-cell-lbl{font-size:7pt;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:1px}
+.pdoc-sec{background:var(--navy);color:white;padding:4px 8px;font-size:8pt;font-weight:800;text-transform:uppercase;letter-spacing:.4px;margin-bottom:0}
 .pdoc-table{width:100%;border-collapse:collapse;font-size:9pt;margin-bottom:6px}
-.pdoc-table th{background:#EBF3FA;padding:4px 6px;text-align:center;font-size:7.5pt;font-weight:800;border:1px solid #bbb}
-.pdoc-table td{padding:3px 6px;border:1px solid #ccc;vertical-align:middle;font-size:8.5pt}
+.pdoc-table th{background:#EBF3FA;padding:3px 5px;text-align:center;font-size:7pt;font-weight:800;border:1px solid #bbb}
+.pdoc-table td{padding:2.5px 5px;border:1px solid #ccc;vertical-align:middle;font-size:8pt}
 .wb{width:100%;height:20px;border:none;border-bottom:1.5px solid #777;background:#FFFDE7;font-size:8.5pt;padding:0 4px;text-align:right;font-family:var(--sarabun)}
-.pdoc-guide{background:#FFFDE7;border:1px solid #F59E0B;border-radius:4px;padding:6px 10px;font-size:8pt;margin-bottom:6px;color:#92400E}
-.pdoc-sig{display:grid;border-top:2px solid #ddd;padding-top:8px;margin-top:10px}
-.pdoc-sig-cell{padding:6px 14px;text-align:center;border-right:1px solid #ddd}
+.pdoc-guide{background:#FFFDE7;border:1px solid #F59E0B;border-radius:4px;padding:4px 8px;font-size:7.5pt;margin-bottom:4px;color:#92400E}
+.pdoc-sig{display:grid;grid-template-columns:repeat(4,1fr);border-top:1.5px solid #ddd;padding-top:6px;margin-top:8px}
+.pdoc-sig-cell{padding:4px 10px;text-align:center;border-right:1px solid #ddd}
 .pdoc-sig-cell:last-child{border-right:none}
-.pdoc-sig-lbl{font-size:8.5pt;font-weight:700;color:#555;margin-bottom:28px}
-.pdoc-sig-line{border-bottom:1px solid #555;margin:0 8px}
-.pdoc-sig-name{font-size:7.5pt;color:#777;margin-top:3px}
+.pdoc-sig-lbl{font-size:7.5pt;font-weight:700;color:#555;margin-bottom:22px}
+.pdoc-sig-line{border-bottom:1px solid #555;margin:0 6px}
+.pdoc-sig-name{font-size:7pt;color:#777;margin-top:2px}
 
 .count-type-card.selected{border-color:var(--accent)!important;background:rgba(27,94,199,.08)}
 .count-type-card:hover{border-color:var(--accent);background:rgba(27,94,199,.04)}
@@ -839,7 +839,18 @@ textarea.fc2{resize:vertical;min-height:60px}
     <button class="btn btnS sm" onclick="loadWIPMgr()">🔄</button>
   </div>
   <div class="tw"><table>
-    <thead><tr><th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_wip_name">${_lang==="en"?"WIP Name":"ชื่อ WIP"}</th><th data-i18n="col_cat">หมวด</th><th>Batch kg</th><th>Yield%</th><th style="color:var(--green)">${_lang==="en"?"Price/kg":"ราคา/kg (฿)"}</th><th>Storage</th><th>Shelf Life</th><th data-i18n="col_edit">แก้ไข</th><th>BOM</th></tr></thead>
+    <thead><tr>
+      <th>รหัส</th>
+      <th>ชื่อ WIP</th>
+      <th>หมวด</th>
+      <th>Batch kg</th>
+      <th>Yield%</th>
+      <th style="color:var(--green)">ราคา/kg (฿)</th>
+      <th>Storage</th>
+      <th>Shelf Life</th>
+      <th>แก้ไข</th>
+      <th>BOM</th>
+    </tr></thead>
     <tbody id="wipm-tb"></tbody>
   </table></div>
 </div>
@@ -1404,7 +1415,7 @@ textarea.fc2{resize:vertical;min-height:60px}
     </div>
     <div class="ch2 mb3" style="gap:8px">
       <input type="month" class="fc2" id="hr-ot-admin-month" style="width:160px"
-        value="${new Date().toISOString().slice(0,7)}">
+        >
       <button class="btn btnP sm" onclick="hrLoadAdminOTReport()">📊 โหลด</button>
       <button class="btn btnT sm" onclick="hrPrintOTSummary()">🖨️ พิมพ์</button>
     </div>
@@ -2035,10 +2046,16 @@ async function loadBOMDetail(code){
     const isFG=BOM_TYPE==='fg';
     const bomTable=isFG?'bom_master':'wip_bom';
     const codeField=isFG?'sku_code':'wip_code';
-    const [rows,master]=await Promise.all([
+    const [rows,master,matPrices]=await Promise.all([
       sbG(bomTable,{f:[`${codeField}=eq.${code}`],ord:'id.asc'}),
       isFG?sbG('master_product',{f:[`sku=eq.${code}`]}):sbG('wip_master',{f:[`code=eq.${code}`]}),
+      sbG('master_material',{s:'code,price_per_unit'}).catch(()=>[]),
     ]);
+    // สร้าง price map
+    const _priceMap={};
+    (matPrices||[]).forEach(m=>{ if(m.price_per_unit) _priceMap[m.code]=Number(m.price_per_unit); });
+    // เพิ่มราคา WIP จาก cache
+    (window._cachedWIPs||[]).forEach(w=>{ if(w.price_per_kg) _priceMap[w.code]=Number(w.price_per_kg); });
     const m=master[0];
     const batchKg=m?.batch_kg||50;
     const baseBatchKg=batchKg;
@@ -2117,10 +2134,44 @@ async function loadBOMDetail(code){
   const totalCoating=secCoating.reduce((s,r)=>s+Number(r.qty_per_batch||0)*scaleFactor*n,0);
   const totalPK=units?pk.reduce((s,r)=>s+Number(r.qty_per_batch||0)*units,0):pk.reduce((s,r)=>s+Number(r.qty_per_batch||0)*n,0);
       const totalWIP=wip.reduce((s,r)=>s+getQty(r),0);
+      // คำนวณต้นทุน
+      let totalCost=0, missingPrice=[];
+      rows.forEach(r=>{
+        const matCode=r.mat_code||r.rm_code||'';
+        const pct=Number(r.pct_of_batch||0);
+        const qty=Number(r.qty_per_batch||0);
+        let kgPB = pct>0 ? pct/100*batchKg : qty*scaleFactor;
+        const unitL=(r.unit||'kg').toLowerCase();
+        if(unitL==='g'||unitL==='ml') kgPB/=1000;
+        const price=_priceMap[matCode]||0;
+        if(matCode&&!price) missingPrice.push(matCode);
+        totalCost+=kgPB*price;
+      });
+      const yieldPct2=m?.yield_pct||m?.yield_percent||95;
+      const pricePerKgInput = batchKg>0 ? totalCost/batchKg : 0;
+      const pricePerKgOutput = yieldPct2>0 ? pricePerKgInput/(yieldPct2/100) : pricePerKgInput;
+      const missingNote = missingPrice.length>0 ? `<div style="color:var(--amber);font-size:11px;margin-top:4px">⚠️ ไม่มีราคา: ${[...new Set(missingPrice)].join(', ')}</div>` : '';
+      const costColor = pricePerKgOutput>0 ? 'var(--green)' : 'var(--text3)';
+
       html+=`<div style="background:var(--bg3);border-radius:6px;padding:10px;margin-top:10px;font-size:12px">
         <div style="display:flex;justify-content:space-between"><span>รวม RM:</span><span class="mn">${fmt(totalRM,3)} kg</span></div>
         <div style="display:flex;justify-content:space-between"><span>รวม WIP:</span><span class="mn">${fmt(totalWIP,3)} kg</span></div>
         <div style="display:flex;justify-content:space-between;font-weight:700;margin-top:4px;border-top:1px solid var(--border);padding-top:4px"><span>รวม/Batch:</span><span class="mn">${fmt(totalRM+totalWIP,3)} kg / ${batchKg} kg target</span></div>
+        ${!isFG?`
+        <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px">
+          <div style="font-weight:700;color:var(--navy);margin-bottom:6px">💰 ต้นทุนวัตถุดิบ</div>
+          <div style="display:grid;grid-template-columns:1fr auto;gap:4px;font-size:11px">
+            <span>ต้นทุนรวม/Batch:</span><span class="mn" style="font-weight:700">${thb(totalCost)}</span>
+            <span>ต้นทุน/kg (input):</span><span class="mn">${thb(pricePerKgInput)}/kg</span>
+            <span style="color:var(--navy);font-weight:700">ต้นทุน/kg output (÷${yieldPct2}%):</span>
+            <span class="mn" style="font-weight:800;font-size:13px;color:${costColor}">${thb(pricePerKgOutput)}/kg</span>
+          </div>
+          ${missingNote}
+          <button class="btn btnG" style="width:100%;margin-top:8px;font-size:12px"
+            onclick="saveBOMCostToWIP('${code}',${pricePerKgOutput.toFixed(4)})">
+            💾 บันทึกต้นทุน ${thb(pricePerKgOutput)}/kg → WIP Master
+          </button>
+        </div>`:``}
       </div>`;
     }
     document.getElementById('bom-detail-panel').innerHTML=html;
@@ -2258,36 +2309,102 @@ function bomAutoKey(e){
 
 
 async function submitAddBOMRow(code,table,codeField){
-  const mc=document.getElementById('nbr-code').value.trim();
-  const mn=document.getElementById('nbr-name').value.trim();
-  const qty=parseFloat(document.getElementById('nbr-qty').value)||0;
-  const unit=document.getElementById('nbr-unit').value;
-  const note=document.getElementById('nbr-note').value;
-  if(!mc||!qty){msgEl('nbr-msg','กรุณากรอกรหัสและปริมาณ','e');return;}
+  const mc   = document.getElementById('nbr-code').value.trim();
+  const mn   = document.getElementById('nbr-name').value.trim();
+  const qty  = parseFloat(document.getElementById('nbr-qty')?.value)||0;
+  const unit = document.getElementById('nbr-unit').value;
+  const note = document.getElementById('nbr-note')?.value||'';
+  const section = document.getElementById('nbr-section')?.value||'';
+  // pct: ถ้า mode=pct ใช้จาก nbr-pct, ถ้า mode=abs คำนวณจาก qty/batchKg
+  const qtyMode = document.getElementById('nbr-qty-mode')?.value||'abs';
+  let pct = 0;
+  if(qtyMode==='pct'){
+    pct = parseFloat(document.getElementById('nbr-pct')?.value)||0;
+  }
+  if(!mc||(!qty&&!pct)){msgEl('nbr-msg','กรุณากรอกรหัสและปริมาณ','e');return;}
   try{
-    const data={[codeField]:code,qty_per_batch:qty,unit,note};
+    const data={[codeField]:code, qty_per_batch:qty, unit, note, section, pct_of_batch:pct};
     if(table==='bom_master'){data.mat_code=mc;data.mat_name=mn;}
     else{data.rm_code=mc;data.rm_name=mn;}
     await sbP(table,data);
-    await logA('CREATE','bom',`เพิ่ม BOM ${code}←${mc} ${qty}${unit}`);
-    msgEl('nbr-msg','✅ บันทึกแล้ว','s');
+    await logA('CREATE','bom',`เพิ่ม BOM ${code}←${mc} ${qty||pct+'%'}${unit} sec=${section||'-'}`);
+    msgEl('nbr-msg','✅ บันทึกแล้ว'+(section?` [${section}]`:''),'s');
     setTimeout(()=>{closeMo();loadBOMDetail(code);},800);
   }catch(e){msgEl('nbr-msg','❌ '+e.message,'e');}
 }
 
 async function editBOMRow(id,code,table,codeField,batchKg){
-  const rows=await sbG(table,{f:[`id=eq.${id}`]});const r=rows[0];if(!r)return;
-  const matCode=r.mat_code||r.rm_code||'';
-  const matName=r.mat_name||r.rm_name||'';
-  openMo(`✏️ แก้ไข BOM Row`,`
-    <div class="fgrp"><label class="flbl">รหัสวัสดุ</label><input type="text" class="fc2" id="ebr-code" value="${matCode}"></div>
-    <div class="fgrp"><label class="flbl">ชื่อ</label><input type="text" class="fc2" id="ebr-name" value="${matName}"></div>
-    <div style="display:flex;gap:10px">
-      <div class="fgrp" style="flex:1"><label class="flbl">ปริมาณ/Batch</label><input type="number" class="fc2" id="ebr-qty" value="${r.qty_per_batch||0}" step="0.001"></div>
-      <div class="fgrp" style="flex:1"><label class="flbl">หน่วย</label><select class="fc2" id="ebr-unit"><option ${r.unit==='kg'?'selected':''}>kg</option><option ${r.unit==='g'?'selected':''}>g</option><option ${r.unit==='pcs'?'selected':''}>pcs</option><option ${r.unit==='Roll'?'selected':''}>Roll</option><option ${r.unit==='liter'?'selected':''}>liter</option></select></div>
+  const rows=await sbG(table,{f:[`id=eq.${id}`]});
+  const r=rows[0]; if(!r)return;
+  const mc=r.mat_code||r.rm_code||'';
+  const mn=r.mat_name||r.rm_name||'';
+  const sec=r.section||'';
+  const pct=Number(r.pct_of_batch||0);
+  const selOpt=(val,opts)=>opts.map(o=>`<option value="${o.v}" ${sec===o.v?'selected':''}>${o.l}</option>`).join('');
+  openMo(`✏️ แก้ไข BOM — ${mc}`,`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="fgrp">
+        <label class="flbl">รหัสวัสดุ</label>
+        <input type="text" class="fc2" id="ebr-code" value="${mc}">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">ชื่อ</label>
+        <input type="text" class="fc2" id="ebr-name" value="${mn}">
+      </div>
     </div>
-    <div class="fgrp"><label class="flbl"><span data-i18n="lbl_note">หมายเหตุ</span></label><input type="text" class="fc2" id="ebr-note" value="${r.note||''}"></div>
-    <button class="btn btnP" style="width:100%" onclick="submitEditBOMRow(${id},'${code}','${table}')">💾 บันทึก</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      <div class="fgrp">
+        <label class="flbl">ปริมาณ/Batch (qty)</label>
+        <input type="number" class="fc2" id="ebr-qty" value="${r.qty_per_batch||0}" step="0.001">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">% ของ Batch</label>
+        <input type="number" class="fc2" id="ebr-pct" value="${pct}" step="0.01" min="0"
+          placeholder="0 = ใช้ qty">
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">${pct>0?(pct/100*(batchKg||50)).toFixed(3)+' kg':'0 = ใช้ qty'}</div>
+      </div>
+      <div class="fgrp">
+        <label class="flbl">หน่วย</label>
+        <select class="fc2" id="ebr-unit">
+          <option ${r.unit==='kg'?'selected':''}>kg</option>
+          <option ${r.unit==='g'?'selected':''}>g</option>
+          <option ${r.unit==='liter'?'selected':''}>liter</option>
+          <option ${r.unit==='ml'?'selected':''}>ml</option>
+          <option ${r.unit==='pcs'?'selected':''}>pcs</option>
+          <option ${r.unit==='Roll'?'selected':''}>Roll</option>
+          <option ${r.unit==='Box'?'selected':''}>Box</option>
+          <option ${r.unit==='Pack'?'selected':''}>Pack</option>
+          <option ${r.unit==='ถุง'?'selected':''}>ถุง</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="fgrp" style="background:rgba(27,94,199,.05);border:1.5px solid var(--accent);border-radius:8px;padding:10px">
+      <label class="flbl" style="color:var(--accent);font-weight:700;font-size:12px">
+        📂 Section — หมวดส่วนผสม *สำคัญ*
+      </label>
+      <select class="fc2" id="ebr-section" style="border:1.5px solid var(--accent);font-weight:600;font-size:13px">
+        <option value=""         ${sec===''?'selected':''}>— ไม่ระบุ (จะถือว่าเป็น Base) —</option>
+        <option value="Base"     ${sec==='Base'?'selected':''}    >🧱 Base — สูตรหลัก (รวม 100%)</option>
+        <option value="Filling"  ${sec==='Filling'?'selected':''}  >🍫 Filling — ไส้ขนม</option>
+        <option value="Coating"  ${sec==='Coating'?'selected':''}  >🍩 Coating — เคลือบ</option>
+        <option value="Crunch"   ${sec==='Crunch'?'selected':''}   >🥨 Crunch / Crispy</option>
+        <option value="Packaging" ${sec==='Packaging'?'selected':''}>📦 Packaging — บรรจุภัณฑ์</option>
+      </select>
+      <div style="font-size:10px;color:var(--text3);margin-top:5px;line-height:1.5">
+        💡 <b>Base</b> = ส่วนผสมหลัก รวมกัน = 100% ของ batch<br>
+        &nbsp;&nbsp;&nbsp;<b>Filling/Coating/Crunch</b> = แยกออกไปส่วนที่ 2 (ไม่นับ%)
+      </div>
+    </div>
+
+    <div class="fgrp">
+      <label class="flbl">หมายเหตุ</label>
+      <input type="text" class="fc2" id="ebr-note" value="${r.note||''}" placeholder="หมายเหตุเพิ่มเติม">
+    </div>
+    <button class="btn btnP" style="width:100%;margin-top:6px"
+      onclick="submitEditBOMRow(${id},'${code}','${table}')">
+      💾 บันทึก
+    </button>
     <div id="ebr-msg" style="margin-top:8px"></div>`);
 }
 
@@ -2295,11 +2412,22 @@ async function submitEditBOMRow(id,code,table){
   const isWIPTable=table==='wip_bom';
   const codeKey=isWIPTable?'rm_code':'mat_code';
   const nameKey=isWIPTable?'rm_name':'mat_name';
+  const section  = document.getElementById('ebr-section')?.value||'';
+  const pct      = parseFloat(document.getElementById('ebr-pct')?.value)||0;
+  const noteRaw  = document.getElementById('ebr-note')?.value||'';
   try{
-    await sbU(table,{[codeKey]:document.getElementById('ebr-code').value,[nameKey]:document.getElementById('ebr-name').value,qty_per_batch:parseFloat(document.getElementById('ebr-qty').value)||0,unit:document.getElementById('ebr-unit').value,note:document.getElementById('ebr-note').value},`id=eq.${id}`);
-    await logA('UPDATE','bom',`แก้ไข BOM row ${id}`);
-    msgEl('ebr-msg','✅ บันทึก','s');
-    setTimeout(()=>{closeMo();loadBOMDetail(code);},800);
+    await sbU(table,{
+      [codeKey]: document.getElementById('ebr-code').value,
+      [nameKey]: document.getElementById('ebr-name').value,
+      qty_per_batch: parseFloat(document.getElementById('ebr-qty').value)||0,
+      unit: document.getElementById('ebr-unit').value,
+      section: section,
+      pct_of_batch: pct,
+      note: noteRaw,
+    },`id=eq.${id}`);
+    await logA('UPDATE','bom',`แก้ไข BOM row ${id} section=${section} pct=${pct}`);
+    msgEl('ebr-msg','✅ บันทึกแล้ว — section: '+(section||'(ไม่ระบุ)'),'s');
+    setTimeout(()=>{closeMo();loadBOMDetail(code);},900);
   }catch(e){msgEl('ebr-msg','❌ '+e.message,'e');}
 }
 
@@ -2407,14 +2535,18 @@ async function runMRC(){
   if(!sku){msgEl('mrc-result','กรุณาเลือก SKU ก่อนครับ','e');return;}
   msgEl('mrc-result','<span class="spin"></span> กำลังตรวจสอบ Stock...','i');
   try{
-    const [bom,rmStock,wipStock]=await Promise.all([
+    const [bom,rmStock,wipStock,matMaster]=await Promise.all([
       sbG('bom_master',{f:[`sku_code=eq.${sku}`]}),
       sbG('stock_material'),
-      sbG('wip_stock',{s:'code,qty_produced,qty_issued'})
+      sbG('wip_stock',{s:'code,qty_produced,qty_issued'}),
+      sbG('master_material',{s:'code,price_per_unit'}).catch(()=>[])
     ]);
+    const _priceMap={};
+    (matMaster||[]).forEach(m=>{ if(m.price_per_unit) _priceMap[m.code]=Number(m.price_per_unit); });
     const rmMap={},wipMap={};
-    rmStock.forEach(r=>rmMap[r.code]={av:avRM(r),out:Number(r.qty_out||0),name:r.name||r.code});
+    rmStock.forEach(r=>rmMap[r.code]={av:avRM(r),out:Number(r.qty_out||0),name:r.name||r.code,price:_priceMap[r.code]||0});
     wipStock.forEach(w=>wipMap[w.code]={av:avWIP(w),iss:Number(w.qty_issued||0)});
+    enrichWipMapWithPrice(wipMap);
 
     let allOk=true;
     const rows=bom.map(r=>{
@@ -2424,7 +2556,8 @@ async function runMRC(){
       const ok=cur>=need;
       if(!ok)allOk=false;
       const short=ok?0:need-cur;
-      return{...r,need,cur,ok,short,isWIP};
+      const price_unit=isWIP?(wipMap[r.mat_code]?.price||0):(_priceMap[r.mat_code]||0);
+      return{...r,need,cur,ok,short,isWIP,price_unit};
     });
 
     // แสดงผล MRC
@@ -2441,6 +2574,7 @@ async function runMRC(){
           <th style="color:var(--green)">${_lang==="en"?"In Stock":"มีใน Stock"}</th>
           <th data-i18n="col_status">สถานะ</th>
           <th style="color:var(--red)">${_lang==="en"?"Shortage":"ขาด"}</th>
+          <th style="color:var(--green)">ราคา/หน่วย</th>
         </tr></thead>
         <tbody>
           ${rows.map(r=>`<tr style="background:${r.ok?'':'rgba(239,68,68,.06)'}">
@@ -2451,6 +2585,7 @@ async function runMRC(){
             <td class="mn" style="color:${r.ok?'var(--green)':'var(--red)'}">${fmt(r.cur,3)}</td>
             <td>${r.ok?`<span class="badge bg">${_lang==='en'?'✅ OK':'✅ พอ'}</span>`:'<span class="badge br">❌ ขาด</span>'}</td>
             <td class="mn" style="color:var(--red);font-weight:700">${r.short>0?fmt(r.short,3):'—'}</td>
+            <td class="mn" style="color:${r.price_unit>0?'var(--green)':'var(--text3)'};">${r.price_unit>0?thb(r.price_unit):'—'}</td>
           </tr>`).join('')}
         </tbody>
         <tfoot><tr style="background:var(--bg3);font-weight:700">
@@ -2677,8 +2812,7 @@ function printMRCReport(){
   const mrc=window._lastMRC;
   if(!mrc){alert('กรุณาตรวจ MRC ก่อนครับ');return;}
   const today=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
-  const win=window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${_lang==='en'?'MRC Report':'MRC Report'}</title>
+  openPreviewWindow(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${_lang==='en'?'MRC Report':'MRC Report'}</title>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
     body{font-family:Sarabun,sans-serif;padding:15px;font-size:9pt}
@@ -2753,9 +2887,7 @@ function pt(k){return (_lang==='en'?PT_EN:PT_TH)[k]||k;}
   const lb=document.getElementById('lang-btn');
   if(lb) lb.textContent=_lang==='th'?'🌐 EN':'🌐 ไทย';
 window.print();setTimeout(()=>window.close(),3000);}<\/script>
-  </body></html>`);
-  win.document.close();
-}
+  </body></html>`,'พิมพ์เอกสาร');}
 
 async function updateWO(id,status){
   if(status==='ยกเลิก'){
@@ -2920,12 +3052,6 @@ async function buildDocHTML(type,code,n,dt,machine,method,customBatchKg=0,lossPc
   const wipCoating = wipRows.filter(r=>getSec2(r).includes('coating'));
   const wipCrunch  = wipRows.filter(r=>getSec2(r).includes('crunch')||getSec2(r).includes('crispy'));
   // DEBUG
-  console.log('[buildDocHTML] bom rows:',bom.length,'rm:',rm.length,'wipRows:',wipRows.length);
-  console.log('[buildDocHTML] wipBase:',wipBase.map(r=>r.mat_code||r.rm_code));
-  console.log('[buildDocHTML] wipFilling:',wipFilling.map(r=>r.mat_code||r.rm_code));
-  console.log('[buildDocHTML] wipCoating:',wipCoating.map(r=>r.mat_code||r.rm_code));
-  console.log('[buildDocHTML] secFilling:',secFilling.map(r=>r.mat_code||r.rm_code));
-  console.log('[buildDocHTML] BOM sample:',bom.slice(0,3).map(r=>({code:r.mat_code||r.rm_code,sec:r.section,note:r.note})));
   const pk=bom.filter(r=>getCode(r).startsWith('PK'));
 
   // แยก RM ตาม section (จาก note field)
@@ -3197,10 +3323,17 @@ async function buildDocHTML(type,code,n,dt,machine,method,customBatchKg=0,lossPc
 
 async function printBatchFor(code){
   const type=BOM_TYPE==='fg'?'fg':'wip';
-  const n=1,dt=new Date().toISOString().slice(0,10);
-  const html=await buildDocHTML(type,code,n,dt,'','');
-  document.getElementById('print-output').innerHTML=html;
-  window.print();
+  const n=1, dt=new Date().toISOString().slice(0,10);
+  try{
+    const docHtml=await buildDocHTML(type,code,n,dt,'','');
+    const fullHtml=`<!DOCTYPE html><html><head>
+      <meta charset="UTF-8"><title>Batch Record — ${code}</title>
+      <style>${PDOC_CSS}</style></head><body>${docHtml}</body></html>`;
+    openPreviewWindow(fullHtml,`Batch Record: ${code}`);
+  }catch(e){
+    alert('❌ ไม่สามารถสร้าง Batch Record: '+e.message);
+    console.error('printBatchFor:',e);
+  }
 }
 
 async function printFromProduction(){
@@ -3243,11 +3376,10 @@ async function printWORecord(id){
     const skuCode=wo.sku_code||'';
     const docType=skuCode.startsWith('WIP')?'wip':'fg';
     const docHtml=await buildDocHTML(docType,skuCode,wo.num_batches,wo.start_date,machine||'',method||'');
-    document.getElementById('print-output').innerHTML=docHtml;
-    const pgPrint=document.getElementById('pg-print');
-    if(pgPrint){pgPrint.style.display='block';}
-    window.print();
-    if(pgPrint){pgPrint.style.display='none';}
+    const fullHtml2=`<!DOCTYPE html><html><head>
+      <meta charset="UTF-8"><title>Batch Record — ${skuCode}</title>
+      <style>${PDOC_CSS}</style></head><body>${docHtml}</body></html>`;
+    openPreviewWindow(fullHtml2,`Batch Record: ${skuCode}`);
   }catch(e){
     alert('❌ พิมพ์ไม่ได้: '+e.message);
     console.error('printWORecord:',e);
@@ -4069,7 +4201,7 @@ async function buildMasterPrintHTML(type){
       <td style="font-size:8.5pt">${r.status||'Active'}</td>
     </tr>`).join('');
   } else if(type==='wip'){
-    const d=await sbG('wip_master',{s:'code,name,category,batch_kg',ord:'code.asc'});
+    const d=await sbG('wip_master',{s:'code,name,category,batch_kg,yield_pct,price_per_kg,shelf_life_days,status',ord:'code.asc'});
     headers=`<tr><th>#</th><th>${_lang==="en"?"WIP Code":"รหัส WIP"}</th><th data-i18n="col_wip_name">${_lang==="en"?"WIP Name":"ชื่อ WIP"}</th><th>หมวดหมู่</th><th>Batch(kg)</th><th>Yield%</th><th>Shelf Life(วัน)</th><th>การเก็บรักษา</th></tr>`;
     rows=d.map((r,i)=>`<tr style="background:${i%2===0?'#fff':'#f9f9f9'}">
       <td style="text-align:center">${i+1}</td>
@@ -4127,17 +4259,13 @@ async function buildMasterPrintHTML(type){
 
 async function printMasterList(type){
   const htmlContent=await buildMasterPrintHTML(type);
-  const win=window.open('','_blank');
-  win.document.write(htmlContent);
-  win.document.close();
-  win.onload=()=>win.print();
+  openPreviewWindow(htmlContent,'พิมพ์ทะเบียน');
 }
 
 async function pdfMasterList(type){
   const htmlContent=await buildMasterPrintHTML(type);
-  const win=window.open('','_blank');
-  win.document.write(htmlContent.replace('</body>','\x3Cscript>window.onload=()=>{window.print();setTimeout(()=>window.close(),3000);}<\/script></body>'));
-  win.document.close();
+  openPrintWindow(htmlContent,'พิมพ์ทะเบียน');
+  //win.document.close();
 }
 
 // ════════════════════════════════════════════════════════════
@@ -4842,8 +4970,7 @@ async function doInvPrint(sn){const html=await buildInvPrintHTML(sn);document.ge
 async function downloadInvPDF(){const sn=document.getElementById('inv-sess-sel').value;if(!sn){alert('กรุณาเลือกรอบนับก่อนครับ');return;}await doInvPDF(sn);}
 async function doInvPDF(sn){
   const html=await buildInvPrintHTML(sn);
-  const win=window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ใบนับสต็อก ${sn}</title>
+  openPreviewWindow(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ใบนับสต็อก ${sn}</title>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>body{font-family:'Sarabun',sans-serif;font-size:10pt;margin:0}@page{margin:10mm;size:A4}@media print{body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}
     .inv-print-doc{padding:12px}.ipd-hdr{display:grid;grid-template-columns:auto 1fr auto;gap:10px;border-bottom:3px solid #1B3A5C;padding-bottom:10px;margin-bottom:10px;align-items:start}
@@ -4860,9 +4987,7 @@ var _lang='${_lang||"th"}';
 var PT_EN={mrc_title:'Material Requirement Report (MRC)',mrc_sub:'Material Requirement Report',mrc_wo_sub:'MRC Report — Work Order Material Check',mrc_wo_sub2:'Material Requirement Check',payslip_title:'Pay Slip',payroll_title:'Payroll Summary',dil_title:'Attendance Bonus & Meal Allowance',po_title:'Purchase Order',batch_title:'Batch Production Record',batch_sub:'BATCH PRODUCTION RECORD',finish_goods:'Finished Goods',code:'Code',name:'Name',dept:'Department',pos:'Position',salary:'Salary',ot:'OT',gross:'Gross Income',sso:'Social Security',tax:'Withholding Tax',deduct:'Other Deductions',net:'Net Pay',work_days:'Work Days',absent:'Absent',leave:'Leave',late:'Late',food:'Meal Allowance (฿)',bonus:'Attend. Bonus (฿)',total:'Total (฿)',remark:'Remark',po_no:'PO No.',supplier:'Supplier',order_date:'Order Date',due_date:'Due Date',ref:'Reference',status:'Status',created_by:'Created By',item:'Item',qty:'Qty',unit:'Unit',price_unit:'Unit Price',amount:'Amount',grand_total:'Grand Total',mat_code:'Code',mat_name:'Material Name',used_in:'Used In',type:'Type',needed:'Required',stock:'In Stock',shortage:'Shortage',recommend:'Recommend (+20%)',all_ok:'✅ Sufficient Stock',has_short:'Items to Order',prod_plan_label:'Production Plan',sig_prepared:'Prepared By',sig_checked:'Checked By',sig_approved:'Approved By',sig_hr:'HR Staff',sig_prod:'Production Planning',sig_receiver:'Employee',sig_purchaser:'Purchaser',sig_recv_goods:'Receiver',income:'Income',deductions:'Deductions',base_salary:'Base Salary',allowance:'Allowance',special:'Bonus/Special',total_income:'Total Income',total_deduct:'Total Deductions',net_pay:'Net Pay',sso_label:'Social Security (5%)',tax_label:'Withholding Tax',date:'Date',total_emp:'Employees'};
 var PT_TH={mrc_title:'รายงานความต้องการวัตถุดิบ (MRC)',mrc_sub:'รายงานความต้องการวัตถุดิบ',mrc_wo_sub:'MRC Report — ตรวจสอบวัตถุดิบสำหรับ Work Order',mrc_wo_sub2:'Material Requirement Check',payslip_title:'ใบจ่ายเงินเดือน',payroll_title:'สรุปการจ่ายเงินเดือน',dil_title:'เบี้ยขยัน + ค่าอาหารกลางวัน',po_title:'ใบสั่งซื้อ / Purchase Order',batch_title:'ใบบันทึก Batch การผลิต',batch_sub:'BATCH PRODUCTION RECORD',finish_goods:'สินค้าสำเร็จรูป',code:'รหัส',name:'ชื่อ',dept:'แผนก',pos:'ตำแหน่ง',salary:'เงินเดือน',ot:'OT',gross:'รายได้รวม',sso:'ประกันสังคม',tax:'ภาษีหัก ณ ที่จ่าย',deduct:'หักอื่นๆ',net:'รับสุทธิ',work_days:'วันทำงาน',absent:'ขาด',leave:'ลา',late:'สาย',food:'ค่าอาหาร (฿)',bonus:'เบี้ยขยัน (฿)',total:'รวม (฿)',remark:'หมายเหตุ',po_no:'เลขที่ PO',supplier:'ผู้จำหน่าย',order_date:'วันที่สั่ง',due_date:'กำหนดส่ง',ref:'อ้างอิง',status:'สถานะ',created_by:'สร้างโดย',item:'รายการ',qty:'จำนวน',unit:'หน่วย',price_unit:'ราคา/หน่วย',amount:'รวม',grand_total:'รวมทั้งสิ้น',mat_code:'รหัส',mat_name:'ชื่อวัตถุดิบ',used_in:'ใช้ใน',type:'ประเภท',needed:'ต้องการ',stock:'Stock คงเหลือ',shortage:'ขาด',recommend:'แนะนำสั่ง+20%',all_ok:'✅ Stock พอทุกรายการ',has_short:'รายการที่ต้องสั่งซื้อ',prod_plan_label:'แผนการผลิต',sig_prepared:'จัดทำโดย',sig_checked:'ผู้ตรวจสอบ',sig_approved:'ผู้อนุมัติ',sig_hr:'HR ผู้จัดทำ',sig_prod:'ฝ่ายวางแผนการผลิต',sig_receiver:'ผู้รับเงิน',sig_purchaser:'ผู้สั่งซื้อ',sig_recv_goods:'ผู้รับ',income:'💰 รายได้',deductions:'📉 รายหัก',base_salary:'เงินเดือน',allowance:'เบี้ยเลี้ยง',special:'โบนัส/พิเศษ',total_income:'รวมรายได้',total_deduct:'รวมหัก',net_pay:'เงินได้สุทธิ (Net Pay)',sso_label:'ประกันสังคม (5%)',tax_label:'ภาษีหัก ณ ที่จ่าย',date:'วันที่',total_emp:'พนักงาน'};
 function pt(k){return (_lang==='en'?PT_EN:PT_TH)[k]||k;}
-<\/script></head><body>${html}\x3Cscript>window.onload=()=>{window.print();setTimeout(()=>window.close(),2000);}<\/script></body></html>`);
-  win.document.close();
-}
+<\/script></head><body>${html}\x3Cscript>window.onload=()=>{window.print();setTimeout(()=>window.close(),2000);}<\/script></body></html>`,'พิมพ์เอกสาร');}
 
 
 // ════════════════════════════════════════════════════════════
@@ -5857,6 +5982,9 @@ async function hrCancelLeave(reqNo){if(!confirm(`ยกเลิก ${reqNo}?`))
 // ── OT REQUEST ────────────────────────────────────────────
 async function hrLoadOT(){
   document.getElementById('hr-otr-date').value=new Date().toISOString().slice(0,10);
+  // set default month สำหรับ admin OT report
+  const adminMonth=document.getElementById('hr-ot-admin-month');
+  if(adminMonth&&!adminMonth.value) adminMonth.value=new Date().toISOString().slice(0,7);
   hrCheckOTType();
   hrLoadOTHistory();
 }
@@ -6102,8 +6230,7 @@ function hrPrintEmpList(){hrBuildPDF(document.getElementById('hr-emp-tb')?.close
 
 function hrBuildPDF(content,title){
   const today=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
-  const win=window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title>
+  openPreviewWindow(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>body{font-family:'Sarabun',sans-serif;font-size:10pt;background:white;padding:15px}@page{margin:10mm;size:A4}@media print{body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}
   table{width:100%;border-collapse:collapse}th{background:#1B3A5C;color:white;padding:5px 7px;font-size:8pt;border:1px solid #0d2c47}td{padding:4px 7px;border:1px solid #ddd;font-size:9pt}
@@ -6120,9 +6247,7 @@ function pt(k){return (_lang==='en'?PT_EN:PT_TH)[k]||k;}
     <div><img src="data:image/png;base64,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" alt="Fitwin" style="height:48px;width:auto;object-fit:contain;display:block;margin-bottom:4px"><div style="font-size:12pt;font-weight:800;color:#1B3A5C">บริษัท ฟิตเอ็กซ์โป จำกัด (สำนักงานใหญ่)</div><div style="font-size:8pt;color:#555">${_lang==='en'?'HR System | FitExpo ERP v4':'ระบบ HR | FitExpo ERP v4'}</div></div>
     <div style="text-align:right"><div style="font-size:14pt;font-weight:900;color:#1B3A5C">${title}</div><div style="font-size:8pt;color:#666">พิมพ์วันที่: ${today}</div></div>
   </div>${content}
-  \x3Cscript>window.onload=()=>{window.print();setTimeout(()=>window.close(),3000);}<\/script></body></html>`);
-  win.document.close();
-}
+  \x3Cscript>window.onload=()=>{window.print();setTimeout(()=>window.close(),3000);}<\/script></body></html>`,'พิมพ์เอกสาร');}
 
 // ── HR EMPLOYEES + LOGIN ──────────────────────────────────
 async function hrLoadEmployees(){
@@ -6394,16 +6519,14 @@ async function preloadAllDropdowns(){
 function printHRHolidays(){
   const yr=parseInt(document.getElementById('hr-hol-year')?.value)||new Date().getFullYear();
   buildHolidayHTML(yr).then(content=>{
-    const win=window.open('','_blank');
-    win.document.write(content);win.document.close();win.onload=()=>win.print();
+    openPreviewWindow(content,'ประกาศวันหยุด');
   });
 }
 function pdfHRHolidays(){
   const yr=parseInt(document.getElementById('hr-hol-year')?.value)||new Date().getFullYear();
   buildHolidayHTML(yr).then(content=>{
-    const win=window.open('','_blank');
-    win.document.write(content.replace('</body>','\x3Cscript>window.onload=()=>{window.print();setTimeout(()=>window.close(),3000);}<\/script></body>'));
-    win.document.close();
+    openPrintWindow(content,'ประกาศวันหยุด');
+    //win.document.close();
   });
 }
 
@@ -6831,7 +6954,7 @@ async function loadWIPMgr(){
   const tb=document.getElementById('wipm-tb');
   if(tb)tb.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px"><span class="spin"></span></td></tr>';
   try{
-    const d=await sbG('wip_master',{s:'code,name,category,batch_kg',ord:'code.asc'});
+    const d=await sbG('wip_master',{s:'code,name,category,batch_kg,yield_pct,price_per_kg,shelf_life_days,status',ord:'code.asc'});
     if(!tb)return;
     tb.innerHTML=d.length?d.map(w=>`<tr>
       <td class="mn" style="color:var(--purple)">${w.code}</td>
@@ -6839,6 +6962,7 @@ async function loadWIPMgr(){
       <td>${w.category||''}</td>
       <td class="mn">${w.batch_kg||50} kg</td>
       <td class="mn">${w.yield_pct||95}%</td>
+      <td class="mn" style="color:${w.price_per_kg>0?'var(--green)':'var(--text3)'};font-weight:700">${w.price_per_kg>0?thb(w.price_per_kg):'—'}</td>
       <td class="mn">${w.shelf_life_days||'—'} วัน</td>
       <td>${w.status||'Active'}</td>
       <td style="white-space:nowrap">
@@ -7549,8 +7673,7 @@ function hrPrintPayslip(){
   const preview=document.getElementById('payslip-preview');
   if(!preview?.innerHTML?.includes('บริษัท')){alert('กรุณา Preview ก่อนครับ');return;}
   const po=document.getElementById('print-output');
-  const win=window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${pt('payslip_title')}</title>
+  openPreviewWindow(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${pt('payslip_title')}</title>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
     body{font-family:'Sarabun',sans-serif;background:white;padding:10px;max-width:600px;margin:0 auto}
@@ -7565,9 +7688,7 @@ function pt(k){return (_lang==='en'?PT_EN:PT_TH)[k]||k;}
 <\/script></head><body>
   ${preview.innerHTML}
   \x3Cscript>window.onload=()=>{window.print();setTimeout(()=>window.close(),3000);}<\/script>
-  </body></html>`);
-  win.document.close();
-}
+  </body></html>`,'พิมพ์เอกสาร');}
 
 function hrPdfPayslip(){ hrPrintPayslip(); }
 
@@ -7588,8 +7709,7 @@ function hrPrintPayrollSummary(){
   </tr>`).join('');
   const grandGross=_payrollData.reduce((s,r)=>s+r.gross_income,0);
   const grandNet=_payrollData.reduce((s,r)=>s+r.net_pay,0);
-  const win=window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${_lang==='en'?'Payroll Summary':'สรุปเงินเดือน'}</title>
+  openPreviewWindow(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${_lang==='en'?'Payroll Summary':'สรุปเงินเดือน'}</title>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
     body{font-family:'Sarabun',sans-serif;background:white;padding:15px}
@@ -7629,9 +7749,7 @@ function pt(k){return (_lang==='en'?PT_EN:PT_TH)[k]||k;}
     ${_lang==="en"?"Ref: Social Security 5% (max ฿750) | Progressive income tax under Revenue Code Sec.48(1)":"${_lang==='en'?'Ref: Social Security 5% (max ฿750) | Progressive income tax under Revenue Code':'อ้างอิง: ประกันสังคม 5% (สูงสุด 750 บ.) | ภาษีตามบัญชีอัตราภาษีเงินได้บุคคลธรรมดา ม.48(1) ประมวลรัษฎากร'}"}
   </div>
   \x3Cscript>window.onload=()=>{window.print();setTimeout(()=>window.close(),3000);}<\/script>
-  </body></html>`);
-  win.document.close();
-}
+  </body></html>`,'พิมพ์เอกสาร');}
 
 function hrExportPayroll(){ hrPrintPayrollSummary(); }
 
@@ -7964,8 +8082,8 @@ async function ppCalcAll(){
           if(!matNeededFG[code]) matNeededFG[code]={
             name:row.mat_name||rmMap[code]?.name||code,
             unit:row.unit||rmMap[code]?.unit||'kg',
-            price_unit:_priceMap[code]||rmMap[code]?.price||0,
-            isWIP:false, cur:rmMap[code]?.av||0, need:0, skus:[], fromWIP:[]
+            price_unit:_priceMap[code]||wipMap[code]?.price||rmMap[code]?.price||0,
+            isWIP:code.startsWith('WIP'), cur:code.startsWith('WIP')?(wipMap[code]?.av||0):(rmMap[code]?.av||0), need:0, skus:[], fromWIP:[]
           };
           matNeededFG[code].need+=need;
           if(!matNeededFG[code].skus.includes(item.sku)) matNeededFG[code].skus.push(item.sku);
@@ -8040,8 +8158,8 @@ async function ppCalcAll(){
           if(!matNeededFG[matCode]) matNeededFG[matCode]={
             name:wr.mat_name||rmMap[matCode]?.name||matCode,
             unit:wr.unit||rmMap[matCode]?.unit||'kg',
-            price_unit:rmMap[matCode]?.price||0,
-            isWIP:false, cur:curRM, need:0, skus:[...parentSkus], fromWIP:[]
+            price_unit:_priceMap[matCode]||wipMap[matCode]?.price||rmMap[matCode]?.price||0,
+            isWIP:matCode.startsWith('WIP'), cur:curRM, need:0, skus:[...parentSkus], fromWIP:[]
           };
           matNeededFG[matCode].need+=matNeed;
           if(!matNeededFG[matCode].fromWIP.includes(wipCode))
@@ -8337,8 +8455,7 @@ function ppPrintMRC(){
   if(!shortage.length){alert('ไม่มีรายการขาด');return;}
   const today=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
   const skuSummary=_ppItems.map(x=>`${x.sku}×${x.batches}batch`).join(', ');
-  const win=window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${_lang==='en'?'MRC Report':'MRC Report'}</title>
+  openPreviewWindow(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${_lang==='en'?'MRC Report':'MRC Report'}</title>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
     body{font-family:Sarabun,sans-serif;padding:15px;font-size:9pt}
@@ -8424,9 +8541,7 @@ function pt(k){return (_lang==='en'?PT_EN:PT_TH)[k]||k;}
     <div style="text-align:center;border-top:1px solid #555;padding-top:4px;font-size:8pt">${pt("sig_approved")}</div>
   </div>
   \x3Cscript>window.onload=()=>{window.print();setTimeout(()=>window.close(),3000);}<\/script>
-  </body></html>`);
-  win.document.close();
-}
+  </body></html>`,'พิมพ์เอกสาร');}
 
 function ppPrintAll(){
   const rows=window._ppMRCRows||[];
@@ -8534,7 +8649,7 @@ async function woReCalcSelected(){
           matNeeded[code]={
             name:row.mat_name||rmMap[code]?.name||code,
             unit:row.unit||rmMap[code]?.unit||'kg',
-            price_unit:rmMap[code]?.price||0,
+            price_unit:isWIPmat?(wipMap[code]?.price||0):(_priceMap[code]||rmMap[code]?.price||0),
             isWIP:isWIPmat,cur,need:0,wos:[],
             fromWIP:isWIPwo,
           };
@@ -8665,8 +8780,7 @@ function woRecalcPrint(){
   const wos=window._woRecalcWOs||[];
   if(!rows.length){alert('กรุณาคำนวณก่อนครับ');return;}
   const today=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
-  const win=window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>WO MRC Report</title>
+  openPreviewWindow(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>WO MRC Report</title>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
     body{font-family:Sarabun,sans-serif;padding:15px;font-size:9pt}
@@ -8751,9 +8865,7 @@ function pt(k){return (_lang==='en'?PT_EN:PT_TH)[k]||k;}
     <div style="text-align:center;border-top:1px solid #555;padding-top:4px;font-size:8pt">${pt('sig_approved')}</div>
   </div>
   \x3Cscript>window.onload=()=>{window.print();setTimeout(()=>window.close(),3000);}<\/script>
-  </body></html>`);
-  win.document.close();
-}
+  </body></html>`,'พิมพ์เอกสาร');}
 
 
 // ════════════════════════════════════════════════════════════
@@ -9440,8 +9552,7 @@ function hrPrintDiligence(){
   if(!rows.length){alert('กรุณาคำนวณก่อนครับ');return;}
   const m=window._dilMeta||{};
   const today=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
-  const win=window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${pt('dil_title')}</title>
+  openPreviewWindow(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${pt('dil_title')}</title>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>body{font-family:Sarabun,sans-serif;padding:15px;font-size:9pt}
   @page{margin:10mm;size:A4 landscape}@media print{body{-webkit-print-color-adjust:exact!important}}
@@ -9486,9 +9597,7 @@ function hrPrintDiligence(){
     <div style="text-align:center;border-top:1px solid #555;padding-top:4px;font-size:8pt">${pt("sig_approved")}</div>
   </div>
   \x3Cscript>window.onload=()=>{window.print();setTimeout(()=>window.close(),3000);}<\/script>
-  </body></html>`);
-  win.document.close();
-}
+  </body></html>`,'พิมพ์เอกสาร');}
 
 // ════════════════════════════════════════════════════════════
 //  PURCHASE ORDER (PO) MODULE
@@ -9808,8 +9917,7 @@ async function printPO(id){
   if(!po)return;
   let items=[];try{items=JSON.parse(po.items||'[]');}catch(e){}
   const today=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
-  const win=window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>PO ${po.po_no}</title>
+  openPreviewWindow(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>PO ${po.po_no}</title>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>body{font-family:Sarabun,sans-serif;padding:20px;font-size:10pt;max-width:700px;margin:0 auto}
   @page{margin:15mm;size:A4 portrait}@media print{body{-webkit-print-color-adjust:exact!important}}
@@ -9846,9 +9954,7 @@ async function printPO(id){
     <div style="border-top:1px solid #555;padding-top:4px">${pt("sig_recv_goods")}</div>
   </div>
   \x3Cscript>window.onload=()=>{window.print();setTimeout(()=>window.close(),3000);}<\/script>
-  </body></html>`);
-  win.document.close();
-}
+  </body></html>`,'พิมพ์เอกสาร');}
 
 function editPO(id){ alert('ฟีเจอร์แก้ไข PO กำลังพัฒนาครับ — ลบแล้วสร้างใหม่ได้เลยครับ'); }
 
@@ -10622,23 +10728,11 @@ async function printWORecordWin(woId, ppNo){
     const skuCode = wo.sku_code||'';
     const docType = skuCode.startsWith('WIP')?'wip':'fg';
     const docHtml = await buildDocHTML(docType,skuCode,wo.num_batches||1,wo.start_date,machine,method);
-    const win = window.open('','_blank','width=900,height=700');
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    const fullHtml=`<!DOCTYPE html><html><head><meta charset="UTF-8">
       <title>Batch Record — ${ppNo||woId}</title>
-      <style>body{font-family:Arial,sans-serif;padding:16px}
-      @media print{.no-print{display:none}}</style>
-      </head><body>
-      <div class="no-print" style="margin-bottom:12px">
-        <button onclick="window.print()" style="padding:8px 20px;background:#1B3A5C;color:white;border:none;border-radius:6px;cursor:pointer;font-size:14px">
-          🖨️ Print / บันทึก PDF
-        </button>
-        <button onclick="window.close()" style="padding:8px 16px;margin-left:8px;border:1px solid #ccc;border-radius:6px;cursor:pointer">
-          ✕ ปิด
-        </button>
-      </div>
-      ${docHtml}</body></html>`);
-    win.document.close();
-  }catch(e){ alert('❌ '+e.message); }
+      <style>${PDOC_CSS}</style></head><body>${docHtml}</body></html>`;
+    openPreviewWindow(fullHtml,`Batch Record: ${ppNo||woId}`);
+  }catch(e){ msgBox('❌ '+e.message,'e'); }
 }
 
 
@@ -10794,8 +10888,7 @@ async function hrPrintAllAttSummary(){
     </tr>`;
   }).join('');
 
-  const win=window.open('','_blank','width=1000,height=700');
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  openPreviewWindow(`<!DOCTYPE html><html><head><meta charset="UTF-8">
     <title>สรุปการมาทำงาน — ${monthName}</title>
     <style>
       body{font-family:Arial,sans-serif;padding:20px;font-size:11pt}
@@ -10833,9 +10926,7 @@ async function hrPrintAllAttSummary(){
       </tr></tfoot>
     </table>
     <div style="margin-top:20px;font-size:9pt;color:#888">พิมพ์เมื่อ ${new Date().toLocaleString('th-TH')}</div>
-    </body></html>`);
-  win.document.close();
-}
+    </body></html>`,'พิมพ์เอกสาร');}
 
 // แก้ไข attendance ของพนักงานทั้งเดือน
 async function hrEditAttEmp(empCode, from, to){
@@ -10936,8 +11027,7 @@ async function hrPrintOTSummary(){
       <td style="text-align:center">${rows.filter(r=>r.status==='approved').length}</td>
       <td style="text-align:center">${rows.filter(r=>r.status==='pending').length}</td></tr>`;
   }).join('');
-  const win=window.open('','_blank','width=900,height=700');
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  openPreviewWindow(`<!DOCTYPE html><html><head><meta charset="UTF-8">
     <title>OT Report — ${monthName}</title>
     <style>body{font-family:Arial,sans-serif;padding:20px;font-size:11pt}
     table{width:100%;border-collapse:collapse}th{background:#1B3A5C;color:white;padding:6px 8px}
@@ -10950,9 +11040,7 @@ async function hrPrintOTSummary(){
       <th>ครั้ง</th><th>OT รวม(ชม.)</th><th>อนุมัติ</th><th>รอ</th>
     </tr></thead><tbody>${rows}</tbody></table>
     <div style="margin-top:16px;font-size:9pt;color:#888">พิมพ์เมื่อ ${new Date().toLocaleString('th-TH')}</div>
-    </body></html>`);
-  win.document.close();
-}
+    </body></html>`,'พิมพ์เอกสาร');}
 
 
 // ════════════════════════════════════════════════════════════
@@ -10969,11 +11057,7 @@ async function printHRHolidays(){
   }
   const logo = document.getElementById('sidebar-logo')?.src||'';
   const html = buildHolidayDoc(yr, _hrHols, logo);
-  const win = window.open('','_blank','width=860,height=760');
-  win.document.write(html);
-  win.document.close();
-  win.focus();
-  setTimeout(()=>win.print(), 600);
+  openPreviewWindow(html,'เอกสาร');
 }
 
 async function pdfHRHolidays(){
@@ -10984,12 +11068,7 @@ async function pdfHRHolidays(){
   }
   const logo = document.getElementById('sidebar-logo')?.src||'';
   const html = buildHolidayDoc(yr, _hrHols, logo);
-  const win = window.open('','_blank','width=860,height=760');
-  win.document.write(html);
-  win.document.close();
-  win.focus();
-  // PDF โดย print dialog → Save as PDF
-  setTimeout(()=>win.print(), 600);
+  openPreviewWindow(html,'เอกสาร');
 }
 
 function buildHolidayDoc(yr, hols, logo){
@@ -11196,6 +11275,202 @@ ${substit.length ? `
 </div>
 
 </body></html>`;
+}
+
+
+// ════════════════════════════════════════════════════════════
+//  PDOC CSS — ใช้ inject ใน popup windows
+// ════════════════════════════════════════════════════════════
+const PDOC_CSS=`
+  @page{size:A4;margin:10mm 12mm}
+  *{box-sizing:border-box}
+  body{margin:0;padding:0;font-family:'Sarabun','Arial',sans-serif;background:white;font-size:9pt}
+  /* ─── Document wrapper ─── */
+  .pdoc{background:white;font-size:9pt;page-break-inside:auto;overflow:hidden;color:#111;padding:10px}
+  /* ─── Header: โลโก้+บริษัท | ชื่อเอกสาร | เลขที่ ─── */
+  .pdoc-hdr{display:grid;grid-template-columns:auto 1fr auto;gap:8px;
+            border-bottom:2.5px solid #1B3A5C;padding-bottom:6px;margin-bottom:6px;align-items:center}
+  .pdoc-co{font-size:11pt;font-weight:800;color:#1B3A5C;margin-bottom:1px}
+  .pdoc-co-sub{font-size:7pt;color:#555;line-height:1.4}
+  .pdoc-tit{text-align:center}
+  .pdoc-tit-main{font-size:13pt;font-weight:900;color:#1B3A5C}
+  .pdoc-tit-sub{font-size:7.5pt;color:#555;margin-top:2px}
+  .pdoc-no{text-align:right;font-size:7.5pt}
+  .pdoc-no-val{font-family:monospace;font-size:10pt;font-weight:700;color:#1B3A5C;margin-top:1px}
+  /* ─── Info grid: 4 cols × 2 rows ─── */
+  .pdoc-info{border:1px solid #ccc;margin-bottom:5px}
+  .pdoc-info-row{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid #ddd}
+  .pdoc-info-row:last-child{border-bottom:none}
+  .pdoc-cell{padding:4px 8px;border-right:1px solid #ddd;font-size:8.5pt}
+  .pdoc-cell:last-child{border-right:none}
+  .pdoc-cell-lbl{font-size:7pt;font-weight:700;color:#666;text-transform:uppercase;
+                 letter-spacing:.3px;display:block;margin-bottom:1px}
+  /* ─── Guide bar ─── */
+  .pdoc-guide{background:#FFFDE7;border:1px solid #F59E0B;border-radius:4px;
+              padding:4px 8px;font-size:7.5pt;margin-bottom:4px;color:#92400E}
+  /* ─── Section title bar ─── */
+  .pdoc-sec{background:#1B3A5C;color:white;padding:4px 8px;font-size:8pt;
+            font-weight:800;text-transform:uppercase;letter-spacing:.4px;margin-bottom:0}
+  /* ─── BOM Table ─── */
+  .pdoc-table{width:100%;border-collapse:collapse;font-size:8.5pt;margin-bottom:5px}
+  .pdoc-table th{background:#EBF3FA;padding:3px 5px;text-align:center;
+                 font-size:7pt;font-weight:800;border:1px solid #bbb}
+  .pdoc-table td{padding:2.5px 5px;border:1px solid #ccc;vertical-align:middle;font-size:8pt}
+  /* ─── Write box (ชั่งจริง) ─── */
+  .wb{width:100%;height:18px;border:none;border-bottom:1.5px solid #777;
+      background:#FFFDE7;font-size:8pt;padding:0 3px;text-align:right}
+  /* ─── Signature row: 4 cols ─── */
+  .pdoc-sig{display:grid;grid-template-columns:repeat(4,1fr);
+            border-top:1.5px solid #ddd;padding-top:6px;margin-top:8px}
+  .pdoc-sig-cell{padding:4px 8px;text-align:center;border-right:1px solid #ddd}
+  .pdoc-sig-cell:last-child{border-right:none}
+  .pdoc-sig-lbl{font-size:7.5pt;font-weight:700;color:#555;margin-bottom:20px}
+  .pdoc-sig-line{border-bottom:1px solid #555;margin:0 6px}
+  .pdoc-sig-name{font-size:7pt;color:#777;margin-top:2px}
+  /* ─── Print ─── */
+  .no-print{padding:8px 12px;background:#f5f5f5;border-bottom:1px solid #ddd;
+            display:flex;gap:8px;align-items:center}
+  @media print{
+    .no-print{display:none!important}
+    .pdoc{page-break-after:always}
+    .pdoc:last-child{page-break-after:auto}
+    .wb{background:#FFFDE7!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
+`;
+
+
+// บันทึกต้นทุน BOM ลง wip_master.price_per_kg
+async function saveBOMCostToWIP(wipCode, pricePerKg){
+  const price = Number(pricePerKg);
+  if(!wipCode){ return; }
+  if(!price||price<=0){
+    msgBox('⚠️ ราคาเป็น 0 — กรุณาใส่ราคาวัตถุดิบใน Material Master ก่อนครับ','w');
+    return;
+  }
+  if(!confirm(`บันทึกต้นทุนลง WIP Master\n\nรหัส: ${wipCode}\nราคา: ${thb(price)}/kg`)) return;
+  try{
+    await sbU('wip_master',{price_per_kg:parseFloat(price.toFixed(4))},`code=eq.${wipCode}`);
+    await logA('UPDATE','wip',`ต้นทุน ${wipCode}=${price.toFixed(4)} บ/kg`);
+    window._cachedWIPs=null;
+
+    // อัปเดตปุ่มใน BOM panel ทันที
+    document.querySelectorAll('#bom-detail-panel button').forEach(b=>{
+      if(b.textContent.includes('บันทึกต้นทุน')){
+        b.innerHTML='✅ บันทึกแล้ว '+thb(price)+'/kg';
+        b.disabled=true;
+        b.style.background='var(--green)';
+      }
+    });
+
+    // อัปเดต WIP Master table ใน background (ไม่ต้อง navigate)
+    const wipMgrEl = document.getElementById('wipm-tb');
+    if(wipMgrEl){
+      // อัปเดต cell ราคาของ WIP นั้นโดยตรง
+      const rows = wipMgrEl.querySelectorAll('tr');
+      rows.forEach(row=>{
+        const codeCell = row.querySelector('td:first-child');
+        if(codeCell&&codeCell.textContent.trim()===wipCode){
+          const cells = row.querySelectorAll('td');
+          // cell ที่ 5 = ราคา/kg (index 5)
+          if(cells[5]){
+            cells[5].textContent=thb(price);
+            cells[5].style.color='var(--green)';
+            cells[5].style.fontWeight='700';
+          }
+        }
+      });
+    }
+
+    // แสดง success ใน BOM panel
+    const panel = document.getElementById('bom-detail-panel');
+    if(panel){
+      const successDiv = document.createElement('div');
+      successDiv.className='al alg';
+      successDiv.style.marginTop='8px';
+      successDiv.textContent=`✅ บันทึกต้นทุน ${wipCode} = ${thb(price)}/kg สำเร็จ`;
+      panel.appendChild(successDiv);
+      setTimeout(()=>successDiv.remove(),4000);
+    }
+
+  }catch(e){
+    console.error('saveBOMCostToWIP:',e);
+    msgBox('❌ บันทึกไม่สำเร็จ: '+e.message,'e');
+  }
+}
+
+
+function msgBox(msg, type='s'){
+  // แสดง toast notification
+  const d=document.createElement('div');
+  const colors={s:'var(--green)',e:'var(--red)',w:'var(--amber)',i:'var(--accent)'};
+  d.style.cssText=`position:fixed;top:20px;right:20px;z-index:9999;padding:12px 20px;
+    background:white;border-left:4px solid ${colors[type]||colors.s};
+    border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.18);
+    font-size:13px;max-width:360px;font-family:var(--font)`;
+  d.textContent=msg;
+  document.body.appendChild(d);
+  setTimeout(()=>d.style.opacity='0',3000);
+  setTimeout(()=>d.remove(),3500);
+}
+
+
+// ════════════════════════════════════════════════════════════
+//  PRINT HELPER — ใช้แทน window.open() สำหรับ file:// 
+// ════════════════════════════════════════════════════════════
+function openPrintWindow(htmlContent, title){
+  // สร้าง iframe ซ่อนในหน้าเดิม แล้ว print
+  let iframe = document.getElementById('_print_iframe');
+  if(!iframe){
+    iframe = document.createElement('iframe');
+    iframe.id = '_print_iframe';
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:210mm;height:297mm;border:none;';
+    document.body.appendChild(iframe);
+  }
+  iframe.onload = function(){
+    try{
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    }catch(e){ console.error('print error:',e); }
+  };
+  const doc = iframe.contentDocument || iframe.contentWindow.document;
+  doc.open();
+  doc.write(htmlContent);
+  doc.close();
+}
+
+function openPreviewWindow(htmlContent, title){
+  // แสดง preview ใน modal ใหญ่ พร้อมปุ่ม print
+  const modalId = '_preview_modal';
+  let modal = document.getElementById(modalId);
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = modalId;
+    modal.style.cssText = `position:fixed;top:0;left:0;width:100%;height:100%;
+      background:rgba(0,0,0,.7);z-index:10000;display:flex;flex-direction:column`;
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `
+    <div style="background:#f5f5f5;padding:8px 16px;display:flex;gap:8px;align-items:center;flex-shrink:0">
+      <span style="font-weight:700;font-size:13px;flex:1">${title||'Preview'}</span>
+      <button onclick="openPrintWindow(document.getElementById('_preview_frame').srcdoc||'','');event.stopPropagation()"
+        style="padding:7px 18px;background:#1B3A5C;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">
+        🖨️ พิมพ์ / PDF
+      </button>
+      <button onclick="document.getElementById('${modalId}').remove()"
+        style="padding:7px 14px;border:1px solid #ccc;border-radius:6px;cursor:pointer;font-size:13px">
+        ✕ ปิด
+      </button>
+    </div>
+    <iframe id="_preview_frame" style="flex:1;border:none;background:white"></iframe>`;
+  modal.style.display='flex';
+  const frame = document.getElementById('_preview_frame');
+  const doc = frame.contentDocument || frame.contentWindow.document;
+  doc.open(); doc.write(htmlContent); doc.close();
+  // ผูก print button กับ frame
+  modal.querySelector('button').onclick = function(){
+    try{ frame.contentWindow.focus(); frame.contentWindow.print(); }
+    catch(e){ openPrintWindow(htmlContent,''); }
+  };
 }
 
 // ════════════════════════════════════════════════════════════
