@@ -1702,6 +1702,8 @@ async function doLogin(){
     if(!us.length){showLE('ไม่พบชื่อผู้ใช้นี้ในระบบ');return;}
     if(!chkp(p,us[0].password_hash)){showLE('รหัสผ่านไม่ถูกต้อง');return;}
     CU=us[0];
+    // ถ้า CU ไม่มี emp_code → ใช้ username แทน (backward compat)
+    if(!CU.emp_code) CU.emp_code = CU.username;
     await sbU('users',{last_login:new Date().toISOString()},`id=eq.${CU.id}`);
     await logA('LOGIN','auth','เข้าสู่ระบบ');
     showApp();
@@ -3806,13 +3808,24 @@ function userForm(u={}){return`
     <div class="fgrp"><label class="flbl">Email</label><input type="email" class="fc2" id="uf-email" value="${u.email||''}"></div>
     <div class="fgrp"><label class="flbl">รหัสผ่าน ${u.id?'(เว้นว่างถ้าไม่เปลี่ยน)':''}</label><input type="password" class="fc2" id="uf-pass" placeholder="${u.id?'ใส่เฉพาะเมื่อเปลี่ยน':'อย่างน้อย 6 ตัว'}"></div>
   </div>
-  <div class="fgrp"><label class="flbl">สิทธิ์การใช้งาน</label>
-    <select class="fc2" id="uf-role">
-      <option value="production" ${u.role==='production'?'selected':''}>🔧 Production — ผลิต/WIP/Stock</option>
-      <option value="sales" ${u.role==='sales'?'selected':''}>📊 Sales — SO/เอกสาร</option>
-      <option value="qc" ${u.role==='qc'?'selected':''}>🔍 QC — ตรวจสอบ</option>
-      <option value="admin" ${u.role==='admin'?'selected':''}>👑 Admin — ทุกอย่าง</option>
-    </select>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div class="fgrp">
+      <label class="flbl">สิทธิ์การใช้งาน</label>
+      <select class="fc2" id="uf-role">
+        <option value="production" ${u.role==='production'?'selected':''}>🔧 Production</option>
+        <option value="sales" ${u.role==='sales'?'selected':''}>📊 Sales</option>
+        <option value="qc" ${u.role==='qc'?'selected':''}>🔍 QC</option>
+        <option value="admin" ${u.role==='admin'?'selected':''}>👑 Admin</option>
+      </select>
+    </div>
+    <div class="fgrp">
+      <label class="flbl">รหัสพนักงาน (emp_code) <span style="color:var(--red)">*สำคัญ*</span></label>
+      <input type="text" class="fc2" id="uf-empcode" value="${u.emp_code||''}"
+        placeholder="เช่น EMP001 (ต้องตรงกับ HR)">
+      <div style="font-size:10px;color:var(--text3);margin-top:2px">
+        ต้องตรงกับรหัสพนักงานใน HR → พนักงาน+Login
+      </div>
+    </div>
   </div>
   <button class="btn btnP" style="width:100%" onclick="saveUser(${u.id||0})">💾 บันทึก</button>
   <div id="uf-msg" style="margin-top:8px"></div>`;}
@@ -3824,7 +3837,8 @@ async function saveUser(id){
   const role=document.getElementById('uf-role').value;
   if(!username||!fullName){msgEl('uf-msg','กรุณากรอกข้อมูลให้ครบ','e');return;}
   if(!id&&pass.length<6){msgEl('uf-msg','รหัสผ่านต้องมีอย่างน้อย 6 ตัว','e');return;}
-  const d={username,full_name:fullName,email,role};
+  const empCode=document.getElementById('uf-empcode')?.value.trim()||'';
+  const d={username,full_name:fullName,email,role,emp_code:empCode||username};
   if(pass)d.password_hash=btoa(pass);
   try{
     if(id){await sbU('users',d,`id=eq.${id}`);await logA('UPDATE','users',`แก้ไข ${username}`);}
@@ -5503,19 +5517,83 @@ async function hrLoadCheckIn(){
   _hrTodayAtt=null;
   try{
     await hrInit();
-    const emp=_hrEmps.find(e=>
-      e.emp_code===CU?.emp_code||e.emp_code===CU?.username||e.email===CU?.email);
-    const empCode=emp?.emp_code||CU?.emp_code||CU?.username||'';
-    if(!empCode){console.warn('hrLoadCheckIn: no empCode');hrUpdateCIUI();return;}
-    // ดึงเฉพาะ record ของ empCode นี้ วันนี้เท่านั้น
+    // หา empCode: ลำดับความสำคัญ
+    // 1. CU.emp_code (ถ้าถูก set ใน users table แล้ว)
+    // 2. localStorage cache (user เคยเลือกไว้)
+    // 3. ต้องให้ user เลือก
+    let empCode = CU?.emp_code||'';
+
+    // ถ้า emp_code ใน CU ยังเป็น username (ไม่ได้ผูก) → ตรวจสอบ
+    if(empCode && !_hrEmps.find(e=>e.emp_code===empCode)){
+      // ลอง localStorage
+      const cached = localStorage.getItem('hr_my_empcode_'+CU.username);
+      if(cached && _hrEmps.find(e=>e.emp_code===cached)) empCode=cached;
+      else empCode=''; // ยังไม่มี → ต้องให้เลือก
+    }
+
+    // ถ้ายังว่าง → แสดง UI เลือก employee
+    if(!empCode){
+      hrShowEmpSelectUI();
+      return;
+    }
+
+    console.log('[hrLoadCheckIn] CU:',CU?.username,'→ empCode:',empCode);
     const att=await sbG('attendance',{
       f:[`emp_code=eq.${empCode}`,`att_date=eq.${today}`],lim:1
     });
     _hrTodayAtt=att[0]||null;
+    // เก็บ empCode ที่ใช้งานอยู่
+    window._hrMyEmpCode = empCode;
     hrUpdateCIUI();
     hrLoadCIHistory();
     hrLoadCIStats();
   }catch(e){console.warn('hrLoadCheckIn:',e);}
+}
+
+function hrShowEmpSelectUI(){
+  // แสดงให้ user เลือก employee ของตัวเอง
+  const container=document.querySelector('#pg-hr-checkin > div');
+  if(!container)return;
+  const empOptions=_hrEmps.map(e=>`<option value="${e.emp_code}">${e.emp_code} — ${e.first_name||''} ${e.last_name||''}</option>`).join('');
+  const selectDiv=document.getElementById('hr-emp-select-div');
+  if(selectDiv) selectDiv.remove();
+  const div=document.createElement('div');
+  div.id='hr-emp-select-div';
+  div.style.cssText='background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.4);border-radius:12px;padding:16px;margin-bottom:16px;text-align:left';
+  div.innerHTML=`
+    <div style="font-weight:700;color:#F59E0B;margin-bottom:8px">👤 ระบุตัวตนพนักงาน</div>
+    <div style="font-size:12px;color:#666;margin-bottom:10px">
+      เลือกชื่อพนักงานของคุณเพื่อเชื่อมกับ account นี้ (ทำครั้งเดียว)
+    </div>
+    <select class="fc2" id="hr-emp-select" style="width:100%;margin-bottom:10px">
+      <option value="">— เลือกชื่อพนักงาน —</option>
+      ${empOptions}
+    </select>
+    <button class="btn btnP" style="width:100%" onclick="hrConfirmEmpLink()">
+      ✅ ยืนยัน — นี่คือบัญชีของฉัน
+    </button>
+    <div id="hr-emp-select-msg" style="margin-top:6px;font-size:12px"></div>`;
+  container.insertBefore(div, container.firstChild);
+}
+
+async function hrConfirmEmpLink(){
+  const sel=document.getElementById('hr-emp-select');
+  const empCode=sel?.value;
+  if(!empCode){
+    document.getElementById('hr-emp-select-msg').textContent='⚠️ กรุณาเลือกชื่อพนักงาน';
+    return;
+  }
+  // บันทึก localStorage
+  localStorage.setItem('hr_my_empcode_'+CU.username, empCode);
+  // อัปเดต users table (ถ้า SQL เพิ่ม column แล้ว)
+  try{
+    await sbU('users',{emp_code:empCode},`username=eq.${CU.username}`);
+    CU.emp_code = empCode;
+  }catch(e){ /* column อาจยังไม่มี — ใช้ localStorage แทน */ }
+  // ลบ UI เลือก
+  document.getElementById('hr-emp-select-div')?.remove();
+  // โหลดใหม่
+  await hrLoadCheckIn();
 }
 
 function hrUpdateCIUI(){
@@ -5523,7 +5601,8 @@ function hrUpdateCIUI(){
   const btnCO=document.getElementById('hr-btn-co');
   const st=document.getElementById('hr-ci-status');
   if(!btnCI||!btnCO)return;
-  const emp=_hrEmps.find(e=>e.emp_code===CU?.emp_code||e.emp_code===CU?.username);
+  const myCode=window._hrMyEmpCode||CU?.emp_code||localStorage.getItem('hr_my_empcode_'+CU?.username)||'';
+  const emp=_hrEmps.find(e=>e.emp_code===myCode);
   if(!_hrTodayAtt){
     btnCI.style.display='block';btnCO.style.display='none';
     st.textContent=`⏳ ยังไม่ได้เช็คอิน — ${emp?`${emp.first_name} (${emp.emp_code})`:'กรุณา Login ด้วย account พนักงาน'}`;
@@ -5539,20 +5618,19 @@ function hrUpdateCIUI(){
 async function hrDoCheckIn(){
   await hrInit();
   // หา emp ของ user ที่ login เท่านั้น (ไม่ใช่ทุกคน)
-  const emp=_hrEmps.find(e=>
-    e.emp_code===CU?.emp_code ||
-    e.emp_code===CU?.username ||
-    e.email===CU?.email
-  );
-  const empCode=emp?.emp_code||CU?.emp_code||CU?.username;
+  // ใช้ empCode ที่ resolve แล้วจาก hrLoadCheckIn
+  const empCode = window._hrMyEmpCode || CU?.emp_code ||
+    localStorage.getItem('hr_my_empcode_'+CU?.username) || CU?.username || '';
+  const empFromTable = _hrEmps.find(e=>e.emp_code===empCode);
   if(!empCode){
-    alert('ไม่พบข้อมูลพนักงานของคุณ\nกรุณาให้ Admin ตั้งค่า emp_code ให้ตรงกับ username ครับ');
+    msgBox('ไม่พบข้อมูลพนักงานของคุณ — ติดต่อ Admin เพื่อตั้งค่า emp_code ครับ','w');
     return;
   }
+  const empFinal = empFromTable || emp || _hrEmps.find(e=>e.emp_code===empCode);
   const resultEl=document.getElementById('hr-ci-result');
   const now=new Date();
   const today=now.toISOString().slice(0,10);
-  const schedStart=emp?.work_start||'08:00';
+  const schedStart=(empFinal||{}).work_start||'08:00';
   const [sh,sm]=(schedStart||'08:00').split(':').map(Number);
   const scheduledMs=new Date(now).setHours(sh,sm,0,0);
   const lateMins=Math.max(0,Math.round((now.getTime()-scheduledMs)/60000));
@@ -5577,7 +5655,7 @@ async function hrDoCheckIn(){
       _hrTodayAtt=updated[0]||rec;
     }else{
       // ยังไม่มี record → INSERT ใหม่เฉพาะคนนี้
-      const empName=emp?`${emp.first_name} ${emp.last_name}`:empCode;
+      const empName=empFinal?`${empFinal.first_name} ${empFinal.last_name}`:empCode;
       const res=await sbP('attendance',{
         emp_code:empCode, emp_name:empName, att_date:today,
         check_in:now.toISOString(),
@@ -6379,7 +6457,7 @@ async function hrSaveEmp(oldCode){
     // 2. สร้าง/อัพเดต User Login
     if(username){
       const existing=await sbG('users',{f:[`username=eq.${username}`]});
-      const userData={username,full_name:`${fn} ${ln}`,email:document.getElementById('hef-email').value,role};
+      const userData={username,full_name:`${fn} ${ln}`,email:document.getElementById('hef-email').value,role,emp_code:code};
       if(pass&&pass.length>=6)userData.password_hash=btoa(pass);
       if(existing.length){
         await sbU('users',userData,`username=eq.${username}`);
