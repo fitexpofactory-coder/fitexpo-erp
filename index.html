@@ -1657,7 +1657,6 @@ let _payrollData=[], _lastMRC=null;
 // ════════════════════════════════════════════════════════════
 const SB='https://meehbfcmnmposarkejuh.supabase.co';
 let KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1lZWhiZmNtbm1wb3NhcmtlanVoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NjQyNTMsImV4cCI6MjA5MDA0MDI1M30.vbd9TxJr4D4ccPqjm1lw9XD4FwgrCOErqjXkKpUzLkk'; //
-
 // ════════════════════════════════════════════════════════════
 //  SESSION
 // ════════════════════════════════════════════════════════════
@@ -2067,9 +2066,10 @@ async function loadBOMDetail(code){
       <div class="ct">${isFG?m?.name_en:m?.name||code}</div>
       <div style="font-size:11px;color:var(--text3);margin-top:2px">${code} | Batch: ${batchKg}kg${isFG?` | Yield ~${yieldPct}%`:''}</div>
     </div>
-    <div style="display:flex;gap:6px">
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
       <button class="btn btnP sm" onclick="showAddBOMRow('${code}','${bomTable}','${codeField}',${batchKg})">+ เพิ่มวัสดุ</button>
       <button class="btn btnT sm" onclick="printBatchFor('${code}')">🖨️ Print</button>
+      <button class="btn btnS sm" onclick="showCopyBOM('${code}','${BOM_TYPE}')">📋 Copy BOM</button>
     </div></div>`;
 
     if(!rows.length){
@@ -5617,65 +5617,85 @@ function hrUpdateCIUI(){
 
 async function hrDoCheckIn(){
   await hrInit();
-  // หา emp ของ user ที่ login เท่านั้น (ไม่ใช่ทุกคน)
-  // ใช้ empCode ที่ resolve แล้วจาก hrLoadCheckIn
-  const empCode = window._hrMyEmpCode || CU?.emp_code ||
-    localStorage.getItem('hr_my_empcode_'+CU?.username) || CU?.username || '';
-  const empFromTable = _hrEmps.find(e=>e.emp_code===empCode);
+  // หา empCode จาก cache ที่ hrLoadCheckIn resolve ไว้แล้ว
+  const empCode = window._hrMyEmpCode
+    || CU?.emp_code
+    || localStorage.getItem('hr_my_empcode_'+CU?.username)
+    || CU?.username || '';
+
   if(!empCode){
-    msgBox('ไม่พบข้อมูลพนักงานของคุณ — ติดต่อ Admin เพื่อตั้งค่า emp_code ครับ','w');
+    msgBox('ไม่พบข้อมูลพนักงาน — กรุณาเลือกชื่อพนักงานของคุณก่อนครับ','w');
+    hrShowEmpSelectUI();
     return;
   }
-  const empFinal = empFromTable || emp || _hrEmps.find(e=>e.emp_code===empCode);
-  const resultEl=document.getElementById('hr-ci-result');
-  const now=new Date();
-  const today=now.toISOString().slice(0,10);
-  const schedStart=(empFinal||{}).work_start||'08:00';
-  const [sh,sm]=(schedStart||'08:00').split(':').map(Number);
-  const scheduledMs=new Date(now).setHours(sh,sm,0,0);
-  const lateMins=Math.max(0,Math.round((now.getTime()-scheduledMs)/60000));
+
+  // หาข้อมูลพนักงานจาก employees table
+  const emp = _hrEmps.find(e=>e.emp_code===empCode);
+
+  const resultEl = document.getElementById('hr-ci-result');
+  const now      = new Date();
+  const today    = now.toISOString().slice(0,10);
+  const schedStart = emp?.work_start||'08:00';
+  const schedEnd   = emp?.work_end  ||'17:00';
+  const [sh,sm]    = schedStart.split(':').map(Number);
+  const scheduledMs= new Date(now).setHours(sh,sm,0,0);
+  const lateMins   = Math.max(0, Math.round((now.getTime()-scheduledMs)/60000));
+  const empName    = emp ? `${emp.first_name||''} ${emp.last_name||''}`.trim() : empCode;
+
   try{
-    // ตรวจก่อนว่า empCode นี้ (เฉพาะคนนี้) มี record วันนี้ไหม
-    const existing=await sbG('attendance',{
+    // ตรวจ record วันนี้ของพนักงานคนนี้
+    const existing = await sbG('attendance',{
       f:[`emp_code=eq.${empCode}`,`att_date=eq.${today}`]
     });
+
     if(existing.length>0){
-      const rec=existing[0];
+      const rec = existing[0];
       if(rec.check_in){
-        const inTime=new Date(rec.check_in).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
-        resultEl.textContent=`⚠️ เช็คอินแล้วตั้งแต่ ${inTime} น. ครับ`;
-        _hrTodayAtt=rec; hrUpdateCIUI(); return;
+        const inTime = new Date(rec.check_in)
+          .toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+        resultEl.textContent = `⚠️ เช็คอินแล้วตั้งแต่ ${inTime} น.`;
+        _hrTodayAtt = rec;
+        hrUpdateCIUI();
+        return;
       }
-      // มี record แต่ยังไม่ check_in → UPDATE เฉพาะ record นี้
+      // มี record แต่ยังไม่ check_in → UPDATE
       await sbU('attendance',{
-        check_in:now.toISOString(),late_min:lateMins,
-        status:lateMins>15?'late':'present',recorded_by:CU?.username
-      },`emp_code=eq.${empCode}&att_date=eq.${today}`);
-      const updated=await sbG('attendance',{f:[`emp_code=eq.${empCode}`,`att_date=eq.${today}`]});
-      _hrTodayAtt=updated[0]||rec;
-    }else{
-      // ยังไม่มี record → INSERT ใหม่เฉพาะคนนี้
-      const empName=empFinal?`${empFinal.first_name} ${empFinal.last_name}`:empCode;
-      const res=await sbP('attendance',{
-        emp_code:empCode, emp_name:empName, att_date:today,
-        check_in:now.toISOString(),
-        work_shift:emp?.work_shift||'day',
-        scheduled_start:schedStart,
-        scheduled_end:emp?.work_end||'17:00',
-        late_min:lateMins,
-        status:lateMins>15?'late':'present',
+        check_in:   now.toISOString(),
+        late_min:   lateMins,
+        status:     lateMins>15?'late':'present',
         recorded_by:CU?.username
+      },`emp_code=eq.${empCode}&att_date=eq.${today}`);
+      const updated = await sbG('attendance',{f:[`emp_code=eq.${empCode}`,`att_date=eq.${today}`]});
+      _hrTodayAtt = updated[0]||rec;
+
+    }else{
+      // ยังไม่มี record → INSERT ใหม่
+      const res = await sbP('attendance',{
+        emp_code:        empCode,
+        emp_name:        empName,
+        att_date:        today,
+        check_in:        now.toISOString(),
+        work_shift:      emp?.work_shift||'day',
+        scheduled_start: schedStart,
+        scheduled_end:   schedEnd,
+        late_min:        lateMins,
+        status:          lateMins>15?'late':'present',
+        recorded_by:     CU?.username
       });
-      _hrTodayAtt=res[0]||{emp_code:empCode,att_date:today,check_in:now.toISOString()};
+      _hrTodayAtt = res[0]||{emp_code:empCode,att_date:today,check_in:now.toISOString()};
     }
-    const msg=lateMins>0
-      ?`⏰ เช็คอิน ${now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})} (สาย ${lateMins} นาที)`
-      :`✅ เช็คอิน ${now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})} ตรงเวลา`;
-    resultEl.textContent=msg;
-    hrUpdateCIUI(); hrLoadCIHistory();
-    await logA('RECEIVE','hr',`เช็คอิน ${empCode}`,empCode);
+
+    const timeStr = now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+    resultEl.textContent = lateMins>0
+      ? `⏰ เช็คอิน ${timeStr} (สาย ${lateMins} นาที)`
+      : `✅ เช็คอิน ${timeStr} ตรงเวลา`;
+
+    hrUpdateCIUI();
+    hrLoadCIHistory();
+    await logA('RECEIVE','hr',`เช็คอิน ${empCode} (${empName})`,empCode);
+
   }catch(e){
-    resultEl.textContent='❌ '+e.message;
+    resultEl.textContent = '❌ '+e.message;
     console.error('hrDoCheckIn:',e);
   }
 }
@@ -11574,6 +11594,253 @@ function openPreviewWindow(htmlContent, title){
     try{ frame.contentWindow.focus(); frame.contentWindow.print(); }
     catch(e){ openPrintWindow(htmlContent,''); }
   };
+}
+
+
+// ════════════════════════════════════════════════════════════
+//  COPY BOM
+// ════════════════════════════════════════════════════════════
+function showCopyBOM(srcCode, srcType){
+  const fgOpts=(_prodData||[]).map(p=>`<option value="${p.sku}">[FG] ${p.sku} — ${p.name_th||p.name||''}</option>`).join('');
+  const wipOpts=(_cachedWIPs||window._cachedWIPs||[]).map(w=>`<option value="${w.code}">[WIP] ${w.code} — ${w.name||''}</option>`).join('');
+  openMo(`📋 Copy BOM — ${srcCode}`,`
+    <div style="background:rgba(27,94,199,.05);border:1px solid var(--accent);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px">
+      <b>ต้นทาง:</b> <span style="color:var(--accent);font-family:monospace">${srcCode}</span>
+      <span class="badge ${srcType==='fg'?'bb':'bp'}">${srcType.toUpperCase()}</span>
+    </div>
+    <div class="fgrp">
+      <label class="flbl">📦 ปลายทาง — เลือกจากรายการ</label>
+      <select class="fc2" id="cbom-dest-sel" style="font-size:12px">
+        <option value="">— เลือกถ้ามีอยู่แล้ว —</option>
+        <optgroup label="🏷️ สินค้า FG">${fgOpts}</optgroup>
+        <optgroup label="🏭 WIP">${wipOpts}</optgroup>
+      </select>
+    </div>
+    <div class="fgrp" style="font-size:12px;color:var(--text3);text-align:center">─── หรือสร้างใหม่ ───</div>
+    <div style="display:grid;grid-template-columns:1fr auto;gap:8px">
+      <div class="fgrp">
+        <label class="flbl">รหัสสินค้า/WIP ใหม่</label>
+        <input type="text" class="fc2" id="cbom-dest-new" placeholder="เช่น FLCHOC006 หรือ WIP-NEW-01">
+      </div>
+      <div class="fgrp" style="width:90px">
+        <label class="flbl">ประเภท</label>
+        <select class="fc2" id="cbom-dest-type"><option value="fg">FG</option><option value="wip">WIP</option></select>
+      </div>
+    </div>
+    <div style="display:flex;gap:16px;margin-bottom:8px;font-size:13px">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" id="cbom-overwrite" checked> เขียนทับ BOM เดิม
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" id="cbom-scale" onchange="document.getElementById('cbom-scale-row').style.display=this.checked?'grid':'none'">
+        Scale Batch Size
+      </label>
+    </div>
+    <div id="cbom-scale-row" style="display:none;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="fgrp"><label class="flbl">Batch ต้นทาง (kg)</label><input type="number" class="fc2" id="cbom-src-kg" value="50" step="0.1"></div>
+      <div class="fgrp"><label class="flbl">Batch ปลายทาง (kg)</label><input type="number" class="fc2" id="cbom-dst-kg" value="50" step="0.1"></div>
+    </div>
+    <button class="btn btnP" style="width:100%;margin-top:4px" onclick="doCopyBOM('${srcCode}','${srcType}')">
+      📋 Copy BOM ทันที
+    </button>
+    <div id="cbom-msg" style="margin-top:8px"></div>`);
+}
+
+async function doCopyBOM(srcCode, srcType){
+  const selVal  = document.getElementById('cbom-dest-sel')?.value||'';
+  const newCode = document.getElementById('cbom-dest-new')?.value.trim()||'';
+  let destCode  = selVal || newCode;
+  if(!destCode){ msgEl('cbom-msg','⚠️ กรุณาเลือกหรือพิมพ์ปลายทาง','e'); return; }
+
+  const destType = selVal ? (selVal.startsWith('WIP')?'wip':'fg')
+                          : (document.getElementById('cbom-dest-type')?.value||'fg');
+  const overwrite = document.getElementById('cbom-overwrite')?.checked;
+  const useScale  = document.getElementById('cbom-scale')?.checked;
+  const srcKg = parseFloat(document.getElementById('cbom-src-kg')?.value)||50;
+  const dstKg = parseFloat(document.getElementById('cbom-dst-kg')?.value)||50;
+  const scale = useScale&&srcKg>0 ? dstKg/srcKg : 1;
+
+  msgEl('cbom-msg','<span class="spin"></span> กำลัง copy...','i');
+  try{
+    const srcTable = srcType==='fg'?'bom_master':'wip_bom';
+    const srcField = srcType==='fg'?'sku_code':'wip_code';
+    const srcRows  = await sbG(srcTable,{f:[`${srcField}=eq.${srcCode}`],ord:'id.asc'});
+    if(!srcRows.length){ msgEl('cbom-msg','❌ ไม่พบ BOM ต้นทาง','e'); return; }
+
+    const dstTable = destType==='fg'?'bom_master':'wip_bom';
+    const dstField = destType==='fg'?'sku_code':'wip_code';
+    const dstCodeF = destType==='fg'?'mat_code':'rm_code';
+    const dstNameF = destType==='fg'?'mat_name':'rm_name';
+
+    if(overwrite){
+      const existing=await sbG(dstTable,{f:[`${dstField}=eq.${destCode}`]});
+      for(const row of existing) await sbD(dstTable,`id=eq.${row.id}`).catch(()=>{});
+    }
+
+    let inserted=0;
+    for(const r of srcRows){
+      const qty=parseFloat((Number(r.qty_per_batch||0)*scale).toFixed(4));
+      await sbP(dstTable,{
+        [dstField]:destCode,
+        [dstCodeF]:r.mat_code||r.rm_code||'',
+        [dstNameF]:r.mat_name||r.rm_name||'',
+        qty_per_batch:qty,
+        pct_of_batch:Number(r.pct_of_batch||0),
+        unit:r.unit||'kg',
+        section:r.section||'',
+        note:r.note||''
+      });
+      inserted++;
+    }
+
+    await logA('CREATE','bom',`Copy BOM ${srcCode}→${destCode} (${inserted} rows)`);
+    msgEl('cbom-msg',`✅ Copy สำเร็จ! ${inserted} รายการ → ${destCode}`,'s');
+    setTimeout(()=>{ closeMo(); loadBOMList(); setTimeout(()=>loadBOMDetail(destCode),400); },1200);
+  }catch(e){ msgEl('cbom-msg','❌ '+e.message,'e'); console.error('doCopyBOM:',e); }
+}
+
+
+// ════════════════════════════════════════════════════════════
+//  COPY BOM → สินค้า/WIP ใหม่
+// ════════════════════════════════════════════════════════════
+async function showCopyBOM(srcCode, bomType){
+  await hrInit().catch(()=>{});
+  // โหลดรายการ SKU/WIP ทั้งหมดสำหรับ dropdown target
+  const [fgList, wipList] = await Promise.all([
+    sbG('master_product',{s:'sku,name_en',ord:'sku.asc'}).catch(()=>[]),
+    sbG('wip_master',{s:'code,name',ord:'code.asc'}).catch(()=>[]),
+  ]);
+  const fgOpts = fgList.map(p=>`<option value="fg:${p.sku}">${p.sku} — ${p.name_en||''}</option>`).join('');
+  const wipOpts = wipList.map(w=>`<option value="wip:${w.code}">${w.code} — ${w.name||''}</option>`).join('');
+
+  openMo(`📋 Copy BOM จาก ${srcCode}`,`
+    <div style="background:rgba(27,94,199,.06);border:1px solid rgba(27,94,199,.2);border-radius:8px;padding:10px;margin-bottom:12px">
+      <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:4px">📌 ต้นทาง (Source)</div>
+      <div style="font-family:monospace;font-size:13px;font-weight:700">${srcCode}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px">BOM ทั้งหมดจะถูก copy ไปยังสินค้าปลายทาง</div>
+    </div>
+
+    <div class="fgrp">
+      <label class="flbl">ปลายทาง (Target) — เลือกจากรายการหรือสร้างรหัสใหม่</label>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:6px">
+        <select class="fc2" id="cbom-sel" onchange="cbomFillTarget(this.value)">
+          <option value="">— เลือกสินค้า/WIP ที่มีอยู่ หรือกรอกเองด้านล่าง —</option>
+          <optgroup label="🏷️ สินค้า FG">${fgOpts}</optgroup>
+          <optgroup label="🏭 WIP">${wipOpts}</optgroup>
+        </select>
+        <button class="btn btnS sm" onclick="document.getElementById('cbom-sel').value='';document.getElementById('cbom-code').value='';document.getElementById('cbom-type').value='fg'">ล้าง</button>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="fgrp">
+        <label class="flbl">รหัสปลายทาง *</label>
+        <input type="text" class="fc2" id="cbom-code" placeholder="เช่น SKU-NEW-001 หรือ WIP-NEW">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">ประเภทปลายทาง</label>
+        <select class="fc2" id="cbom-type">
+          <option value="fg">🏷️ สินค้า FG (bom_master)</option>
+          <option value="wip">🏭 WIP (wip_bom)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="fgrp" style="background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-radius:6px;padding:8px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
+        <input type="checkbox" id="cbom-overwrite" style="width:16px;height:16px">
+        <span>เขียนทับ BOM เดิมของปลายทาง (ถ้ามีอยู่แล้ว)</span>
+      </label>
+    </div>
+
+    <button class="btn btnP" style="width:100%;margin-top:4px" onclick="execCopyBOM('${srcCode}','${bomType}')">
+      📋 Copy BOM ทันที
+    </button>
+    <div id="cbom-msg" style="margin-top:8px"></div>
+  `);
+}
+
+function cbomFillTarget(val){
+  if(!val) return;
+  const [type, code] = val.split(':');
+  document.getElementById('cbom-code').value = code||'';
+  document.getElementById('cbom-type').value = type||'fg';
+}
+
+async function execCopyBOM(srcCode, srcType){
+  const targetCode = document.getElementById('cbom-code').value.trim();
+  const targetType = document.getElementById('cbom-type').value;
+  const overwrite  = document.getElementById('cbom-overwrite').checked;
+
+  if(!targetCode){ msgEl('cbom-msg','⚠️ กรุณาระบุรหัสปลายทาง','e'); return; }
+  if(targetCode===srcCode){ msgEl('cbom-msg','⚠️ รหัสต้นทางและปลายทางต้องไม่เหมือนกัน','e'); return; }
+
+  msgEl('cbom-msg','<span class="spin"></span> กำลัง copy...','i');
+
+  try{
+    // ─ โหลด BOM ต้นทาง
+    const srcTable  = srcType==='fg'?'bom_master':'wip_bom';
+    const srcField  = srcType==='fg'?'sku_code':'wip_code';
+    const srcRows   = await sbG(srcTable,{f:[`${srcField}=eq.${srcCode}`],ord:'id.asc'});
+    if(!srcRows.length){ msgEl('cbom-msg','⚠️ ไม่พบ BOM ต้นทาง','e'); return; }
+
+    // ─ ตาราง/field ปลายทาง
+    const dstTable = targetType==='fg'?'bom_master':'wip_bom';
+    const dstField = targetType==='fg'?'sku_code':'wip_code';
+    const dstMatField = targetType==='fg'?'mat_code':'rm_code';
+    const dstNameField= targetType==='fg'?'mat_name':'rm_name';
+
+    // ─ ถ้า overwrite → ลบ BOM เดิมของปลายทาง
+    if(overwrite){
+      const existing = await sbG(dstTable,{f:[`${dstField}=eq.${targetCode}`]});
+      for(const r of existing){
+        await sbD(dstTable,`id=eq.${r.id}`);
+      }
+    }else{
+      // ตรวจว่ามีอยู่แล้วไหม
+      const existing = await sbG(dstTable,{f:[`${dstField}=eq.${targetCode}`]});
+      if(existing.length){
+        msgEl('cbom-msg',`⚠️ ปลายทาง ${targetCode} มี BOM อยู่แล้ว ${existing.length} rows — เปิด "เขียนทับ" ถ้าต้องการแทนที่`,'e');
+        return;
+      }
+    }
+
+    // ─ Copy แต่ละ row
+    let copied=0;
+    for(const r of srcRows){
+      const newRow = {
+        [dstField]:     targetCode,
+        [dstMatField]:  r.mat_code||r.rm_code||'',
+        [dstNameField]: r.mat_name||r.rm_name||'',
+        qty_per_batch:  r.qty_per_batch||0,
+        unit:           r.unit||'kg',
+        section:        r.section||'',
+        pct_of_batch:   r.pct_of_batch||0,
+        note:           r.note||'',
+      };
+      await sbP(dstTable, newRow);
+      copied++;
+    }
+
+    await logA('CREATE','bom',`Copy BOM ${srcCode} → ${targetCode} (${copied} rows)`);
+    msgEl('cbom-msg',`✅ Copy สำเร็จ! ${copied} รายการ → ${targetCode}`,'s');
+
+    // reload BOM ปลายทาง
+    setTimeout(()=>{
+      closeMo();
+      // เปลี่ยน BOM_TYPE ให้ตรงกับ target แล้ว load
+      BOM_TYPE = targetType;
+      loadBOMDetail(targetCode);
+      // update tab
+      document.querySelectorAll('#bom-type-tabs .ftab').forEach(t=>{
+        t.classList.toggle('on', t.textContent.includes(targetType==='fg'?'FG':'WIP'));
+      });
+    }, 1200);
+
+  }catch(e){
+    msgEl('cbom-msg','❌ '+e.message,'e');
+    console.error('execCopyBOM:',e);
+  }
 }
 
 // ════════════════════════════════════════════════════════════
