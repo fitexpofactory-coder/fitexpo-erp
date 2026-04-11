@@ -7415,6 +7415,7 @@ function renderRMTable(data){
       <td class="mn" style="font-size:11px;color:var(--text3)">${r.lot_no||'—'}</td>
       <td style="font-size:11px;color:var(--text3)">${r.receive_date?new Date(r.receive_date).toLocaleDateString('th-TH'):'—'}</td>
       <td style="white-space:nowrap">
+        <button class="btn btnT sm" data-rmlot="${r.code}" data-rmname="${(r.name||'').replace(/"/g,'')}" data-rmunit="${r.unit||'kg'}" onclick="showRMLots(this.dataset.rmlot,this.dataset.rmname,this.dataset.rmunit)" title="Lot Detail">📋</button>
         <button class="btn btnS sm" onclick="editMat(${r.id})" title="แก้ไข Master">✏️</button>
         <button class="btn btnN sm" onclick="editStockBalance('rm','${r.code}',${av},${r.balance_opening||0},${r.qty_in||0},${r.qty_out||0})" title="แก้ยอดคงเหลือ">⚖️</button>
         <button class="btn btnP sm" onclick="showReceiveRM('${r.code}','${(r.name||'').replace(/'/g,"\'")}')">📥</button>
@@ -12569,116 +12570,128 @@ async function _renderStockLots(code, type){
     let masterName='', balance=0, stockUnit='kg';
     if(type==='wip'){
       const m=(await sbG('wip_master',{f:[`code=eq.${code}`],s:'code,name,category,batch_kg,yield_pct'}).catch(()=>[]))[0]||{};
-      masterName=m.name||code;
-      stockUnit='kg'; // WIP เป็น kg เสมอ
+      masterName=m.name||code; stockUnit='kg';
       const s=(await sbG('wip_stock',{f:[`code=eq.${code}`]}).catch(()=>[]))[0]||{};
       balance=Math.max(0,Number(s.qty_produced||0)-Number(s.qty_issued||0));
     }else{
       const m=(await sbG('master_product',{f:[`sku=eq.${code}`],s:'sku,name_en,name_th,stock_unit'}).catch(()=>[]))[0]||{};
-      masterName=m.name_th||m.name_en||code;
-      stockUnit=m.stock_unit||'kg';
+      masterName=m.name_th||m.name_en||code; stockUnit=m.stock_unit||'kg';
       const s=(await sbG('stock_product',{f:[`sku=eq.${code}`]}).catch(()=>[]))[0]||{};
       balance=Math.max(0,Number(s.qty_in||0)-Number(s.qty_sold||0));
     }
 
-    const lotTable = type==='wip'?'wip_stock_lots':'stock_product_lots';
-    const lotField  = type==='wip'?'wip_code':'sku';
-    let lots = await sbG(lotTable,{f:[`${lotField}=eq.${code}`],ord:'prod_date.desc'}).catch(()=>[]);
-    const hasLotTable = lots.length>0 || true; // assume table exists after SQL
-
-    // fallback จาก WO ถ้า lot table ว่าง
+    const lotTable=type==='wip'?'wip_stock_lots':'stock_product_lots';
+    const lotField =type==='wip'?'wip_code':'sku';
+    let lots=await sbG(lotTable,{f:[`${lotField}=eq.${code}`],ord:'prod_date.desc'}).catch(()=>[]);
     let fromWO=false;
     if(!lots.length){
       const wos=await sbG('production_plan',{
-        f:[`sku_code=eq.${code}`,`status=eq.เสร็จสิ้น`],
-        ord:'finish_date.desc',lim:20
+        f:[`sku_code=eq.${code}`,`status=eq.เสร็จสิ้น`],ord:'finish_date.desc',lim:20
       }).catch(()=>[]);
-      lots=wos.map(w=>({
-        id:null, lot_no:w.lot_no||w.pp_no||'—',
-        qty_kg:w.actual_qty||0,
-        prod_date:w.finish_date||w.start_date||'—',
-        exp_date:null, status:'เสร็จสิ้น', _from_wo:true
-      }));
-      fromWO = lots.length>0;
+      lots=wos.map(w=>({id:null,lot_no:w.lot_no||w.pp_no||'—',
+        qty_kg:w.actual_qty||0,prod_date:w.finish_date||'—',
+        exp_date:null,status:'เสร็จสิ้น',_from_wo:true}));
+      fromWO=lots.length>0;
     }
 
-    const statusOpts = ['available','used','quarantine','expired','rejected']
-      .map(s=>`<option value="${s}">${s}</option>`).join('');
+    // คำนวณ qty รวมใน lots vs balance จริง
+    const lotTotal = lots.reduce((s,r)=>s+Number(r.qty_kg||0),0);
+    const unaccounted = Math.max(0, balance - lotTotal);
 
-    const rowsHtml = lots.length ? lots.map((r,i)=>`
-      <tr id="lot-row-${i}">
+    // โหลด activity log สำหรับ stock นี้
+    const logs = await sbG('activity_log',{
+      f:[`ref_code=eq.${code}`],
+      ord:'created_at.desc', lim:30
+    }).catch(()=>[]);
+
+    // ── Lot rows ──
+    const lotRows = lots.length ? lots.map((r,i)=>`
+      <tr>
         <td style="text-align:center;color:var(--text3);font-size:11px">${i+1}</td>
         <td class="mn" style="font-weight:700;color:var(--accent)">${r.lot_no||'—'}</td>
-        <td class="mn">${r.qty_kg?fmt(Number(r.qty_kg),3)+' '+stockUnit:'—'}</td>
-        <td style="font-size:12px">${r.prod_date||'—'}</td>
-        <td style="font-size:12px;color:${r.exp_date?'var(--red)':'var(--text3)'}">
-          ${r.exp_date||'—'}
-        </td>
-        <td>
-          <span class="badge ${r.status==='available'||r.status==='เสร็จสิ้น'?'bg':'ba'}" style="font-size:10px">
-            ${r.status||'—'}
-          </span>
-        </td>
+        <td class="mn" style="font-weight:600">${r.qty_kg?fmt(Number(r.qty_kg),0)+' '+stockUnit:'—'}</td>
+        <td style="font-size:11px">${r.prod_date||'—'}</td>
+        <td style="font-size:11px;color:${r.exp_date?'var(--red)':'var(--text3)'}">${r.exp_date||'—'}</td>
+        <td><span class="badge ${r.status==='available'||r.status==='เสร็จสิ้น'?'bg':'ba'}" style="font-size:10px">${r.status||'—'}</span></td>
         <td>
           ${r.id
             ?`<button class="btn btnS sm" onclick="editLotRow(${r.id},'${code}','${type}')">✏️</button>`
-            :`<button class="btn btnT sm" style="font-size:10px"
-                onclick="convertWOToLot('${code}','${type}','${r.lot_no}',${r.qty_kg},'${r.prod_date}')">
-                💾
-              </button>`}
+            :`<button class="btn btnT sm" style="font-size:10px" onclick="convertWOToLot('${code}','${type}','${r.lot_no}',${r.qty_kg},'${r.prod_date}')">💾</button>`}
         </td>
       </tr>`).join('')
-    :`<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">
-        <div style="font-size:32px;margin-bottom:8px">📭</div>
+    :`<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px">
+        <div style="font-size:28px;margin-bottom:6px">📭</div>
         <div style="font-weight:600;color:var(--navy);margin-bottom:8px">ยังไม่มีข้อมูล Lot</div>
         ${balance>0?`
           <div style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);
             border-radius:8px;padding:10px;margin:8px auto;max-width:320px;text-align:left">
             <div style="font-size:12px;font-weight:700;color:#D97706;margin-bottom:6px">
-              ⚠️ มี Stock คงเหลือ ${fmt(balance,0)} ${stockUnit} แต่ยังไม่มี Lot
-            </div>
-            <div style="font-size:11px;color:var(--text3);margin-bottom:8px">
-              กดปุ่มด้านล่างเพื่อบันทึก Lot สำหรับ Stock ที่มีอยู่
+              ⚠️ มี Stock ${fmt(balance,0)} ${stockUnit} แต่ยังไม่มี Lot
             </div>
             <button class="btn btnP" style="width:100%"
               onclick="addNewLotFromBalance('${code}','${type}',${balance},'${stockUnit}')">
-              ➕ บันทึก Lot สำหรับ Stock คงเหลือ (${fmt(balance,0)} ${stockUnit})
+              ➕ บันทึก Lot สำหรับ Stock ที่มีอยู่
             </button>
-          </div>
-        `:'<small>Lot จะบันทึกอัตโนมัติเมื่อกด ✅ ยืนยันบันทึกผลผลิต</small>'}
+          </div>`:
+          '<small style="color:var(--text3)">Lot จะบันทึกอัตโนมัติเมื่อกด ✅ ยืนยันบันทึกผลผลิต</small>'}
+      </td></tr>`;
+
+    // ── Activity log rows ──
+    const logRows = logs.length ? logs.map(l=>{
+      const dt = new Date(l.created_at).toLocaleString('th-TH',{
+        year:'2-digit',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'
+      });
+      return`<tr>
+        <td style="font-size:10px;white-space:nowrap;color:var(--text3)">${dt}</td>
+        <td style="font-size:11px">${l.username||l.full_name||'—'}</td>
+        <td style="font-size:11px">${l.action||'—'}</td>
+        <td style="font-size:11px;color:var(--text3)">${l.detail||'—'}</td>
+      </tr>`;
+    }).join('')
+    :`<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:12px;font-size:11px">
+        ไม่มีประวัติการทำรายการ
       </td></tr>`;
 
     document.getElementById('mo-b').innerHTML=`
-      <!-- Summary -->
+      <!-- Summary 3 boxes -->
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
         <div style="background:var(--bg3);border-radius:8px;padding:10px;text-align:center">
           <div style="font-size:10px;color:var(--text3);margin-bottom:3px">รหัส</div>
-          <div style="font-weight:800;font-family:monospace;font-size:13px;
-            color:${type==='wip'?'var(--purple)':'var(--accent)'}">${code}</div>
+          <div style="font-weight:800;font-family:monospace;font-size:12px;color:${type==='wip'?'var(--purple)':'var(--accent)'}">${code}</div>
         </div>
         <div style="background:var(--bg3);border-radius:8px;padding:10px;text-align:center">
           <div style="font-size:10px;color:var(--text3);margin-bottom:3px">ชื่อ</div>
-          <div style="font-weight:700;font-size:12px">${masterName}</div>
+          <div style="font-weight:700;font-size:11px;line-height:1.3">${masterName}</div>
         </div>
         <div style="background:rgba(27,122,62,.1);border-radius:8px;padding:10px;text-align:center">
           <div style="font-size:10px;color:var(--text3);margin-bottom:3px">Stock คงเหลือ</div>
-          <div style="font-weight:800;font-size:18px;color:var(--green)">${fmt(balance,2)} ${stockUnit}</div>
+          <div style="font-weight:800;font-size:18px;color:var(--green)">${fmt(balance,0)} ${stockUnit}</div>
         </div>
       </div>
 
-      <!-- Header + Add button -->
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      ${unaccounted>0?`
+      <!-- Unaccounted stock warning -->
+      <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);
+        border-radius:8px;padding:10px;margin-bottom:10px;display:flex;align-items:center;gap:10px">
+        <div style="flex:1;font-size:12px">
+          <b style="color:#D97706">⚠️ Stock ไม่มี Lot:</b>
+          <span style="color:var(--navy);font-weight:700"> ${fmt(unaccounted,0)} ${stockUnit}</span>
+          <span style="color:var(--text3);font-size:10px"> (รวม Lot ${fmt(lotTotal,0)} ${stockUnit} / Stock รวม ${fmt(balance,0)} ${stockUnit})</span>
+        </div>
+        <button class="btn btnP sm" onclick="addNewLotFromBalance('${code}','${type}',${unaccounted},'${stockUnit}')">
+          ➕ บันทึก Lot
+        </button>
+      </div>`:''}
+
+      <!-- Lot table -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
         <div style="font-weight:700;font-size:13px;color:var(--navy)">
           📋 รายการ Lot (${lots.length} Lot)
-          ${fromWO?'<span style="font-size:10px;color:var(--amber);font-weight:400;margin-left:6px">⚠️ จาก WO</span>':''}
+          ${fromWO?'<span style="font-size:10px;color:var(--amber);font-weight:400;margin-left:4px">⚠️ จาก WO</span>':''}
         </div>
-        <button class="btn btnP sm" onclick="addNewLot('${code}','${type}','${stockUnit}')">
-          + เพิ่ม Lot ใหม่
-        </button>
+        <button class="btn btnP sm" onclick="addNewLot('${code}','${type}','${stockUnit}')">+ เพิ่ม Lot ใหม่</button>
       </div>
-
-      <!-- Lot Table -->
-      <div class="tw" style="max-height:320px;overflow-y:auto" id="lot-table-wrap">
+      <div class="tw" style="max-height:240px;overflow-y:auto;margin-bottom:14px">
         <table>
           <thead><tr>
             <th style="width:28px">#</th>
@@ -12687,14 +12700,30 @@ async function _renderStockLots(code, type){
             <th>วันผลิต</th>
             <th>วันหมดอายุ</th>
             <th>สถานะ</th>
-            <th style="width:50px">แก้ไข</th>
+            <th style="width:40px"></th>
           </tr></thead>
-          <tbody id="lot-tbody">${rowsHtml}</tbody>
+          <tbody>${lotRows}</tbody>
+        </table>
+      </div>
+
+      <!-- Activity log -->
+      <div style="font-weight:700;font-size:12px;color:var(--navy);margin-bottom:6px">
+        📜 ประวัติการทำรายการ
+      </div>
+      <div class="tw" style="max-height:200px;overflow-y:auto">
+        <table>
+          <thead><tr>
+            <th style="width:100px">วันที่/เวลา</th>
+            <th style="width:80px">ผู้ทำรายการ</th>
+            <th style="width:70px">ประเภท</th>
+            <th>รายละเอียด</th>
+          </tr></thead>
+          <tbody>${logRows}</tbody>
         </table>
       </div>
       <div id="lot-msg" style="margin-top:8px"></div>`;
   }catch(e){
-    console.error('showStockLots:',e);
+    console.error('_renderStockLots:',e);
     document.getElementById('mo-b').innerHTML=`<div class="al ale">❌ ${e.message}</div>`;
   }
 }
@@ -12755,44 +12784,60 @@ async function saveNewLot(code, type, stockUnit='kg'){
   const lotField  = type==='wip'?'wip_code':'sku';
 
   try{
+    console.log('[saveNewLot] INSERT →',lotTable,{[lotField]:code,lot_no:lotNo,qty_kg:qty});
     await sbP(lotTable,{
-      [lotField]:code, lot_no:lotNo, qty_kg:qty, note:note||`${qty} ${stockUnit}`,
-      prod_date:prodDate, exp_date:expDate||null, status, note
+      [lotField]: code,
+      lot_no:     lotNo,
+      qty_kg:     qty,
+      prod_date:  prodDate,
+      exp_date:   expDate||null,
+      status:     status,
+      note:       note||''
     });
   }catch(e){
-    if(e.message?.includes('400')||e.message?.includes('relation')||e.message?.includes('does not exist')){
-      // Table ยังไม่มี — แสดง SQL hint
+    console.error('[saveNewLot] error:',e.message, e);
+    // แสดง error จริง + SQL hint ถ้า table ไม่มี
+    const isNoTable = e.message?.includes('relation')||e.message?.includes('does not exist');
+    if(isNoTable){
       const sql = type==='wip'
         ? `CREATE TABLE IF NOT EXISTS wip_stock_lots (id BIGSERIAL PRIMARY KEY, wip_code TEXT, lot_no TEXT, qty_kg NUMERIC DEFAULT 0, prod_date DATE, exp_date DATE, status TEXT DEFAULT 'available', note TEXT, created_at TIMESTAMPTZ DEFAULT NOW());`
         : `CREATE TABLE IF NOT EXISTS stock_product_lots (id BIGSERIAL PRIMARY KEY, sku TEXT, lot_no TEXT, qty_kg NUMERIC DEFAULT 0, prod_date DATE, exp_date DATE, status TEXT DEFAULT 'available', note TEXT, created_at TIMESTAMPTZ DEFAULT NOW());`;
       document.getElementById('nl-msg').innerHTML=`
         <div class="al ale" style="font-size:11px">
-          ❌ ยังไม่มีตาราง Lot — กรุณารัน SQL ใน Supabase ก่อนครับ:<br>
+          ❌ ยังไม่มีตาราง Lot — รัน SQL ใน Supabase:<br>
           <code style="background:rgba(0,0,0,.08);padding:4px 6px;border-radius:4px;
-            display:block;margin-top:6px;word-break:break-all;font-size:10px;
-            cursor:pointer" onclick="navigator.clipboard?.writeText('${sql.replace(/'/g,"\\'")}');this.style.background='rgba(27,122,62,.2)'">
-            ${sql}<br><small style="color:var(--accent)">(คลิกเพื่อ copy)</small>
+            display:block;margin-top:6px;word-break:break-all;font-size:10px;cursor:pointer"
+            onclick="navigator.clipboard?.writeText(this.textContent.trim());this.style.background='rgba(27,122,62,.2)'">
+            ${sql}
           </code>
         </div>`;
       return;
     }
-    msgEl('nl-msg','❌ '+e.message,'e'); return;
+    // error อื่น → แสดง message จริง
+    msgEl('nl-msg','❌ '+e.message,'e');
+    return;
   }
 
-  // update stock qty ด้วย (ถ้า table ยังไม่มีก็ข้ามไป)
-  try{
-    if(type==='wip'){
-      const s=(await sbG('wip_stock',{f:[`code=eq.${code}`]}).catch(()=>[]))[0];
-      if(s) await sbU('wip_stock',{qty_produced:Number(s.qty_produced||0)+qty},`code=eq.${code}`);
-      else  await sbP('wip_stock',{code,qty_produced:qty,qty_issued:0});
-    }else{
-      const s=(await sbG('stock_product',{f:[`sku=eq.${code}`]}).catch(()=>[]))[0];
-      if(s) await sbU('stock_product',{qty_in:Number(s.qty_in||0)+qty},`sku=eq.${code}`);
-      else  await sbP('stock_product',{sku:code,qty_in:qty,qty_sold:0});
-    }
-  }catch(e2){ console.warn('stock update:',e2.message); }
+  // update stock qty — ข้ามถ้าเป็นการระบุ Lot ให้ stock ที่มีอยู่แล้ว
+  const skipStockUpdate = document.getElementById('nl-no-stock-update')?.value==='1';
+  document.getElementById('nl-no-stock-update')?.remove(); // reset flag
+  if(!skipStockUpdate){
+    try{
+      if(type==='wip'){
+        const s=(await sbG('wip_stock',{f:[`code=eq.${code}`]}).catch(()=>[]))[0];
+        if(s) await sbU('wip_stock',{qty_produced:Number(s.qty_produced||0)+qty},`code=eq.${code}`);
+        else  await sbP('wip_stock',{code,qty_produced:qty,qty_issued:0});
+      }else{
+        const s=(await sbG('stock_product',{f:[`sku=eq.${code}`]}).catch(()=>[]))[0];
+        if(s) await sbU('stock_product',{qty_in:Number(s.qty_in||0)+qty},`sku=eq.${code}`);
+        else  await sbP('stock_product',{sku:code,qty_in:qty,qty_sold:0});
+      }
+    }catch(e2){ console.warn('stock update:',e2.message); }
+  }else{
+    console.log('[saveNewLot] skip stock update — cataloging existing stock');
+  }
 
-  await logA('CREATE','stock',`เพิ่ม Lot ${lotNo} ${qty}kg → ${code}`);
+  await logA('CREATE','stock',`${skipStockUpdate?'ระบุ Lot':'เพิ่ม Lot'} ${lotNo} ${qty} → ${code}`);
   msgEl('nl-msg','✅ บันทึกแล้ว','s');
   setTimeout(()=>{ closeMo(); showStockLots(code,type); },800);
 }
@@ -13110,17 +13155,23 @@ function convertWOToLot(code, type, lotNo, qty, prodDate){
 
 
 function addNewLotFromBalance(code, type, balance, stockUnit){
-  // เปิด addNewLot พร้อม pre-fill ด้วย balance
-  addNewLot(code, type, stockUnit);
+  // เปิด addNewLot พร้อม pre-fill — ไม่บวก stock เพิ่ม (stock มีอยู่แล้ว)
+  addNewLot(code, type, stockUnit, false); // false = ไม่ update stock
   setTimeout(()=>{
-    const qEl = document.getElementById('nl-qty');
-    if(qEl) qEl.value = balance;
-    // ตั้ง lot no วันนี้
-    const lotEl = document.getElementById('nl-lot');
-    if(lotEl && !lotEl.value) lotEl.value = 'LOT-'+new Date().toISOString().slice(0,10).replace(/-/g,'');
-    // แสดง hint
-    const msgEl2 = document.getElementById('nl-msg');
-    if(msgEl2) msgEl2.innerHTML = '<div style="color:var(--amber);font-size:11px">⚠️ กรุณาระบุวันผลิตและวันหมดอายุให้ถูกต้องครับ</div>';
+    const qEl=document.getElementById('nl-qty');
+    if(qEl) qEl.value=balance;
+    const lotEl=document.getElementById('nl-lot');
+    if(lotEl&&!lotEl.value) lotEl.value='LOT-'+new Date().toISOString().slice(0,10).replace(/-/g,'');
+    const msgEl2=document.getElementById('nl-msg');
+    if(msgEl2) msgEl2.innerHTML=
+      '<div style="background:rgba(27,94,199,.08);border-radius:6px;padding:6px 8px;font-size:11px;color:var(--accent)">' +
+      '📌 การบันทึกนี้จะ<b>ไม่เพิ่มยอด Stock</b> — เป็นการระบุ Lot ให้ Stock ที่มีอยู่แล้วเท่านั้น' +
+      '</div>';
+    // เพิ่ม hidden input บอกว่าอย่า update stock
+    let hid=document.getElementById('nl-no-stock-update');
+    if(!hid){ hid=document.createElement('input'); hid.type='hidden'; hid.id='nl-no-stock-update';
+      document.getElementById('nl-qty')?.closest('form,div')?.appendChild(hid)||document.body.appendChild(hid); }
+    hid.value='1';
   }, 250);
 }
 
@@ -13435,89 +13486,9 @@ async function deleteProdStep(stepId, skuCode, woId){
 // ════════════════════════════════════════════════════════════
 //  PRODUCTION STEPS CRUD
 // ════════════════════════════════════════════════════════════
-async function saveProdStep(skuCode, woId){
-  const stepNo  = parseInt(document.getElementById('ns-no')?.value)||1;
-  const title   = document.getElementById('ns-title')?.value.trim();
-  const desc    = document.getElementById('ns-desc')?.value.trim()||'';
-  const durMin  = parseInt(document.getElementById('ns-min')?.value)||0;
-  const note    = document.getElementById('ns-note')?.value.trim()||'';
-  if(!title){ msgEl('ns-msg','กรุณาใส่ชื่อขั้นตอน','e'); return; }
-  msgEl('ns-msg','<span class="spin"></span> บันทึก...','i');
-  try{
-    await sbP('production_steps',{
-      sku_code:skuCode, step_no:stepNo,
-      step_title:title, step_desc:desc,
-      duration_min:durMin||null, note
-    });
-    await logA('CREATE','bom',`เพิ่มขั้นตอน ${stepNo}:${title} → ${skuCode}`);
-    msgEl('ns-msg','✅ บันทึกแล้ว','s');
-    setTimeout(()=>_renderProdSteps(skuCode, woId), 500);
-  }catch(e){
-    if(e.message?.includes('400')||e.message?.includes('relation')){
-      document.getElementById('ns-msg').innerHTML=`
-        <div class="al ale" style="font-size:11px">
-          ❌ ยังไม่มีตาราง — รัน SQL ใน Supabase:<br>
-          <code style="font-size:10px;display:block;margin-top:4px;background:rgba(0,0,0,.08);padding:4px;
-            border-radius:4px;cursor:pointer;word-break:break-all"
-            onclick="navigator.clipboard?.writeText(this.textContent)">
-CREATE TABLE IF NOT EXISTS production_steps (
-  id BIGSERIAL PRIMARY KEY,
-  sku_code TEXT NOT NULL,
-  step_no INTEGER DEFAULT 1,
-  step_title TEXT,
-  step_desc TEXT,
-  duration_min INTEGER,
-  note TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);</code>
-          <small style="color:var(--accent)">(คลิก code เพื่อ copy)</small>
-        </div>`;
-    }else{ msgEl('ns-msg','❌ '+e.message,'e'); }
-  }
-}
 
-async function editProdStep(stepId, skuCode, woId){
-  const rows = await sbG('production_steps',{f:[`id=eq.${stepId}`]}).catch(()=>[]);
-  const s = rows[0];
-  if(!s){ alert('ไม่พบขั้นตอน'); return; }
-  openMo(`✏️ แก้ไขขั้นตอน #${s.step_no}`,`
-    <div style="display:grid;grid-template-columns:60px 1fr;gap:8px;margin-bottom:8px">
-      <div class="fgrp">
-        <label class="flbl">ลำดับ #</label>
-        <input type="number" class="fc2" id="es-no" value="${s.step_no}" min="1">
-      </div>
-      <div class="fgrp">
-        <label class="flbl">ชื่อขั้นตอน *</label>
-        <input type="text" class="fc2" id="es-title" value="${s.step_title||''}">
-      </div>
-    </div>
-    <div class="fgrp">
-      <label class="flbl">รายละเอียด</label>
-      <textarea class="fc2" id="es-desc" rows="3"
-        style="resize:vertical;font-size:12px">${s.step_desc||''}</textarea>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-      <div class="fgrp" style="margin:0">
-        <label class="flbl">เวลา (นาที)</label>
-        <input type="number" class="fc2" id="es-min" value="${s.duration_min||0}" min="0">
-      </div>
-      <div class="fgrp" style="margin:0">
-        <label class="flbl">หมายเหตุ</label>
-        <input type="text" class="fc2" id="es-note" value="${s.note||''}">
-      </div>
-    </div>
-    <div style="display:flex;gap:8px">
-      <button class="btn btnP" style="flex:1"
-        onclick="updateProdStep(${stepId},'${skuCode}',${woId||'null'})">
-        💾 บันทึก
-      </button>
-      <button class="btn btnD sm"
-        onclick="deleteProdStep(${stepId},'${skuCode}',${woId||'null'})">
-        🗑 ลบ
-      </button>
-    </div>
-    <div id="es-msg" style="margin-top:8px"></div>`);
-}
+
+
 
 async function updateProdStep(stepId, skuCode, woId){
   const stepNo = parseInt(document.getElementById('es-no')?.value)||1;
@@ -13538,14 +13509,7 @@ async function updateProdStep(stepId, skuCode, woId){
   }catch(e){ msgEl('es-msg','❌ '+e.message,'e'); }
 }
 
-async function deleteProdStep(stepId, skuCode, woId){
-  if(!confirm('ลบขั้นตอนนี้?')) return;
-  try{
-    await sbD('production_steps',`id=eq.${stepId}`);
-    closeMo();
-    showProdSteps(skuCode, woId);
-  }catch(e){ alert('❌ '+e.message); }
-}
+
 
 
 // ════════════════════════════════════════════════════════════
@@ -13703,6 +13667,326 @@ function hrPrintLeaveSummary(){
     <div style="font-size:9pt;color:#666;margin-bottom:8px">พิมพ์วันที่ ${today}</div>
     ${content}
     </body></html>`,`สรุปสิทธิ์ลาพักร้อน ${yr}`);
+}
+
+
+// ════════════════════════════════════════════════════════════
+//  RM / PK LOT MANAGEMENT
+// ════════════════════════════════════════════════════════════
+async function showRMLots(code, name, unit='kg'){
+  openMo(`📋 Lot Detail — ${code}`,
+    `<div style="text-align:center;padding:20px"><span class="spin"></span> กำลังโหลด...</div>`);
+  await _renderRMLots(code, name, unit);
+}
+
+async function _renderRMLots(code, name, unit){
+  try{
+    // โหลด stock ปัจจุบัน
+    const stock=(await sbG('stock_material',{f:[`code=eq.${code}`]}).catch(()=>[]))[0]||{};
+    const av = Math.max(0,
+      Number(stock.balance_opening||0)+Number(stock.qty_in||0)-Number(stock.qty_out||0));
+
+    // โหลด material_lots table
+    let lots=await sbG('material_lots',{
+      f:[`mat_code=eq.${code}`], ord:'receive_date.desc'
+    }).catch(()=>[]);
+
+    // โหลด receive history จาก activity_log
+    const logs=await sbG('activity_log',{
+      f:[`ref_code=eq.${code}`,`module=eq.rm`],
+      ord:'created_at.desc', lim:30
+    }).catch(()=>[]);
+
+    // คำนวณ qty รวมใน lots
+    const lotTotal = lots.reduce((s,r)=>s+Number(r.qty||0),0);
+    const unaccounted = Math.max(0, av - lotTotal);
+
+    // Lot rows
+    const lotRows = lots.length ? lots.map((r,i)=>`
+      <tr>
+        <td style="text-align:center;color:var(--text3);font-size:11px">${i+1}</td>
+        <td class="mn" style="font-weight:700;color:var(--accent)">${r.lot_no||'—'}</td>
+        <td class="mn" style="font-weight:600">${r.qty?fmt(Number(r.qty),3)+' '+unit:'—'}</td>
+        <td style="font-size:11px">${r.receive_date||'—'}</td>
+        <td style="font-size:11px">${r.exp_date||'—'}</td>
+        <td style="font-size:11px;color:var(--accent)">${r.supplier||'—'}</td>
+        <td><span class="badge ${r.status==='available'?'bg':'ba'}" style="font-size:10px">${r.status||'available'}</span></td>
+        <td style="font-size:10px;color:var(--text3)">${r.note||''}</td>
+        <td>
+          <button class="btn btnS sm" onclick="editRMLot(${r.id},'${code}','${unit}')">✏️</button>
+          <button class="btn btnD sm" onclick="deleteRMLot(${r.id},'${code}','${name}','${unit}')">🗑</button>
+        </td>
+      </tr>`).join('')
+    :`<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:20px">
+        <div style="font-size:28px;margin-bottom:6px">📭</div>
+        <div style="font-weight:600;color:var(--navy);margin-bottom:8px">ยังไม่มีข้อมูล Lot</div>
+        ${av>0?`<button class="btn btnP sm" onclick="addRMLotFromBalance('${code}','${name}',${av},'${unit}')">
+          ➕ บันทึก Lot สำหรับ Stock ที่มีอยู่ (${fmt(av,3)} ${unit})
+        </button>`:''}
+      </td></tr>`;
+
+    // Log rows
+    const logRows = logs.length ? logs.map(l=>{
+      const dt=new Date(l.created_at).toLocaleString('th-TH',{
+        year:'2-digit',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'
+      });
+      return`<tr>
+        <td style="font-size:10px;white-space:nowrap;color:var(--text3)">${dt}</td>
+        <td style="font-size:11px">${l.username||l.full_name||'—'}</td>
+        <td style="font-size:11px">${l.action||'—'}</td>
+        <td style="font-size:11px;color:var(--text3)">${l.detail||'—'}</td>
+      </tr>`;
+    }).join('')
+    :`<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:10px;font-size:11px">ไม่มีประวัติ</td></tr>`;
+
+    document.getElementById('mo-b').innerHTML=`
+      <!-- Summary -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+        <div style="background:var(--bg3);border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:10px;color:var(--text3);margin-bottom:3px">รหัส</div>
+          <div style="font-weight:800;font-family:monospace;font-size:12px;color:var(--accent)">${code}</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:10px;color:var(--text3);margin-bottom:3px">ชื่อ</div>
+          <div style="font-weight:700;font-size:11px;line-height:1.3">${name}</div>
+        </div>
+        <div style="background:rgba(27,122,62,.1);border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:10px;color:var(--text3);margin-bottom:3px">Stock คงเหลือ</div>
+          <div style="font-weight:800;font-size:18px;color:var(--green)">${fmt(av,3)} ${unit}</div>
+        </div>
+      </div>
+
+      ${unaccounted>0.001?`
+      <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);
+        border-radius:8px;padding:8px 12px;margin-bottom:10px;display:flex;align-items:center;gap:10px">
+        <div style="flex:1;font-size:12px">
+          <b style="color:#D97706">⚠️ Stock ไม่มี Lot:</b>
+          <span style="font-weight:700;color:var(--navy)"> ${fmt(unaccounted,3)} ${unit}</span>
+        </div>
+        <button class="btn btnP sm" onclick="addRMLotFromBalance('${code}','${name}',${unaccounted},'${unit}')">
+          ➕ บันทึก Lot
+        </button>
+      </div>`:''}
+
+      <!-- Lot table -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="font-weight:700;font-size:13px;color:var(--navy)">📋 รายการ Lot (${lots.length} Lot)</div>
+        <button class="btn btnP sm" onclick="addRMLot('${code}','${name}','${unit}')">+ เพิ่ม Lot ใหม่</button>
+      </div>
+      <div class="tw" style="max-height:220px;overflow-y:auto;margin-bottom:12px">
+        <table>
+          <thead><tr>
+            <th style="width:24px">#</th>
+            <th>Lot No.</th>
+            <th style="text-align:right">จำนวน (${unit})</th>
+            <th>วันรับเข้า</th>
+            <th>วันหมดอายุ</th>
+            <th>Supplier</th>
+            <th>สถานะ</th>
+            <th>หมายเหตุ</th>
+            <th style="width:60px"></th>
+          </tr></thead>
+          <tbody>${lotRows}</tbody>
+        </table>
+      </div>
+
+      <!-- History -->
+      <div style="font-weight:700;font-size:12px;color:var(--navy);margin-bottom:6px">📜 ประวัติการทำรายการ</div>
+      <div class="tw" style="max-height:180px;overflow-y:auto">
+        <table>
+          <thead><tr>
+            <th style="width:100px">วันที่/เวลา</th>
+            <th style="width:80px">ผู้ทำรายการ</th>
+            <th style="width:70px">ประเภท</th>
+            <th>รายละเอียด</th>
+          </tr></thead>
+          <tbody>${logRows}</tbody>
+        </table>
+      </div>
+      <div id="rm-lot-msg" style="margin-top:8px"></div>`;
+  }catch(e){
+    console.error('_renderRMLots:',e);
+    document.getElementById('mo-b').innerHTML=`<div class="al ale">❌ ${e.message}</div>`;
+  }
+}
+
+function addRMLot(code, name, unit='kg'){
+  const today=new Date().toISOString().slice(0,10);
+  // โหลด suppliers สำหรับ dropdown
+  sbG('master_supplier',{s:'code,name',ord:'name.asc'}).catch(()=>[]).then(supps=>{
+    const suppOpts=supps.map(s=>`<option value="${s.name||s.code}">${s.name||s.code}</option>`).join('');
+    openMo(`+ เพิ่ม Lot RM — ${code}`,`
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="fgrp">
+          <label class="flbl">🏷️ Lot No. *</label>
+          <input type="text" class="fc2" id="rl-lot" value="LOT-${today.replace(/-/g,'')}" placeholder="LOT-20260409">
+        </div>
+        <div class="fgrp">
+          <label class="flbl">⚖️ จำนวน (${unit}) *</label>
+          <input type="number" class="fc2" id="rl-qty" step="0.001" min="0" placeholder="0.000">
+        </div>
+        <div class="fgrp">
+          <label class="flbl">📅 วันรับเข้า</label>
+          <input type="date" class="fc2" id="rl-recv" value="${today}">
+        </div>
+        <div class="fgrp">
+          <label class="flbl">⏳ วันหมดอายุ</label>
+          <input type="date" class="fc2" id="rl-exp">
+        </div>
+      </div>
+      <div class="fgrp">
+        <label class="flbl">🏭 Supplier</label>
+        <select class="fc2" id="rl-supp">
+          <option value="">— เลือก Supplier —</option>
+          ${suppOpts}
+        </select>
+        <input type="text" class="fc2" id="rl-supp-free" placeholder="หรือพิมพ์ชื่อ Supplier" style="margin-top:4px">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="fgrp">
+          <label class="flbl">สถานะ</label>
+          <select class="fc2" id="rl-status">
+            <option value="available">✅ available</option>
+            <option value="quarantine">⚠️ quarantine</option>
+            <option value="used">📤 used</option>
+            <option value="expired">❌ expired</option>
+          </select>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">หมายเหตุ</label>
+          <input type="text" class="fc2" id="rl-note" placeholder="เช่น Invoice 2026-001">
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <input type="checkbox" id="rl-update-stock" checked style="width:16px;height:16px">
+        <label for="rl-update-stock" style="font-size:12px;cursor:pointer">
+          เพิ่มยอด Stock ด้วย (รับเข้าจริง)
+        </label>
+      </div>
+      <button class="btn btnP" style="width:100%;margin-top:4px"
+        onclick="saveRMLot('${code}','${name}','${unit}')">
+        💾 บันทึก Lot
+      </button>
+      <div id="rl-msg" style="margin-top:8px"></div>`);
+  });
+}
+
+function addRMLotFromBalance(code, name, balance, unit){
+  addRMLot(code, name, unit);
+  setTimeout(()=>{
+    const q=document.getElementById('rl-qty'); if(q) q.value=balance;
+    const cb=document.getElementById('rl-update-stock'); if(cb) cb.checked=false;
+    const msg=document.getElementById('rl-msg');
+    if(msg) msg.innerHTML='<div style="background:rgba(27,94,199,.08);border-radius:6px;padding:6px 8px;font-size:11px;color:var(--accent)">📌 ไม่บวก Stock เพิ่ม — บันทึก Lot สำหรับ Stock ที่มีอยู่แล้ว</div>';
+  },250);
+}
+
+async function saveRMLot(code, name, unit){
+  const lotNo    = document.getElementById('rl-lot')?.value.trim();
+  const qty      = parseFloat(document.getElementById('rl-qty')?.value)||0;
+  const recvDate = document.getElementById('rl-recv')?.value||new Date().toISOString().slice(0,10);
+  const expDate  = document.getElementById('rl-exp')?.value||null;
+  const suppSel  = document.getElementById('rl-supp')?.value||'';
+  const suppFree = document.getElementById('rl-supp-free')?.value.trim()||'';
+  const supplier = suppFree||suppSel||'';
+  const status   = document.getElementById('rl-status')?.value||'available';
+  const note     = document.getElementById('rl-note')?.value.trim()||'';
+  const doStock  = document.getElementById('rl-update-stock')?.checked;
+
+  if(!lotNo||!qty){ msgEl('rl-msg','กรุณากรอก Lot No. และจำนวน','e'); return; }
+  msgEl('rl-msg','<span class="spin"></span> บันทึก...','i');
+  try{
+    await sbP('material_lots',{
+      mat_code:code, lot_no:lotNo, qty, unit,
+      receive_date:recvDate, exp_date:expDate||null,
+      supplier, status, note
+    });
+    if(doStock){
+      const s=(await sbG('stock_material',{f:[`code=eq.${code}`]}).catch(()=>[]))[0];
+      if(s) await sbU('stock_material',{qty_in:Number(s.qty_in||0)+qty,supplier,lot_no:lotNo,receive_date:recvDate},`code=eq.${code}`);
+      else  await sbP('stock_material',{code,name,qty_in:qty,qty_out:0,balance_opening:0,lot_no:lotNo,supplier,receive_date:recvDate,unit});
+    }
+    await logA('CREATE','rm',`เพิ่ม Lot ${lotNo} ${qty}${unit} [${supplier||'—'}] → ${code}`,code);
+    msgEl('rl-msg','✅ บันทึกแล้ว','s');
+    setTimeout(()=>{ closeMo(); _renderRMLots(code,name,unit); setTimeout(()=>loadRM(),500); },800);
+  }catch(e){
+    if(e.message?.includes('relation')||e.message?.includes('does not exist')){
+      document.getElementById('rl-msg').innerHTML=`<div class="al ale" style="font-size:11px">
+        ❌ ยังไม่มีตาราง material_lots — รัน SQL:<br>
+        <code style="font-size:10px;display:block;margin-top:4px;background:rgba(0,0,0,.08);
+          padding:4px;border-radius:4px;cursor:pointer;word-break:break-all"
+          onclick="navigator.clipboard?.writeText(this.textContent)">
+CREATE TABLE IF NOT EXISTS material_lots (
+  id BIGSERIAL PRIMARY KEY, mat_code TEXT, lot_no TEXT,
+  qty NUMERIC DEFAULT 0, unit TEXT DEFAULT 'kg',
+  receive_date DATE, exp_date DATE,
+  supplier TEXT, status TEXT DEFAULT 'available', note TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);</code></div>`;
+    }else{ msgEl('rl-msg','❌ '+e.message,'e'); }
+  }
+}
+
+async function editRMLot(lotId, code, unit){
+  const rows=await sbG('material_lots',{f:[`id=eq.${lotId}`]}).catch(()=>[]);
+  const r=rows[0]; if(!r){ alert('ไม่พบ Lot'); return; }
+  const name=(await sbG('master_material',{f:[`code=eq.${code}`],s:'name'}).catch(()=>[]))[0]?.name||code;
+  openMo(`✏️ แก้ไข Lot — ${r.lot_no}`,`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fgrp"><label class="flbl">🏷️ Lot No.</label>
+        <input type="text" class="fc2" id="erl-lot" value="${r.lot_no||''}"></div>
+      <div class="fgrp"><label class="flbl">⚖️ จำนวน (${unit})</label>
+        <input type="number" class="fc2" id="erl-qty" value="${r.qty||0}" step="0.001"></div>
+      <div class="fgrp"><label class="flbl">📅 วันรับเข้า</label>
+        <input type="date" class="fc2" id="erl-recv" value="${r.receive_date||''}"></div>
+      <div class="fgrp"><label class="flbl">⏳ วันหมดอายุ</label>
+        <input type="date" class="fc2" id="erl-exp" value="${r.exp_date||''}"></div>
+      <div class="fgrp"><label class="flbl">🏭 Supplier</label>
+        <input type="text" class="fc2" id="erl-supp" value="${r.supplier||''}"></div>
+      <div class="fgrp"><label class="flbl">สถานะ</label>
+        <select class="fc2" id="erl-status">
+          <option value="available" ${r.status==='available'?'selected':''}>✅ available</option>
+          <option value="quarantine" ${r.status==='quarantine'?'selected':''}>⚠️ quarantine</option>
+          <option value="used" ${r.status==='used'?'selected':''}>📤 used</option>
+          <option value="expired" ${r.status==='expired'?'selected':''}>❌ expired</option>
+          <option value="rejected" ${r.status==='rejected'?'selected':''}>🚫 rejected</option>
+        </select></div>
+    </div>
+    <div class="fgrp"><label class="flbl">หมายเหตุ</label>
+      <input type="text" class="fc2" id="erl-note" value="${r.note||''}"></div>
+    <div style="display:flex;gap:8px;margin-top:6px">
+      <button class="btn btnP" style="flex:1" onclick="updateRMLot(${lotId},'${code}','${name}','${unit}')">💾 บันทึก</button>
+      <button class="btn btnD sm" onclick="deleteRMLot(${lotId},'${code}','${name}','${unit}')">🗑 ลบ</button>
+    </div>
+    <div id="erl-msg" style="margin-top:8px"></div>`);
+}
+
+async function updateRMLot(lotId, code, name, unit){
+  const d={
+    lot_no:    document.getElementById('erl-lot')?.value.trim(),
+    qty:       parseFloat(document.getElementById('erl-qty')?.value)||0,
+    receive_date: document.getElementById('erl-recv')?.value||null,
+    exp_date:  document.getElementById('erl-exp')?.value||null,
+    supplier:  document.getElementById('erl-supp')?.value.trim()||'',
+    status:    document.getElementById('erl-status')?.value||'available',
+    note:      document.getElementById('erl-note')?.value.trim()||'',
+  };
+  msgEl('erl-msg','<span class="spin"></span>...','i');
+  try{
+    await sbU('material_lots',d,`id=eq.${lotId}`);
+    await logA('UPDATE','rm',`แก้ Lot ${d.lot_no} ${d.qty}${unit} → ${code}`,code);
+    msgEl('erl-msg','✅ บันทึกแล้ว','s');
+    setTimeout(()=>{ closeMo(); _renderRMLots(code,name,unit); },800);
+  }catch(e){ msgEl('erl-msg','❌ '+e.message,'e'); }
+}
+
+async function deleteRMLot(lotId, code, name, unit){
+  if(!confirm('ลบ Lot นี้?')) return;
+  try{
+    await sbD('material_lots',`id=eq.${lotId}`);
+    closeMo();
+    _renderRMLots(code,name,unit);
+  }catch(e){ alert('❌ '+e.message); }
 }
 
 // ════════════════════════════════════════════════════════════
