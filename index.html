@@ -929,6 +929,18 @@ textarea.fc2{resize:vertical;min-height:60px}
         <input type="file" class="fc2" id="imp-file" accept=".xlsx,.xls,.csv" onchange="previewImport()">
       </div>
     </div>
+    <!-- Download Template / Export buttons -->
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="btn btnT sm" onclick="downloadImportTemplate()" title="ดาวน์โหลด Excel Template เปล่า">
+        📄 ดาวน์โหลด Template (Excel)
+      </button>
+      <button class="btn btnG sm" onclick="exportCurrentData()" title="Export ข้อมูลปัจจุบันจากระบบ">
+        📤 Export ข้อมูลปัจจุบัน (Excel)
+      </button>
+      <span style="font-size:11px;color:var(--text3);align-self:center">
+        ← ดาวน์โหลด Template → กรอกข้อมูล → Import กลับเข้าระบบ
+      </span>
+    </div>
     <div id="imp-template" style="margin-bottom:12px"></div>
     <div style="display:flex;gap:8px">
       <button class="btn btnT" onclick="previewImport()">👁️ Preview</button>
@@ -982,7 +994,41 @@ textarea.fc2{resize:vertical;min-height:60px}
         <div class="fgrp"><label class="flbl">เครื่องจักรหลัก</label>
           <select class="fc2" id="oee-machine"><option value="">— เลือก —</option></select>
         </div>
-        <div class="fgrp"><label class="flbl">กะการทำงาน</label>
+        <!-- Multi-Station Mode -->
+      <div style="background:rgba(27,94,199,.06);border:1px solid rgba(27,94,199,.2);
+        border-radius:8px;padding:10px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="font-weight:700;font-size:12px;color:var(--navy)">
+            🏭 รูปแบบการบันทึก
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;margin-bottom:8px">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px">
+            <input type="radio" name="oee-mode" value="line" checked onchange="oeeToggleMode(this.value)">
+            📊 บันทึกรวม Line (เครื่องหลัก 1 เครื่อง)
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px">
+            <input type="radio" name="oee-mode" value="station" onchange="oeeToggleMode(this.value)">
+            🔢 บันทึกแยกสถานี (หลายเครื่อง)
+          </label>
+        </div>
+        <!-- Station mode hint -->
+        <div id="oee-station-hint" style="display:none;font-size:11px;color:var(--text3)">
+          💡 Line OEE = ค่าต่ำสุดของทุกสถานี (Bottleneck) | บันทึก Runtime/Downtime แยกต่างหากต่อสถานี
+        </div>
+        <!-- Station rows -->
+        <div id="oee-stations" style="display:none;margin-top:8px">
+          <div id="oee-station-rows"></div>
+          <button class="btn btnS sm" onclick="oeeAddStation()" style="width:100%;margin-top:6px">
+            + เพิ่มสถานี/เครื่องจักร
+          </button>
+          <div id="oee-station-summary" style="margin-top:8px;font-size:12px;display:none;
+            background:var(--bg3);border-radius:6px;padding:8px">
+          </div>
+        </div>
+      </div>
+
+      <div class="fgrp"><label class="flbl">กะการทำงาน</label>
           <select class="fc2" id="oee-shift">
             <option value="day">🌤️ กะเช้า (08:00-16:00)</option>
             <option value="night">🌙 กะดึก (20:00-04:00)</option>
@@ -4540,8 +4586,22 @@ async function saveOEELog(){
       availability_pct:oeeCalc.avail,performance_pct:oeeCalc.perf,quality_pct:oeeCalc.qual,oee_pct:oeeCalc.oee,
       qc_pass:qcPass,note,recorded_by:CU?.full_name,status:'completed'
     });
+    // บันทึก station data (multi-station mode)
+    const stationsData = window._oeeStations||[];
+    if(stationsData.length>1){
+      for(const st of stationsData){
+        await sbP('production_log_stations',{
+          batch_no:batchNo, pp_no:ppNo,
+          machine_code:st.mach, num_workers:st.wk,
+          run_time_min:st.run, downtime_min:st.dt,
+          planned_min:st.plan, output_qty:st.out,
+          availability_pct:st.avail, downtime_reason:st.reason
+        }).catch(()=>{}); // ignore ถ้า table ไม่มี
+      }
+    }
     await logA('CREATE','oee',`บันทึก OEE ${batchNo} PP:${ppNo} OEE:${oeeCalc.oee.toFixed(1)}%`,batchNo);
-    msgEl('oee-msg',`✅ บันทึก OEE สำเร็จ!<br>Batch: ${batchNo} | OEE: ${oeeCalc.oee.toFixed(1)}%`,'s');
+    msgEl('oee-msg',`✅ บันทึก OEE สำเร็จ!<br>Batch: ${batchNo} | OEE: ${oeeCalc.oee.toFixed(1)}% | ${stationsData.length>1?stationsData.length+' สถานี':'1 Line'}`,'s');
+    window._oeeStations=[];
     loadOEERecent();
   }catch(e){msgEl('oee-msg','❌ '+e.message,'e');}
 }
@@ -13987,6 +14047,271 @@ async function deleteRMLot(lotId, code, name, unit){
     closeMo();
     _renderRMLots(code,name,unit);
   }catch(e){ alert('❌ '+e.message); }
+}
+
+
+// ════════════════════════════════════════════════════════════
+//  IMPORT TEMPLATE DOWNLOAD + EXPORT
+// ════════════════════════════════════════════════════════════
+
+// Schema ของแต่ละประเภท (headers + example + DB fields)
+const TEMPLATE_SCHEMA = {
+  master_material:{
+    name:'วัตถุดิบ & PK',
+    headers:['รหัสวัสดุ (Code)','ชื่อวัสดุ / Item Name','หมวดหมู่ (Category)','หน่วย (Unit)','ราคา/หน่วย','Balance','EXP Date','Supplier'],
+    example: ['RM-SUGAR-001','Sugar White RM','RM','kg','45.00','500','2026-12-31','ABC Supply'],
+    dbFetch: ()=>sbG('master_material',{s:'code,name,category,unit,price_per_unit,balance_opening,exp_date,supplier',ord:'code.asc'}),
+    dbRow: r=>[r.code,r.name,r.category,r.unit,r.price_per_unit||0,r.balance_opening||0,r.exp_date||'',r.supplier||'']
+  },
+  master_product:{
+    name:'สินค้า FG',
+    headers:['รหัสสินค้า (SKU)','ชื่อสินค้า (English)','ชื่อไทย','Product Line','รสชาติ (Flavour)','ขนาด (g)','Batch kg','ราคาขาย','เลขสารบบ FDA','สถานะ'],
+    example: ['FLBCHC003F040P','Fitly Bite Chocolate','ฟิตลี่ ไบท์ ช็อกโกแลต','Fitly Bite','Chocolate',40,50,199,'10-3-12345-1-0001','Active'],
+    dbFetch: ()=>sbG('master_product',{s:'sku,name_en,name_th,product_line,flavour,size_g,batch_kg,price_sell,fda_number,status',ord:'sku.asc'}),
+    dbRow: r=>[r.sku,r.name_en,r.name_th,r.product_line,r.flavour,r.size_g,r.batch_kg,r.price_sell||0,r.fda_number||'',r.status||'Active']
+  },
+  wip_master:{
+    name:'WIP Master',
+    headers:['รหัส WIP','ชื่อ WIP','หมวดหมู่','Batch kg','Yield %','ราคา/kg'],
+    example: ['WIP-MIX-CHO','WIP Chocolate Mix','Base',50,95,120],
+    dbFetch: ()=>sbG('wip_master',{s:'code,name,category,batch_kg,yield_pct,price_per_kg',ord:'code.asc'}),
+    dbRow: r=>[r.code,r.name,r.category||'',r.batch_kg||50,r.yield_pct||95,r.price_per_kg||0]
+  },
+  suppliers:{
+    name:'Supplier',
+    headers:['รหัส','ชื่อบริษัท / ร้านค้า','วัสดุที่จำหน่าย (หลัก)','ผู้ติดต่อ','โทรศัพท์','อีเมล','Credit (วัน)','Lead Time (วัน)'],
+    example: ['SUP-001','ABC Supply Co.','Sugar, Flour','คุณสมชาย','02-123-4567','info@abc.com',30,14],
+    dbFetch: ()=>sbG('suppliers',{ord:'code.asc'}),
+    dbRow: r=>[r.code,r.name,r.main_products||'',r.contact_name||'',r.tel||'',r.email||'',r.credit_days||30,r.lead_time_days||14]
+  },
+  customers:{
+    name:'ลูกค้า',
+    headers:['รหัสลูกค้า','ชื่อบริษัท / ลูกค้า','เลขผู้เสียภาษี','ผู้ติดต่อ','โทรศัพท์','มือถือ','เครดิต (วัน)','ที่อยู่'],
+    example: ['CUS-001','Health Shop Co.','0105567112345','คุณมานี','02-999-8888','081-234-5678',30,'123 ถ.สุขุมวิท กทม.'],
+    dbFetch: ()=>sbG('customers',{ord:'code.asc'}),
+    dbRow: r=>[r.code,r.name,r.tax_id||'',r.contact_name||'',r.tel||'',r.mobile||'',r.credit_days||30,r.address||'']
+  },
+  stock_material:{
+    name:'Stock วัตถุดิบ (ยอดยก)',
+    headers:['รหัสวัสดุ (Code)','ชื่อวัสดุ','Balance เปิด','รับเข้ารวม','เบิกรวม','Lot ล่าสุด','วันรับล่าสุด'],
+    example: ['RM-SUGAR-001','Sugar White RM',500,200,100,'LOT-20260101','2026-01-01'],
+    dbFetch: ()=>sbG('stock_material',{ord:'code.asc'}),
+    dbRow: r=>[r.code,r.name||'',r.balance_opening||0,r.qty_in||0,r.qty_out||0,r.lot_no||'',r.receive_date||'']
+  },
+  bom_master:{
+    name:'BOM',
+    headers:['รหัสสินค้า (SKU)','รหัสวัตถุดิบ (Mat Code)','ชื่อวัตถุดิบ','หน่วย','qty/batch','% ของ Batch','Section','หมายเหตุ'],
+    example: ['FLBCHC003F040P','RM-SUGAR-001','Sugar White RM','kg',16.5,33,'Base',''],
+    dbFetch: ()=>sbG('bom_master',{s:'sku_code,mat_code,mat_name,unit,qty_per_batch,pct_of_batch,section,note',ord:'sku_code.asc,id.asc'}),
+    dbRow: r=>[r.sku_code,r.mat_code,r.mat_name||'',r.unit||'kg',r.qty_per_batch||0,r.pct_of_batch||0,r.section||'',r.note||'']
+  }
+};
+
+async function downloadImportTemplate(){
+  const type=document.getElementById('imp-type')?.value||'master_material';
+  const schema=TEMPLATE_SCHEMA[type];
+  if(!schema){ alert('ไม่รองรับประเภทนี้'); return; }
+  _buildAndDownloadXLSX(schema.headers, [schema.example], `Template_${schema.name}`);
+}
+
+async function exportCurrentData(){
+  const type=document.getElementById('imp-type')?.value||'master_material';
+  const schema=TEMPLATE_SCHEMA[type];
+  if(!schema){ alert('ไม่รองรับประเภทนี้'); return; }
+  msgEl('imp-msg','<span class="spin"></span> กำลัง Export...','i');
+  try{
+    const rows=await schema.dbFetch();
+    if(!rows.length){ msgEl('imp-msg','⚠️ ไม่มีข้อมูลใน Database','w'); return; }
+    const data=rows.map(r=>schema.dbRow(r));
+    _buildAndDownloadXLSX(schema.headers, data, `Export_${schema.name}_${new Date().toISOString().slice(0,10)}`);
+    msgEl('imp-msg',`✅ Export ${rows.length} รายการเรียบร้อย`,'s');
+  }catch(e){ msgEl('imp-msg','❌ '+e.message,'e'); }
+}
+
+function _buildAndDownloadXLSX(headers, rows, filename){
+  // ใช้ SheetJS (XLSX) ที่ load ไว้แล้ว
+  if(typeof XLSX==='undefined'){ alert('ไม่พบ XLSX library'); return; }
+  const wsData=[headers,...rows];
+  const ws=XLSX.utils.aoa_to_sheet(wsData);
+  // กำหนดความกว้าง column
+  ws['!cols']=headers.map(h=>({wch:Math.max(h.length+4,16)}));
+  // Style header row (สีพื้นหลัง)
+  headers.forEach((_,i)=>{
+    const cell=XLSX.utils.encode_cell({r:0,c:i});
+    if(!ws[cell]) return;
+    ws[cell].s={
+      fill:{fgColor:{rgb:'1B3A5C'}},
+      font:{bold:true,color:{rgb:'FFFFFF'}},
+      alignment:{horizontal:'center'}
+    };
+  });
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,filename.substring(0,31));
+  XLSX.writeFile(wb,`${filename}.xlsx`);
+}
+
+
+// ════════════════════════════════════════════════════════════
+//  OEE MULTI-STATION
+// ════════════════════════════════════════════════════════════
+let _oeeStationIdx = 0;
+
+function oeeToggleMode(mode){
+  const stationDiv = document.getElementById('oee-stations');
+  const hint       = document.getElementById('oee-station-hint');
+  const machineDiv = document.getElementById('oee-machine')?.closest('.fgrp');
+  if(mode==='station'){
+    if(stationDiv) stationDiv.style.display='block';
+    if(hint)       hint.style.display='block';
+    if(machineDiv) machineDiv.style.display='none'; // ซ่อน machine เดี่ยว
+    if(!document.querySelectorAll('.oee-station-row').length) oeeAddStation();
+  }else{
+    if(stationDiv) stationDiv.style.display='none';
+    if(hint)       hint.style.display='none';
+    if(machineDiv) machineDiv.style.display='';
+    oeeCalcStationSummary(); // reset
+  }
+}
+
+function oeeAddStation(){
+  const container = document.getElementById('oee-station-rows');
+  if(!container) return;
+  const idx = ++_oeeStationIdx;
+  // โหลด machines list
+  const machOpts = (window._machineList||[]).map(m=>
+    `<option value="${m.code}">${m.code} — ${m.name||''}</option>`
+  ).join('');
+
+  const row = document.createElement('div');
+  row.className='oee-station-row';
+  row.dataset.idx=idx;
+  row.style.cssText='border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;background:white';
+  row.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-weight:700;font-size:12px;color:var(--accent)">
+        สถานีที่ ${idx}
+      </span>
+      <button class="btn btnD sm" onclick="this.closest('.oee-station-row').remove();oeeCalcStationSummary()">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div class="fgrp" style="margin:0">
+        <label class="flbl">เครื่องจักร</label>
+        <select class="fc2 oee-st-machine" data-idx="${idx}" onchange="oeeCalcStationSummary()">
+          <option value="">— เลือก —</option>${machOpts}
+        </select>
+      </div>
+      <div class="fgrp" style="margin:0">
+        <label class="flbl">จำนวนพนักงาน</label>
+        <input type="number" class="fc2 oee-st-workers" data-idx="${idx}"
+          value="1" min="1" oninput="oeeCalcStationSummary()">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-bottom:6px">
+      <div class="fgrp" style="margin:0">
+        <label class="flbl">Run Time (นาที)</label>
+        <input type="number" class="fc2 oee-st-runtime" data-idx="${idx}"
+          value="0" min="0" oninput="oeeCalcStationSummary()">
+      </div>
+      <div class="fgrp" style="margin:0">
+        <label class="flbl">Downtime (นาที)</label>
+        <input type="number" class="fc2 oee-st-downtime" data-idx="${idx}"
+          value="0" min="0" oninput="oeeCalcStationSummary()">
+      </div>
+      <div class="fgrp" style="margin:0">
+        <label class="flbl">Planned (นาที)</label>
+        <input type="number" class="fc2 oee-st-planned" data-idx="${idx}"
+          value="480" min="1" oninput="oeeCalcStationSummary()">
+      </div>
+      <div class="fgrp" style="margin:0">
+        <label class="flbl">Output (หน่วย)</label>
+        <input type="number" class="fc2 oee-st-output" data-idx="${idx}"
+          value="0" min="0" oninput="oeeCalcStationSummary()">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+      <div class="fgrp" style="margin:0">
+        <label class="flbl">สาเหตุ Downtime</label>
+        <input type="text" class="fc2 oee-st-reason" data-idx="${idx}" placeholder="เช่น รอวัตถุดิบ, เครื่องขัดข้อง">
+      </div>
+      <div class="fgrp" style="margin:0">
+        <label class="flbl">Avail% ของสถานีนี้</label>
+        <input type="text" class="fc2 oee-st-avail" data-idx="${idx}" readonly
+          style="background:var(--bg3);font-weight:700;color:var(--accent)">
+      </div>
+    </div>`;
+  container.appendChild(row);
+  oeeCalcStationSummary();
+}
+
+function oeeCalcStationSummary(){
+  const mode = document.querySelector('input[name="oee-mode"]:checked')?.value;
+  if(mode!=='station') return;
+  const rows=[...document.querySelectorAll('.oee-station-row')];
+  if(!rows.length) return;
+
+  let totalWorkers=0, minAvail=100, bottleneckMachine='', bottleneckAvail=100;
+  const stationData=[];
+
+  rows.forEach(row=>{
+    const idx  = row.dataset.idx;
+    const mach = row.querySelector('.oee-st-machine')?.value||'';
+    const run  = parseInt(row.querySelector('.oee-st-runtime')?.value)||0;
+    const dt   = parseInt(row.querySelector('.oee-st-downtime')?.value)||0;
+    const plan = parseInt(row.querySelector('.oee-st-planned')?.value)||480;
+    const wk   = parseInt(row.querySelector('.oee-st-workers')?.value)||0;
+    const out  = parseFloat(row.querySelector('.oee-st-output')?.value)||0;
+    const reason=row.querySelector('.oee-st-reason')?.value||'';
+
+    const opTime = plan-dt;
+    const avail  = opTime>0 ? Math.min(run/opTime*100,100) : 0;
+
+    // แสดงใน input
+    const availEl=row.querySelector('.oee-st-avail');
+    if(availEl){
+      availEl.value=avail.toFixed(1)+'%';
+      availEl.style.color=avail>=85?'var(--green)':avail>=65?'var(--amber)':'var(--red)';
+    }
+
+    totalWorkers+=wk;
+    if(avail<minAvail){ minAvail=avail; bottleneckMachine=mach; bottleneckAvail=avail; }
+    stationData.push({mach,run,dt,plan,wk,out,avail,reason});
+  });
+
+  // อัปเดต summary
+  const sumEl=document.getElementById('oee-station-summary');
+  if(sumEl){
+    sumEl.style.display='block';
+    sumEl.innerHTML=`
+      <div style="font-weight:700;margin-bottom:6px">📊 สรุป Line</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <div style="text-align:center">
+          <div style="font-size:10px;color:var(--text3)">พนักงานรวม</div>
+          <div style="font-weight:700;font-size:14px">${totalWorkers} คน</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:10px;color:var(--text3)">Bottleneck</div>
+          <div style="font-weight:700;font-size:13px;color:var(--red)">${bottleneckMachine||'—'}</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:10px;color:var(--text3)">Line Availability</div>
+          <div style="font-weight:800;font-size:16px;color:${minAvail>=85?'var(--green)':minAvail>=65?'var(--amber)':'var(--red)'}">
+            ${minAvail.toFixed(1)}%
+          </div>
+        </div>
+      </div>
+      ${stationData.length>1?`<div style="margin-top:8px;font-size:10px;color:var(--text3)">
+        💡 Line OEE ใช้ค่าต่ำสุดจาก ${stationData.length} สถานี (Bottleneck: ${bottleneckMachine})
+      </div>`:''}`;
+
+    // sync ค่า main form สำหรับ save
+    document.getElementById('oee-workers').value=totalWorkers;
+    document.getElementById('oee-planned').value=stationData[0]?.plan||480;
+    document.getElementById('oee-runtime').value=stationData.reduce((s,r)=>s+r.run,0);
+    document.getElementById('oee-downtime').value=stationData.reduce((s,r)=>s+r.dt,0);
+  }
+
+  // เก็บ station data ใน global สำหรับ save
+  window._oeeStations = stationData;
 }
 
 // ════════════════════════════════════════════════════════════
