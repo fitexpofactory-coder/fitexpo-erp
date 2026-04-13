@@ -1608,6 +1608,8 @@ textarea.fc2{resize:vertical;min-height:60px}
     <thead><tr>
       <th data-i18n="col_code">${pt('code')}</th><th>${pt('name')}</th><th>${pt('salary')}</th>
       <th style="color:var(--orange)">OT (฿)</th>
+      <th style="color:var(--teal)">ค่าอาหาร</th>
+      <th style="color:var(--green)">เบี้ยขยัน</th>
       <th style="color:var(--green)">${pt('gross')}</th>
       <th style="color:var(--red)">${pt('sso')}</th>
       <th style="color:var(--red)">ภาษี ณ ที่จ่าย</th>
@@ -6921,6 +6923,22 @@ function hrEmpForm(e={}){return`
       <div class="fgrp"><label class="flbl">หักอื่นๆ (฿/เดือน)</label>
         <input type="number" class="fc2" id="hef-deduct" value="${e.other_deduct||0}" step="100"></div>
     </div>
+    <!-- ค่าอาหาร + เบี้ยขยัน -->
+    <div style="background:rgba(27,94,199,.05);border:1px solid rgba(27,94,199,.15);border-radius:8px;padding:10px;margin-top:8px">
+      <div style="font-weight:700;font-size:12px;color:var(--navy);margin-bottom:8px">💰 สวัสดิการรายเดือน</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div class="fgrp" style="margin:0">
+          <label class="flbl">🍱 ค่าอาหารกลางวัน (฿/วัน)</label>
+          <input type="number" class="fc2" id="hef-meal" value="${e.meal_allowance_per_day||0}" step="10" min="0" placeholder="0 = ไม่ได้รับ">
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">คำนวณ × วันที่มาทำงานจริง</div>
+        </div>
+        <div class="fgrp" style="margin:0">
+          <label class="flbl">⭐ เบี้ยขยัน (฿/เดือน)</label>
+          <input type="number" class="fc2" id="hef-diligence" value="${e.diligence_bonus||0}" step="100" min="0" placeholder="0 = ไม่ได้รับ">
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">จ่ายเมื่อไม่ขาด-ลา-สาย ครบทุกวัน</div>
+        </div>
+      </div>
+    </div>
     <div style="font-size:11px;color:var(--text3);margin-top:6px">
       💡 ประกันสังคม 5% สูงสุด 750 บ. | ภาษีตามบัญชีอัตราภาษีเงินได้บุคคลธรรมดา
     </div>
@@ -6940,7 +6958,9 @@ async function hrSaveEmp(oldCode){
   try{
     // 1. บันทึกพนักงาน
     const empData={emp_code:code,first_name:fn,last_name:ln,base_salary:parseFloat(document.getElementById('hef-salary')?.value)||0,allowance:parseFloat(document.getElementById('hef-allow')?.value)||0,other_deduct:parseFloat(document.getElementById('hef-deduct')?.value)||0,nickname:document.getElementById('hef-nick').value,department:document.getElementById('hef-dept').value,position:document.getElementById('hef-pos').value,work_shift:document.getElementById('hef-shift').value,work_start:document.getElementById('hef-start').value,work_end:document.getElementById('hef-end').value,phone:document.getElementById('hef-tel').value,email:document.getElementById('hef-email').value,start_date:document.getElementById('hef-sdate').value||null,annual_leave_days:parseInt(document.getElementById('hef-annual').value)||10,
-probation_months:parseInt(document.getElementById('hef-probation')?.value)||3,hr_access_level:document.getElementById('hef-access').value,is_active:true};
+probation_months:parseInt(document.getElementById('hef-probation')?.value)||3,
+meal_allowance_per_day:parseFloat(document.getElementById('hef-meal')?.value)||0,
+diligence_bonus:parseFloat(document.getElementById('hef-diligence')?.value)||0,hr_access_level:document.getElementById('hef-access').value,is_active:true};
     if(oldCode){await sbU('employees',empData,`emp_code=eq.${oldCode}`);}
     else{await sbP('employees',empData);}
 
@@ -7953,7 +7973,7 @@ async function hrCalcPayroll(){
   const to=`${yr}-${String(mn).padStart(2,'0')}-${daysInMonth}`;
   const tb=document.getElementById('payroll-tb');
   const foot=document.getElementById('payroll-foot');
-  if(tb)tb.innerHTML='<tr><td colspan="11" style="text-align:center;padding:20px"><span class="spin"></span> กำลังคำนวณ...</td></tr>';
+  if(tb)tb.innerHTML='<tr><td colspan="13" style="text-align:center;padding:20px"><span class="spin"></span> กำลังคำนวณ...</td></tr>';
 
   try{
     // โหลด OT ที่อนุมัติแล้วในเดือนนั้น
@@ -7994,7 +8014,17 @@ async function hrCalcPayroll(){
       const bonus=Number(emp.bonus_month||0);   // โบนัสเดือนนี้
 
       // --- รายได้รวม ---
-      const grossIncome=adjustedSalary+otBaht+allowance+bonus;
+      // ── ค่าอาหาร: ตามที่กำหนดต่อคน (0 = ไม่ได้รับ) ──
+      const mealRate = Number(emp.meal_allowance_per_day||0); // ไม่มี default
+      const mealBaht = workDays * mealRate;
+      // ── เบี้ยขยัน: ตามที่กำหนดต่อคน (0 = ไม่ได้รับ) ──
+      const leaveDays = att.filter(a=>a.status==='leave').length;
+      const diligenceRate = Number(emp.diligence_bonus||0); // ไม่มี default
+      const isPerfectAttendance = diligenceRate>0 && absentDays===0
+        && leaveDays===0 && lateDays===0
+        && workDays>0 && workDays>=workDaysInMonth;
+      const diligenceBaht = isPerfectAttendance ? diligenceRate : 0;
+      const grossIncome = adjustedSalary+otBaht+allowance+bonus+mealBaht+diligenceBaht;
 
       // --- ประกันสังคม ---
       const sso=calcSSO(grossIncome);
@@ -8023,6 +8053,9 @@ async function hrCalcPayroll(){
         ot_baht:otBaht,
         ot_hours:empOT.reduce((s,o)=>s+Number(o.ot_hours||0),0),
         allowance,bonus,
+        meal_baht:mealBaht,
+        diligence_baht:diligenceBaht,
+        is_perfect:isPerfectAttendance,
         gross_income:grossIncome,
         sso,
         income_tax:monthlyTax,
@@ -8042,20 +8075,32 @@ async function hrCalcPayroll(){
       tb.innerHTML=_payrollData.length?_payrollData.map(r=>`<tr>
         <td class="mn" style="color:var(--accent)">${r.emp_code}</td>
         <td><div style="font-weight:600">${r.emp_name}</div><div style="font-size:11px;color:var(--text3)">${r.department}</div></td>
-        <td class="mn">${thb(r.adjusted_salary)}<br><span style="font-size:10px;color:var(--text3)">(${r.work_days}วัน${r.absent_days>0?` -${r.absent_days}ขาด`:''})</span></td>
-        <td class="mn" style="color:var(--orange)">${r.ot_baht>0?thb(r.ot_baht):'—'}<br><span style="font-size:10px;color:var(--text3)">${r.ot_hours>0?r.ot_hours+'ชม.':''}</span></td>
+        <td class="mn">${thb(r.adjusted_salary)}<br>
+          <span style="font-size:10px;color:var(--text3)">(${r.work_days}วัน${r.absent_days>0?` -${r.absent_days}ขาด`:''}${r.late_days>0?` ${r.late_days}สาย`:''})</span>
+        </td>
+        <td class="mn" style="color:var(--orange)">${r.ot_baht>0?thb(r.ot_baht):'—'}<br>
+          <span style="font-size:10px;color:var(--text3)">${r.ot_hours>0?r.ot_hours+'ชม.':''}</span>
+        </td>
+        <td class="mn" style="color:var(--teal)">${r.meal_baht>0?thb(r.meal_baht):'—'}<br>
+          <span style="font-size:10px;color:var(--text3)">${r.work_days>0?r.work_days+'วัน×'+Math.round(r.meal_baht/r.work_days)+'฿':''}</span>
+        </td>
+        <td class="mn" style="color:${r.is_perfect?'var(--green)':'var(--red)'}">${r.diligence_baht>0?thb(r.diligence_baht):'—'}<br>
+          <span style="font-size:10px">${r.is_perfect?'✅ ครบ':'❌ ไม่ครบ'}</span>
+        </td>
         <td class="mn" style="color:var(--green);font-weight:700">${thb(r.gross_income)}</td>
         <td class="mn" style="color:var(--red)">-${thb(r.sso)}</td>
-        <td class="mn" style="color:var(--red)">-${thb(r.income_tax)}<br><span style="font-size:10px;color:var(--text3)">(ปี ${thb(r.annual_tax)})</span></td>
+        <td class="mn" style="color:var(--red)">-${thb(r.income_tax)}<br>
+          <span style="font-size:10px;color:var(--text3)">(ปี ${thb(r.annual_tax)})</span>
+        </td>
         <td class="mn" style="color:var(--red)">${r.other_deduct>0?'-'+thb(r.other_deduct):'—'}</td>
         <td class="mn" style="font-weight:800;font-size:14px;color:var(--navy)">${thb(r.net_pay)}</td>
-        <td><button class="btn btnP sm" onclick="hrShowPayslip('${r.emp_code}',${yr},${mn})">🧾 สลิป</button></td>
+        <td><button class="btn btnP sm" onclick="hrShowPayslip('${r.emp_code}',${r.year},${r.month})">🧾 สลิป</button></td>
         <td><button class="btn btnS sm" onclick="hrEditPayrollRow('${r.emp_code}')">✏️</button></td>
-      </tr>`).join(''):'<tr><td colspan="11" style="text-align:center;color:var(--text3);padding:20px">ยังไม่มีพนักงานที่มีเงินเดือน — ตั้งค่าเงินเดือนที่เมนู พนักงาน+Login ก่อนครับ</td></tr>';
+      </tr>`).join(''):'<tr><td colspan="13" style="text-align:center;color:var(--text3);padding:20px">ยังไม่มีพนักงานที่มีเงินเดือน — ตั้งค่าเงินเดือนที่เมนู พนักงาน+Login ก่อนครับ</td></tr>';
     }
     if(foot){
       foot.innerHTML=_payrollData.length?`<tr style="background:var(--bg3);font-weight:700">
-        <td colspan="4" style="text-align:right">รวม ${_payrollData.length} คน — ${mnName} ${yr+543}</td>
+        <td colspan="6" style="text-align:right">รวม ${_payrollData.length} คน — ${mnName} ${yr+543}</td>
         <td class="mn" style="color:var(--green)">${thb(grandGross)}</td>
         <td class="mn" style="color:var(--red)">-${thb(grandSSO)}</td>
         <td class="mn" style="color:var(--red)">-${thb(grandTax)}</td>
@@ -8164,7 +8209,9 @@ async function hrPreviewPayslip(){
       department:emp.department||'',position:emp.position||'',
       base_salary:salary,adjusted_salary:adjustedSalary,work_days:workDays,
       absent_days:absentDays,ot_baht:otBaht,ot_hours:ots.reduce((s,o)=>s+Number(o.ot_hours||0),0),
-      allowance:0,bonus:0,gross_income:grossIncome,sso,income_tax:monthlyTax,
+      allowance:allowance,bonus:bonus,
+      meal_baht:mealBaht,diligence_baht:diligenceBaht,is_perfect:isPerfect2,
+      gross_income:grossIncome,sso,income_tax:monthlyTax,
       annual_tax:annualTax,other_deduct:0,net_pay:grossIncome-sso-monthlyTax,
       year:yr,month:mn,ots};
   }
