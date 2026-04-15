@@ -306,6 +306,219 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:15
 .count-type-card:hover,.count-type-card.selected{border-color:var(--accent);
   background:var(--navy-light)}
 </style>
+  <!-- QR Code Generator — Embedded (100% Offline, No CDN needed) -->
+  <script>
+
+/* ═══════════════════════════════════════════════════════════
+   MINIMAL QR CODE GENERATOR — Embedded (100% Offline)
+   Generates QR Code as canvas Data URL
+   ═══════════════════════════════════════════════════════════ */
+(function(global){
+'use strict';
+
+// ── Reed-Solomon GF(256) ─────────────────────────────────────
+var GF256 = (function(){
+  var EXP=new Uint8Array(512), LOG=new Uint8Array(256);
+  var x=1;
+  for(var i=0;i<255;i++){
+    EXP[i]=x; LOG[x]=i; x<<=1; if(x&256) x^=0x11D;
+  }
+  for(var i=255;i<512;i++) EXP[i]=EXP[i-255];
+  return{
+    mul:function(a,b){ return a&&b ? EXP[LOG[a]+LOG[b]] : 0; },
+    div:function(a,b){ return a&&b ? EXP[LOG[a]-LOG[b]+255] : 0; },
+    exp:function(a)  { return EXP[a]; },
+    log:function(a)  { return LOG[a]; }
+  };
+})();
+
+function rsEncode(data, ecLen){
+  var gen=[1];
+  for(var i=0;i<ecLen;i++){
+    gen=polyMul(gen,[1,GF256.exp(i)]);
+  }
+  var msg=data.slice();
+  for(var i=0;i<ecLen;i++) msg.push(0);
+  for(var i=0;i<data.length;i++){
+    var c=msg[i];
+    if(c) for(var j=0;j<gen.length;j++) msg[i+j]^=GF256.mul(gen[j],c);
+  }
+  return msg.slice(data.length);
+}
+
+function polyMul(a,b){
+  var r=new Array(a.length+b.length-1).fill(0);
+  for(var i=0;i<a.length;i++) for(var j=0;j<b.length;j++) r[i+j]^=GF256.mul(a[i],b[j]);
+  return r;
+}
+
+// ── QR Data encoding (Byte mode only) ───────────────────────
+var EC_TABLE = {
+  // [version] = {M:[dcCount, ecCount]}
+  1:{L:{dc:19,ec:7},M:{dc:16,ec:10},Q:{dc:13,ec:13},H:{dc:9,ec:17}},
+  2:{L:{dc:34,ec:10},M:{dc:28,ec:16},Q:{dc:22,ec:22},H:{dc:16,ec:28}},
+  3:{L:{dc:55,ec:15},M:{dc:44,ec:26},Q:{dc:34,ec:18+16},H:{dc:26,ec:22+12}},
+  4:{L:{dc:80,ec:20},M:{dc:64,ec:18},Q:{dc:48,ec:26},H:{dc:36,ec:24}},
+  5:{L:{dc:108,ec:26},M:{dc:86,ec:24},Q:{dc:62,ec:18},H:{dc:46,ec:28}},
+  6:{L:{dc:136,ec:18},M:{dc:108,ec:16},Q:{dc:76,ec:24},H:{dc:60,ec:28}},
+  7:{L:{dc:156,ec:20},M:{dc:124,ec:18},Q:{dc:88,ec:18},H:{dc:66,ec:26}},
+  8:{L:{dc:194,ec:24},M:{dc:154,ec:22},Q:{dc:110,ec:22},H:{dc:86,ec:26}},
+  9:{L:{dc:232,ec:30},M:{dc:182,ec:22},Q:{dc:132,ec:20},H:{dc:100,ec:24}},
+  10:{L:{dc:274,ec:18},M:{dc:216,ec:26},Q:{dc:154,ec:24},H:{dc:122,ec:28}}
+};
+
+function encodeBytes(text){
+  var bytes = [];
+  for(var i=0;i<text.length;i++){
+    var c=text.charCodeAt(i);
+    if(c<128) bytes.push(c);
+    else if(c<2048){ bytes.push(0xC0|(c>>6)); bytes.push(0x80|(c&63)); }
+    else { bytes.push(0xE0|(c>>12)); bytes.push(0x80|((c>>6)&63)); bytes.push(0x80|(c&63)); }
+  }
+  return bytes;
+}
+
+function makeQRMatrix(text, ecLevel){
+  ecLevel = ecLevel||'M';
+  var bytes = encodeBytes(text);
+  var ver=1;
+  for(var v=1;v<=10;v++){
+    if(EC_TABLE[v]&&EC_TABLE[v][ecLevel]&&EC_TABLE[v][ecLevel].dc>=bytes.length+2){ver=v;break;}
+  }
+
+  var ec=EC_TABLE[ver][ecLevel];
+  // Build data codewords
+  var bs=new BitStream();
+  bs.put(4,4); // mode = byte
+  bs.put(bytes.length, ver<10?8:16);
+  for(var i=0;i<bytes.length;i++) bs.put(bytes[i],8);
+  // Padding
+  bs.put(0, Math.min(4, ec.dc*8 - bs.len));
+  while(bs.len%8) bs.put(0,1);
+  var pads=[0xEC,0x11], pi=0;
+  while(bs.len < ec.dc*8){ bs.put(pads[pi++%2],8); }
+
+  var dc=bs.bytes.slice(0,ec.dc);
+  var ecc=rsEncode(dc, ec.ec);
+  var all=dc.concat(ecc);
+
+  // Build QR matrix
+  var size=ver*4+17;
+  var mat=[];
+  for(var i=0;i<size;i++){ mat[i]=new Int8Array(size).fill(-1); }
+
+  // Finder patterns
+  function setFinder(r,c){
+    for(var dr=-1;dr<=7;dr++) for(var dc2=-1;dc2<=7;dc2++){
+      if(r+dr<0||r+dr>=size||c+dc2<0||c+dc2>=size) continue;
+      mat[r+dr][c+dc2]=(dr>=0&&dr<=6&&(dc2===0||dc2===6))||(dc2>=0&&dc2<=6&&(dr===0||dr===6))||(dr>=2&&dr<=4&&dc2>=2&&dc2<=4)?1:0;
+    }
+  }
+  setFinder(0,0); setFinder(0,size-7); setFinder(size-7,0);
+
+  // Timing
+  for(var i=8;i<size-8;i++){
+    if(mat[6][i]<0) mat[6][i]=i%2===0?1:0;
+    if(mat[i][6]<0) mat[i][6]=i%2===0?1:0;
+  }
+  // Dark module
+  mat[size-8][8]=1;
+
+  // Format info (mask 0)
+  var fmt=formatInfo(ecLevel,0);
+  var fmtSeq=[0,1,2,3,4,5,7,8,size-7,size-6,size-5,size-4,size-3,size-2,size-1];
+  for(var i=0;i<15;i++){
+    var bit=(fmt>>>(14-i))&1;
+    if(i<6){ mat[8][fmtSeq[i]]=bit; mat[fmtSeq[i]][8]=bit; }
+    else if(i<8){ mat[8][fmtSeq[i]]=bit; mat[fmtSeq[i+1]][8]=bit; }
+    else { mat[8][fmtSeq[i]]=bit; mat[fmtSeq[i]][8]=bit; }
+  }
+
+  // Data placement
+  var bitIdx=0, allBits=all.length*8;
+  function getBit(){ var b=bitIdx<allBits?(all[bitIdx>>3]>>(7-(bitIdx&7)))&1:0; bitIdx++; return b; }
+  var col=size-1, row=size-1, going=-1;
+  while(col>=0){
+    if(col===6) col--;
+    var c1=col, c2=col-1;
+    for(var steps=0;steps<size;steps++){
+      var r2=going===-1?size-1-steps:steps;
+      for(var ci=0;ci<2;ci++){
+        var cc=ci===0?c1:c2;
+        if(mat[r2][cc]<0){
+          var bit=getBit();
+          // mask 0: (r+c)%2===0
+          mat[r2][cc]=((r2+cc)%2===0)?bit^1:bit;
+        }
+      }
+    }
+    col-=2; going=-going;
+  }
+
+  return {mat,size};
+}
+
+function formatInfo(ecLevel, mask){
+  var ecBits={L:1,M:0,Q:3,H:2};
+  var data=(ecBits[ecLevel]<<3)|mask;
+  var rem=data;
+  for(var i=0;i<10;i++) rem=(rem<<1)^((rem>>>9)*0x537);
+  return ((data<<10)|rem)^0x5412;
+}
+
+function BitStream(){
+  this.bytes=[]; this.len=0;
+  this.put=function(val,bits){
+    for(var i=bits-1;i>=0;i--){
+      var bit=(val>>i)&1;
+      var byteIdx=this.len>>3;
+      if(this.bytes.length<=byteIdx) this.bytes.push(0);
+      if(bit) this.bytes[byteIdx]|=1<<(7-(this.len&7));
+      this.len++;
+    }
+  };
+}
+
+// ── Draw to Canvas → Data URL ─────────────────────────────────
+function generateQR(text, size, ecLevel){
+  try{
+    var qr=makeQRMatrix(text, ecLevel||'M');
+    var canvas=document.createElement('canvas');
+    canvas.width=size||200; canvas.height=size||200;
+    var ctx=canvas.getContext('2d');
+    var n=qr.size, s=size||200;
+    var cell=Math.floor(s/n), pad=Math.floor((s-cell*n)/2);
+    ctx.fillStyle='#fff'; ctx.fillRect(0,0,s,s);
+    for(var r=0;r<n;r++) for(var c=0;c<n;c++){
+      ctx.fillStyle=qr.mat[r][c]?'#000':'#fff';
+      ctx.fillRect(pad+c*cell, pad+r*cell, cell, cell);
+    }
+    return canvas.toDataURL('image/png');
+  }catch(e){
+    console.warn('QR Error:',e);
+    return '';
+  }
+}
+
+// Export
+global.generateQRDataURL = generateQR;
+
+// QRCode compat interface
+global.QRCode = function(el, opts){
+  if(typeof opts==='string') opts={text:opts};
+  var url=generateQR(opts.text||'', opts.width||200, 'M');
+  if(url){
+    var img=document.createElement('img');
+    img.src=url; img.width=opts.width||200; img.height=opts.height||200;
+    if(el) el.appendChild(img);
+  }
+  this.getDataURL=function(){ return url; };
+};
+global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
+
+})(window);
+
+  </script>
 </head>
 <body>
 
@@ -2138,7 +2351,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:15
         <div class="fgrp">
           <label class="flbl">SKU สินค้า</label>
           <div style="position:relative">
-            <input type="text" class="fc2" id="fc-sku-search" placeholder="พิมพ์ SKU หรือชื่อ..." autocomplete="off" oninput="fcSkuSearch()">
+            <input type="text" class="fc2" id="fc-sku-search" placeholder="พิมพ์ SKU หรือชื่อ..." autocomplete="off" oninput="fcSkuSearch()"
+              onblur="setTimeout(()=>{const d=document.getElementById('fc-sku-drop');if(d)d.style.display='none';},200)">
             <div id="fc-sku-drop" style="display:none;position:absolute;top:100%;left:0;right:0;
               background:white;border:1px solid var(--border);border-radius:8px;
               box-shadow:0 8px 20px rgba(0,0,0,.12);z-index:200;max-height:200px;overflow-y:auto"></div>
@@ -16170,7 +16384,7 @@ function ribbonMarkActive(pageId){
 let _fcSelectedSku=null, _fcForecasts=[];
 
 // ── Init ────────────────────────────────────────────────────
-function fcInitSelects(){
+async function fcInitSelects(){
   const yr=new Date().getFullYear();
   const mnNames=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
                  'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
@@ -16195,6 +16409,44 @@ function fcInitSelects(){
   const mon=new Date(today); mon.setDate(today.getDate()-(day-1));
   const ws=document.getElementById('fc-week-start');
   if(ws) ws.value=mon.toISOString().slice(0,10);
+
+  // โหลด SKU list สำหรับ search — ดึงจาก DB ตรง ไม่พึ่ง cache
+  try{
+    const [fgList, wipList] = await Promise.all([
+      sbG('master_product',{
+        s:'sku,name_en,name_th,batch_kg,product_line,status',
+        ord:'sku.asc'
+      }).catch(()=>[]),
+      sbG('wip_master',{
+        s:'code,name,category,batch_kg',
+        ord:'code.asc'
+      }).catch(()=>[])
+    ]);
+    // รวม FG + WIP เข้าด้วยกัน
+    window._fcSkuList = [
+      ...fgList.map(p=>({
+        sku: p.sku,
+        name: p.name_en||p.name_th||p.sku,
+        type: 'FG',
+        batch_kg: p.batch_kg||50,
+        line: p.product_line||''
+      })),
+      ...wipList.map(w=>({
+        sku: w.code,
+        name: w.name||w.code,
+        type: 'WIP',
+        batch_kg: w.batch_kg||50,
+        line: w.category||''
+      }))
+    ];
+    console.log(`[Forecast] Loaded ${window._fcSkuList.length} SKU (${fgList.length} FG + ${wipList.length} WIP)`);
+  }catch(e){
+    console.warn('[Forecast] SKU load error:', e.message);
+    // fallback ใช้ cache เดิม
+    window._fcSkuList = (window._cachedFG||[]).map(p=>({
+      sku:p.sku, name:p.name_en||p.name||p.sku, type:'FG', batch_kg:p.batch_kg||50
+    }));
+  }
 }
 
 function fcTab(tab){
@@ -16208,28 +16460,63 @@ function fcTab(tab){
 
 // ── SKU Search ──────────────────────────────────────────────
 function fcSkuSearch(){
-  const q=(document.getElementById('fc-sku-search')?.value||'').toLowerCase();
+  const q=(document.getElementById('fc-sku-search')?.value||'').toLowerCase().trim();
   const drop=document.getElementById('fc-sku-drop');
   if(!q){drop.style.display='none';return;}
-  const prods=window._cachedFG||[];
-  const filtered=prods.filter(p=>
-    (p.sku||'').toLowerCase().includes(q)||(p.name||'').toLowerCase().includes(q)
-  ).slice(0,8);
-  drop.innerHTML=filtered.map(p=>`
-    <div style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"
-      onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''"
-      onclick="fcSelectSku('${p.sku}','${(p.name||'').replace(/'/g,'')}')">
-      <span style="font-family:monospace;color:var(--accent);font-size:12px">${p.sku}</span>
-      — ${p.name||''}
-    </div>`).join('');
-  drop.style.display=filtered.length?'block':'none';
+
+  // ใช้ _fcSkuList ที่โหลดใน fcInitSelects
+  const list=window._fcSkuList||window._cachedFG||[];
+  if(!list.length){
+    drop.innerHTML='<div style="padding:8px 12px;color:var(--text3);font-size:12px">⏳ กำลังโหลด SKU... รอสักครู่</div>';
+    drop.style.display='block';
+    // โหลด SKU ถ้ายังไม่มี
+    fcInitSelects();
+    return;
+  }
+
+  const filtered=list.filter(p=>{
+    const sku=(p.sku||'').toLowerCase();
+    const name=(p.name||'').toLowerCase();
+    const line=(p.line||'').toLowerCase();
+    return sku.includes(q)||name.includes(q)||line.includes(q);
+  }).slice(0,12);  // แสดงมากขึ้น
+
+  if(!filtered.length){
+    drop.innerHTML=`<div style="padding:8px 12px;color:var(--text3);font-size:12px">ไม่พบ "${q}"</div>`;
+    drop.style.display='block';
+    return;
+  }
+
+  drop.innerHTML=filtered.map(p=>{
+    const typeBadge=p.type==='WIP'
+      ?`<span style="background:#EDE9FE;color:#5B21B6;padding:1px 5px;border-radius:4px;font-size:10px;font-weight:700">WIP</span>`
+      :`<span style="background:#DBEAFE;color:#1E40AF;padding:1px 5px;border-radius:4px;font-size:10px;font-weight:700">FG</span>`;
+    const safeName=(p.name||'').replace(/'/g,"\'");
+    return`<div style="padding:8px 12px;cursor:pointer;font-size:13px;
+        border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px"
+      onmouseover="this.style.background='var(--bg2)'"
+      onmouseout="this.style.background=''"
+      onclick="fcSelectSku('${p.sku}','${safeName}',${p.batch_kg||50},'${p.type||'FG'}')">
+      ${typeBadge}
+      <span style="font-family:monospace;color:var(--accent);font-size:11px">${p.sku}</span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+        ${p.name||''}
+      </span>
+      ${p.line?`<span style="font-size:10px;color:var(--text3)">${p.line}</span>`:''}
+    </div>`;
+  }).join('');
+  drop.style.display='block';
 }
 
-function fcSelectSku(sku,name){
-  _fcSelectedSku={sku,name};
+function fcSelectSku(sku, name, batchKg=50, type='FG'){
+  _fcSelectedSku={sku, name, batchKg, type};
   document.getElementById('fc-sku-search').value=`${sku} — ${name}`;
   document.getElementById('fc-sku-drop').style.display='none';
-  // ดึง lead time จาก master_product ถ้ามี
+  // เติม lead time ตาม type
+  const ltd=document.getElementById('fc-leadtime');
+  if(ltd && !ltd.dataset.manual){
+    ltd.value = type==='WIP' ? 3 : 7;  // WIP lead time สั้นกว่า
+  }
 }
 
 // ── Save Demand Forecast ─────────────────────────────────────
@@ -17155,14 +17442,16 @@ function wtPrintLabel(idx, weight){
 }
 
 // ── Print Batch QR ───────────────────────────────────────────
-function wtPrintBatchQR(){
+async function wtPrintBatchQR(){
   if(!_wtWorkOrder)return;
   const wo=_wtWorkOrder;
   const qrData=`WO:${wo.pp_no}:${wo.sku_code}`;
   const today=new Date().toISOString().slice(0,10);
 
   // สร้าง QR ด้วย Google Charts API (ถ้าออนไลน์)
-  const qrUrl=`https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(qrData)}&choe=UTF-8`;
+  // Generate QR offline
+  const qrDataUrl2 = await makeQRDataURL(qrData, 200).catch(()=>qrImgUrl(qrData,200));
+  const imgSrc2 = qrDataUrl2 || qrImgUrl(qrData,200);
 
   const labelHtml=`<!DOCTYPE html><html><head><meta charset="UTF-8">
     <style>
@@ -17173,7 +17462,7 @@ function wtPrintBatchQR(){
       @media print{body{-webkit-print-color-adjust:exact}}
     </style></head><body>
     <div class="big">📋 BATCH RECORD</div>
-    <img src="${qrUrl}" width="150" height="150" onerror="this.style.display='none'">
+    <img src="${imgSrc2}" width="150" height="150" style="image-rendering:pixelated">
     <div style="font-family:monospace;font-size:14pt;font-weight:900;margin:2mm 0">${wo.pp_no}</div>
     <div class="big">${wo.sku_code}</div>
     <div style="font-size:10pt">${wo.product_name||''}</div>
@@ -17350,39 +17639,72 @@ function wtTareScale(){
 
 // ── QR URL generator (Google Charts API — ใช้งานออฟไลน์ไม่ได้)
 // ── fallback: แสดงข้อความ QR data แทน
+// ── QR Code Generator (Canvas-based, offline support) ──────
+// ใช้ qrcodejs library ถ้ามี, fallback เป็น Google Charts (ต้อง internet)
+function makeQRDataURL(data, size=150){
+  return new Promise((resolve)=>{
+    if(typeof QRCode !== 'undefined'){
+      // สร้างด้วย canvas ใน memory
+      const container=document.createElement('div');
+      container.style.cssText='position:fixed;left:-9999px;top:-9999px';
+      document.body.appendChild(container);
+      try{
+        new QRCode(container,{
+          text:data, width:size, height:size,
+          colorDark:'#000000', colorLight:'#ffffff',
+          correctLevel:QRCode.CorrectLevel.M
+        });
+        // รอให้ canvas render
+        setTimeout(()=>{
+          const canvas=container.querySelector('canvas');
+          const img=container.querySelector('img');
+          let url='';
+          if(canvas) url=canvas.toDataURL('image/png');
+          else if(img) url=img.src;
+          document.body.removeChild(container);
+          if(url) resolve(url);
+          else resolve(qrImgUrl(data,size)); // fallback
+        },100);
+      }catch(e){
+        document.body.removeChild(container);
+        resolve(qrImgUrl(data,size));
+      }
+    }else{
+      // fallback: Google Charts (ต้อง internet)
+      resolve(qrImgUrl(data,size));
+    }
+  });
+}
+
 function qrImgUrl(data, size=150){
+  // Google Charts fallback (ต้องการ internet)
   return `https://chart.googleapis.com/chart?chs=${size}x${size}&cht=qr&chl=${encodeURIComponent(data)}&choe=UTF-8&chld=M|0`;
 }
 
 // ── สร้าง QR sticker HTML สำหรับ 1 รายการ ─────────────────
 function buildRMQRLabel(r, opts={}){
-  const {lot='',exp='',supplier='',size='60x40'}=opts;
+  const {lot='',exp='',supplier='',size='60x40',qrDataUrl=''}=opts;
   const [w,h]=size.split('x').map(Number);
   const qrData=`RM|${r.code}|${r.name||''}|${lot}|${exp}`;
-  const qrUrl=qrImgUrl(qrData,120);
+  // ใช้ dataUrl ถ้ามี (offline) ไม่งั้น fallback Google Charts
+  const imgSrc=qrDataUrl||qrImgUrl(qrData,140);
   return `
     <div class="qr-label" style="width:${w}mm;height:${h}mm;border:0.5px solid #ccc;
       padding:2mm;display:inline-flex;flex-direction:column;justify-content:space-between;
-      page-break-inside:avoid;margin:1mm;font-family:'Sarabun',Arial,sans-serif">
+      page-break-inside:avoid;margin:1mm;font-family:'Sarabun',Arial,sans-serif;
+      box-sizing:border-box">
       <div style="display:flex;gap:2mm;align-items:flex-start">
-        <img src="${qrUrl}" width="28mm" height="28mm"
-          onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
-        <div style="display:none;width:28mm;height:28mm;background:#f0f0f0;
-          display:flex;align-items:center;justify-content:center;font-size:7pt;text-align:center">
-          QR<br>${r.code}
-        </div>
-        <div style="flex:1;overflow:hidden">
+        <img src="${imgSrc}" style="width:28mm;height:28mm;flex-shrink:0;image-rendering:pixelated">
+        <div style="flex:1;overflow:hidden;min-width:0">
           <div style="font-size:7pt;font-weight:800;color:#1B3A5C;
             overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.code}</div>
           <div style="font-size:6.5pt;font-weight:700;line-height:1.3;color:#111;
-            overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">
-            ${r.name||''}
-          </div>
-          ${supplier?`<div style="font-size:6pt;color:#666">🏭 ${supplier}</div>`:''}
+            word-break:break-word">${r.name||''}</div>
+          ${supplier?`<div style="font-size:6pt;color:#666;margin-top:1mm">🏭 ${supplier}</div>`:''}
         </div>
       </div>
       <div style="border-top:0.5px solid #ddd;padding-top:1mm;font-size:6pt;color:#555;
-        display:flex;justify-content:space-between">
+        display:flex;justify-content:space-between;flex-wrap:wrap;gap:1mm">
         <span>${lot?'Lot: '+lot:'—'}</span>
         <span>${exp?'EXP: '+exp:'—'}</span>
       </div>
@@ -17450,24 +17772,30 @@ async function doPrintRMQR(code, name, unit){
   const size=document.getElementById('qr-size')?.value||'60x40';
   const r={code, name, unit};
 
-  const labels=Array.from({length:copies},()=>buildRMQRLabel(r,{lot,exp,supplier,size})).join('');
-  const [w,h]=size.split('x').map(Number);
+  // Generate QR data URL ก่อน (offline support)
+  msgEl('qr-msg','<span class="spin"></span> กำลังสร้าง QR...','i');
+  const qrData=`RM|${code}|${name}|${lot}|${exp}`;
+  const qrDataUrl=await makeQRDataURL(qrData, 200);
 
-  const pw=window.open('','_blank',`width=800,height=600`);
+  const labels=Array.from({length:copies},()=>
+    buildRMQRLabel(r,{lot,exp,supplier,size,qrDataUrl})
+  ).join('');
+
+  const pw=window.open('','_blank','width=800,height=600');
   if(!pw){alert('⚠️ Browser บล็อก popup — อนุญาต popup แล้วลองใหม่');return;}
   pw.document.open();
   pw.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
       @page{size:A4;margin:5mm}
-      body{margin:0;padding:0;font-family:'Sarabun',Arial,sans-serif}
-      .qr-labels{display:flex;flex-wrap:wrap;gap:2mm;padding:2mm}
+      body{margin:0;padding:2mm;font-family:'Sarabun',Arial,sans-serif}
+      .qr-labels{display:flex;flex-wrap:wrap;gap:2mm}
       @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
     </style></head><body>
     <div class="qr-labels">${labels}</div>
     </body></html>`);
   pw.document.close();
-  setTimeout(()=>{try{pw.focus();pw.print();}catch(e){}},800);
+  setTimeout(()=>{try{pw.focus();pw.print();}catch(e){}},600);
   closeMo();
 }
 
@@ -17521,21 +17849,25 @@ function showBatchQRModal(wo){
     </button>`);
 }
 
-function doPrintBatchQR(wo){
+async function doPrintBatchQR(wo){
   const copies=parseInt(document.getElementById('bqr-copies')?.value)||1;
   const size=document.getElementById('bqr-size')?.value||'100x100';
   const [w,h]=size.split('x').map(Number);
   const today=new Date().toISOString().slice(0,10);
   const qrData=`BATCH|${wo.pp_no}|${wo.sku_code}|${wo.batches||1}|${today}`;
-  const qrUrl=qrImgUrl(qrData,180);
+
+  // Generate QR offline
+  const qrDataUrl = await makeQRDataURL(qrData, 220);
+  const imgSrc = qrDataUrl || qrImgUrl(qrData, 180);
+  const imgSize = Math.min(w*3.2, 180);
 
   const oneLabel=`
     <div style="width:${w}mm;height:${h}mm;border:1px solid #ccc;padding:3mm;
       display:inline-flex;flex-direction:column;align-items:center;justify-content:space-between;
-      page-break-inside:avoid;margin:1mm;font-family:'Sarabun',Arial,sans-serif">
+      page-break-inside:avoid;margin:1mm;font-family:'Sarabun',Arial,sans-serif;
+      box-sizing:border-box">
       <div style="font-size:8pt;font-weight:800;color:#1B3A5C">📋 BATCH RECORD</div>
-      <img src="${qrUrl}" width="${Math.min(w*3.2,180)}" height="${Math.min(w*3.2,180)}"
-        onerror="this.parentElement.style.background='#f0f0f0'">
+      <img src="${imgSrc}" style="width:${imgSize}px;height:${imgSize}px;image-rendering:pixelated">
       <div style="font-family:monospace;font-size:11pt;font-weight:900;color:#1B3A5C;
         text-align:center">${wo.pp_no}</div>
       <div style="font-size:8pt;font-weight:700;text-align:center">${wo.sku_code}</div>
@@ -17605,16 +17937,19 @@ async function doBulkPrintQR(){
   stocks.forEach(s=>stockMap[s.code]=s);
   lots.forEach(l=>{ if(!lotMap[l.mat_code]) lotMap[l.mat_code]=l; });
 
-  const labels=items.map(m=>{
+  msgEl('bulk-msg',`<span class="spin"></span> กำลังสร้าง QR ${items.length} รายการ...`,'i');
+  // Generate QR ทุกรายการ
+  const labelsArr = await Promise.all(items.map(async m=>{
     const s=stockMap[m.code]||{};
     const l=lotMap[m.code]||{};
-    return buildRMQRLabel(m,{
-      lot:l.lot_no||s.lot_no||'',
-      exp:l.exp_date||s.exp_date||m.exp_date||'',
-      supplier:m.supplier||s.supplier||'',
-      size
-    });
-  }).join('');
+    const lot=l.lot_no||s.lot_no||'';
+    const exp=l.exp_date||s.exp_date||m.exp_date||'';
+    const supplier=m.supplier||s.supplier||'';
+    const qrData=`RM|${m.code}|${m.name||''}|${lot}|${exp}`;
+    const qrDataUrl = await makeQRDataURL(qrData,140).catch(()=>'');
+    return buildRMQRLabel(m,{lot,exp,supplier,size,qrDataUrl});
+  }));
+  const labels = labelsArr.join('');
 
   msgEl('bulk-msg',`✅ ${items.length} รายการ — กำลังเปิดหน้าพิมพ์...`,'s');
 
@@ -17641,17 +17976,18 @@ async function doBulkPrintQR(){
 // ════════════════════════════════════════════════════════════
 
 function buildWIPQRLabel(code, name, category, opts={}){
-  const {lot='', prodDate='', expDate='', size='60x40'}=opts;
+  const {lot='', prodDate='', expDate='', size='60x40', qrDataUrl=''}=opts;
   const [w,h]=size.split('x').map(Number);
   const qrData=`WIP|${code}|${name}|${lot}|${prodDate}`;
-  const qrUrl=qrImgUrl(qrData, 120);
+  const imgSrc=qrDataUrl||qrImgUrl(qrData,140);
   return `
     <div style="width:${w}mm;height:${h}mm;border:0.5px solid #ccc;padding:2mm;
       display:inline-flex;flex-direction:column;justify-content:space-between;
-      page-break-inside:avoid;margin:1mm;font-family:'Sarabun',Arial,sans-serif">
+      page-break-inside:avoid;margin:1mm;font-family:'Sarabun',Arial,sans-serif;
+      box-sizing:border-box">
       <div style="display:flex;gap:2mm;align-items:flex-start">
-        <img src="${qrUrl}" width="28mm" height="28mm"
-          onerror="this.style.display='none'">
+        <img src="${imgSrc}" style="width:28mm;height:28mm;flex-shrink:0;image-rendering:pixelated"
+          onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><rect width=%22100%22 height=%22100%22 fill=%22%23f0f0f0%22/><text x=%2250%22 y=%2255%22 text-anchor=%22middle%22 font-size=%2212%22>QR</text></svg>'">
         <div style="flex:1;overflow:hidden">
           <div style="font-size:6pt;background:#EDE9FE;color:#5B21B6;padding:1px 4px;
             border-radius:3px;display:inline-block;margin-bottom:1mm;font-weight:700">WIP</div>
@@ -17728,7 +18064,7 @@ async function printWIPQRSticker(code, name, category){
     <div id="wqr-msg" style="margin-top:8px"></div>`);
 }
 
-function doPrintWIPQR(code, name, category){
+async function doPrintWIPQR(code, name, category){
   const lotVal = document.getElementById('wqr-lot-sel')?.value||'';
   const [lot=''] = lotVal.split('|');
   const prodDate = document.getElementById('wqr-prod-date')?.value||
@@ -17736,8 +18072,12 @@ function doPrintWIPQR(code, name, category){
   const copies = parseInt(document.getElementById('wqr-copies')?.value)||1;
   const size = document.getElementById('wqr-size')?.value||'60x40';
 
+  msgEl('wqr-msg','<span class="spin"></span> กำลังสร้าง QR...','i');
+  const qrData=`WIP|${code}|${name}|${lot}|${prodDate}`;
+  const qrDataUrl = await makeQRDataURL(qrData, 200);
+
   const labels = Array.from({length:copies}, ()=>
-    buildWIPQRLabel(code, name, category, {lot, prodDate, size})
+    buildWIPQRLabel(code, name, category, {lot, prodDate, size, qrDataUrl})
   ).join('');
 
   const pw = window.open('','_blank','width=800,height=600');
@@ -17748,11 +18088,10 @@ function doPrintWIPQR(code, name, category){
     <style>
       @page{size:A4;margin:5mm}
       body{margin:0;padding:2mm;font-family:'Sarabun',Arial,sans-serif}
-      div{display:inline-flex;flex-wrap:wrap}
       @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
     </style></head><body>${labels}</body></html>`);
   pw.document.close();
-  setTimeout(()=>{try{pw.focus();pw.print();}catch(e){}},700);
+  setTimeout(()=>{try{pw.focus();pw.print();}catch(e){}},600);
   closeMo();
 }
 
@@ -17805,14 +18144,16 @@ async function doBulkPrintWIPQR(){
   const lotMap={};
   lots.forEach(l=>{ if(!lotMap[l.wip_code]) lotMap[l.wip_code]=l; });
 
-  const labels = items.map(w=>{
+  msgEl('wbulk-msg',`<span class="spin"></span> กำลังสร้าง QR ${items.length} รายการ...`,'i');
+  const labelsArr2 = await Promise.all(items.map(async w=>{
     const l = lotMap[w.code]||{};
-    return buildWIPQRLabel(w.code, w.name||'', w.category||'', {
-      lot: l.lot_no||'',
-      prodDate: l.prod_date||prodDate,
-      size
-    });
-  }).join('');
+    const lot = l.lot_no||'';
+    const pd  = l.prod_date||prodDate;
+    const qrData=`WIP|${w.code}|${w.name||''}|${lot}|${pd}`;
+    const qrDataUrl = await makeQRDataURL(qrData,140).catch(()=>'');
+    return buildWIPQRLabel(w.code, w.name||'', w.category||'', {lot, prodDate:pd, size, qrDataUrl});
+  }));
+  const labels = labelsArr2.join('');
 
   msgEl('wbulk-msg',`✅ ${items.length} รายการ — กำลังเปิดหน้าพิมพ์...`,'s');
 
