@@ -2517,10 +2517,14 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
         </div>
         <!-- หรือเลือกจาก dropdown -->
         <div class="fgrp">
-          <label class="flbl">หรือเลือก Work Order</label>
+          <label class="flbl">หรือเลือก Work Order
+            <button type="button" class="btn btnS xs" style="margin-left:8px"
+              onclick="wtInit()" title="รีโหลด WO">🔄</button>
+          </label>
           <select class="fc2" id="wt-wo-select" onchange="wtSelectWO(this.value)">
-            <option value="">— เลือก Work Order —</option>
+            <option value="">⏳ กำลังโหลด...</option>
           </select>
+          <div id="wt-wo-debug" style="font-size:11px;color:var(--text3);margin-top:4px"></div>
         </div>
         <div class="fgrp">
           <label class="flbl">จำนวน Batch ที่จะชั่ง</label>
@@ -2865,7 +2869,7 @@ function loadPage(id){
   const extra={
     forecast:()=>{fcInitSelects();fcLoadDemand();},
     pm:()=>{setTimeout(pmInitYears,100);},
-    weigh:()=>{setTimeout(wtInit,100);}
+    weigh:()=>{wtInit();}
   };
   if(fn[id]) fn[id]();
   else if(extra[id]) extra[id]();
@@ -16065,33 +16069,44 @@ const WT_TOL_PCT = 3; // ±3% tolerance
 
 async function wtInit(){
   wtSetStep(1);
-  // โหลด WO list — ใส่ทั้ง 2 select (เก่า+ใหม่)
+  const dbg=document.getElementById('wt-wo-debug');
+  const sel=document.getElementById('wt-wo-select')||document.getElementById('wt-wo-sel');
+  if(sel) sel.innerHTML='<option value="">⏳ กำลังโหลด WO...</option>';
+  if(dbg) dbg.textContent='กำลังดึงข้อมูล...';
   try{
-    const wos = await sbG('production_plan',{
-      s:'id,pp_no,sku_code,product_name,num_batches,batch_kg,status',
-      ord:'created_at.desc', lim:100
+    // ดึง WO ทั้งหมด ไม่กรอง status
+    const wos=await sbG('production_plan',{
+      s:'id,pp_no,sku_code,product_name,num_batches,batch_kg,status,start_date',
+      ord:'id.desc', lim:200
     });
-    const opts = '<option value="">— เลือก Work Order —</option>' +
-      wos.map(w=>`<option value="${w.pp_no}"
-        data-id="${w.id}"
-        data-sku="${w.sku_code||''}"
-        data-name="${(w.product_name||w.sku_code||'').replace(/"/g,'')}"
-        data-batches="${w.num_batches||1}"
-        data-batchkg="${w.batch_kg||50}">
-        ${w.pp_no} — ${w.product_name||w.sku_code||''}
-      </option>`).join('');
-
-    // โหลดใส่ทั้ง 2 id (ป้องกัน id ไม่ตรง)
+    if(dbg) dbg.textContent=`พบ ${wos.length} WO`;
+    if(!wos.length){
+      if(sel) sel.innerHTML='<option value="">⚠️ ไม่พบ Work Order ในระบบ</option>';
+      if(dbg) dbg.innerHTML='<span style="color:var(--amber)">ยังไม่มี WO — ไปสร้างที่เมนู 🔧 ผลิต</span>';
+      return;
+    }
+    const opts='<option value="">— เลือก Work Order ('+wos.length+' รายการ) —</option>'+
+      wos.map(w=>{
+        const name=(w.product_name||w.sku_code||'').slice(0,30);
+        const status=w.status?` [${w.status}]`:'';
+        return`<option value="${w.pp_no}"
+          data-id="${w.id}"
+          data-sku="${w.sku_code||''}"
+          data-name="${name.replace(/"/g,'&quot;')}"
+          data-batches="${w.num_batches||1}"
+          data-batchkg="${w.batch_kg||50}">
+          ${w.pp_no} — ${name}${status}
+        </option>`;
+      }).join('');
     ['wt-wo-select','wt-wo-sel'].forEach(id=>{
       const el=document.getElementById(id);
       if(el) el.innerHTML=opts;
     });
-    console.log(`[Weigh] Loaded ${wos.length} WOs`);
+    if(dbg) dbg.innerHTML=`<span style="color:var(--green)">✅ โหลด ${wos.length} WO แล้ว</span>`;
   }catch(e){
-    console.error('[Weigh] wtInit error:',e.message);
-    // แสดง error ใน UI
-    const sel=document.getElementById('wt-wo-select')||document.getElementById('wt-wo-sel');
-    if(sel) sel.innerHTML=`<option value="">❌ โหลดไม่ได้: ${e.message}</option>`;
+    console.error('[Weigh] wtInit:',e);
+    if(sel) sel.innerHTML=`<option value="">❌ Error: ${e.message}</option>`;
+    if(dbg) dbg.innerHTML=`<span style="color:var(--red)">❌ ${e.message}</span>`;
   }
 }
 
