@@ -17323,50 +17323,78 @@ function wtSelectWO(ppNo){
 }
 
 async function wtLoadBOM(){
-  // อ่าน WO จากทั้ง 2 select และ QR input
+  // อ่าน WO No. จาก select / QR input
   const ppNo=(
     document.getElementById('wt-wo-select')?.value ||
     document.getElementById('wt-wo-sel')?.value ||
     document.getElementById('wt-qr-input')?.value || ''
   ).trim().replace(/^WO:/i,'');
   if(!ppNo){msgEl('wt-msg-1','กรุณาเลือก Work Order ก่อน','e');return;}
-  _wtBatchCount=parseInt(document.getElementById('wt-batch-count')?.value)||1;
-    // ใช้ num_batches จาก WO ถ้า batch count input ยังเป็น default 1
-    if(_wtBatchCount===1 && _wtWorkOrder.num_batches>1){
-      _wtBatchCount=Number(_wtWorkOrder.num_batches);
-      const bcEl=document.getElementById('wt-batch-count');
-      if(bcEl) bcEl.value=_wtBatchCount;
-    }
-  msgEl('wt-msg-1','<span class="spin"></span> โหลด BOM...','i');
+
+  msgEl('wt-msg-1','<span class="spin"></span> โหลด WO และ BOM...','i');
   try{
-    // โหลด WO
+    // ── Step A: โหลด WO ──────────────────────────────────────
     const wos=await sbG('production_plan',{f:[`pp_no=eq.${ppNo}`]});
-    if(!wos.length){msgEl('wt-msg-1','❌ ไม่พบ Work Order: '+ppNo,'e');return;}
+    if(!wos.length){
+      msgEl('wt-msg-1','❌ ไม่พบ Work Order: '+ppNo+'<br><small>ตรวจสอบว่า WO นี้มีอยู่ในระบบ</small>','e');
+      return;
+    }
     _wtWorkOrder=wos[0];
-    const sku=_wtWorkOrder.sku_code;
+
+    // ── Step B: ตั้งค่า batch count (ต้องหลัง load WO) ──────
+    const woNumBatches=Number(_wtWorkOrder.num_batches||1);
+    _wtBatchCount=parseInt(document.getElementById('wt-batch-count')?.value)||woNumBatches;
+    if(_wtBatchCount<1) _wtBatchCount=woNumBatches||1;
+    const bcEl=document.getElementById('wt-batch-count');
+    if(bcEl) bcEl.value=_wtBatchCount;
+
+    // ── Step C: โหลด BOM ──────────────────────────────────────
+    const sku=_wtWorkOrder.sku_code||'';
+    if(!sku){msgEl('wt-msg-1','❌ WO นี้ไม่มี SKU Code','e');return;}
     const isFG=!sku.startsWith('WIP');
     const bomTable=isFG?'bom_master':'wip_bom';
     const codeField=isFG?'sku_code':'wip_code';
 
-    // โหลด BOM
-    const bom=await sbG(bomTable,{f:[`${codeField}=eq.${sku}`],ord:'id.asc'});
-    if(!bom.length){msgEl('wt-msg-1','❌ ไม่พบ BOM ของ '+sku,'e');return;}
+    const bom=await sbG(bomTable,{
+      f:[`${codeField}=eq.${sku}`],
+      ord:'id.asc'
+    });
 
-    // คำนวณ qty ตาม batch count
+    if(!bom.length){
+      // fallback: ลอง bom_master ถ้า wip_bom ว่าง
+      const bom2=isFG?[]:await sbG('bom_master',{f:[`sku_code=eq.${sku}`],ord:'id.asc'}).catch(()=>[]);
+      if(!bom2.length){
+        msgEl('wt-msg-1',`❌ ไม่พบ BOM ของ SKU: ${sku}<br><small>ไปเพิ่ม BOM ที่เมนู 📋 BOM Manager ก่อน</small>`,'e');
+        return;
+      }
+      bom.push(...bom2);
+    }
+
+    // ── Step D: คำนวณ target qty ─────────────────────────────
     const batchKg=Number(_wtWorkOrder.batch_kg||50);
-    const numBatches=Number(_wtWorkOrder.num_batches||_wtBatchCount||1);
     _wtBOM=bom.map(b=>({
       ...b,
+      mat_code: b.mat_code||b.rm_code||'',
+      mat_name: b.mat_name||b.rm_name||b.mat_code||'',
+      unit:     b.unit||'kg',
       target_qty: parseFloat((Number(b.qty_per_batch||0)*_wtBatchCount).toFixed(4)),
       weighed_qty: 0,
       done: false,
+      qr_verified: false,
     }));
     _wtWeighed={};
 
-    msgEl('wt-msg-1',`✅ โหลด BOM สำเร็จ (${_wtBOM.length} รายการ × ${_wtBatchCount} batch)`,'s');
-    wtSetStep(2);
+    const rmCount=_wtBOM.filter(b=>!b.mat_code.startsWith('WIP')).length;
+    const wipCount=_wtBOM.filter(b=>b.mat_code.startsWith('WIP')).length;
+    msgEl('wt-msg-1',
+      `✅ โหลดสำเร็จ! BOM ${_wtBOM.length} รายการ (RM: ${rmCount}, WIP: ${wipCount}) × ${_wtBatchCount} batch`,
+      's');
+    wtSetStep(3);
     wtRenderBOM();
-  }catch(e){msgEl('wt-msg-1','❌ '+e.message,'e');}
+  }catch(e){
+    console.error('[wtLoadBOM]',e);
+    msgEl('wt-msg-1','❌ Error: '+e.message,'e');
+  }
 }
 
 // ── Step 2+3: Render BOM items ────────────────────────────────
