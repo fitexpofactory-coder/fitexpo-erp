@@ -16064,16 +16064,35 @@ let _wtWorkOrder=null, _wtBOM=[], _wtCurrentIdx=0, _wtWeighed=[], _wtMatQROk=fal
 const WT_TOL_PCT = 3; // ±3% tolerance
 
 async function wtInit(){
-  // โหลด WO list
-  const wos = await sbG('production_plan',{
-    f:['status=neq.เสร็จสิ้น','status=neq.ยกเลิก'],
-    ord:'created_at.desc', lim:50
-  }).catch(()=>[]);
-  const sel = document.getElementById('wt-wo-sel');
-  if(!sel) return;
-  sel.innerHTML = '<option value="">— เลือก Work Order —</option>' +
-    wos.map(w=>`<option value="${w.id}">${w.pp_no} — ${w.product_name||w.sku_code}</option>`).join('');
-  wtGoStep(1);
+  wtSetStep(1);
+  // โหลด WO list — ใส่ทั้ง 2 select (เก่า+ใหม่)
+  try{
+    const wos = await sbG('production_plan',{
+      s:'id,pp_no,sku_code,product_name,num_batches,batch_kg,status',
+      ord:'created_at.desc', lim:100
+    });
+    const opts = '<option value="">— เลือก Work Order —</option>' +
+      wos.map(w=>`<option value="${w.pp_no}"
+        data-id="${w.id}"
+        data-sku="${w.sku_code||''}"
+        data-name="${(w.product_name||w.sku_code||'').replace(/"/g,'')}"
+        data-batches="${w.num_batches||1}"
+        data-batchkg="${w.batch_kg||50}">
+        ${w.pp_no} — ${w.product_name||w.sku_code||''}
+      </option>`).join('');
+
+    // โหลดใส่ทั้ง 2 id (ป้องกัน id ไม่ตรง)
+    ['wt-wo-select','wt-wo-sel'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el) el.innerHTML=opts;
+    });
+    console.log(`[Weigh] Loaded ${wos.length} WOs`);
+  }catch(e){
+    console.error('[Weigh] wtInit error:',e.message);
+    // แสดง error ใน UI
+    const sel=document.getElementById('wt-wo-select')||document.getElementById('wt-wo-sel');
+    if(sel) sel.innerHTML=`<option value="">❌ โหลดไม่ได้: ${e.message}</option>`;
+  }
 }
 
 function wtGoStep(n){
@@ -17260,24 +17279,50 @@ function wtSetStep(n){
 
 // ── Step 1: Scan / Select WO ─────────────────────────────────
 function wtScanBatch(){
-  const v=document.getElementById('wt-qr-input')?.value.trim();
+  const v=(document.getElementById('wt-qr-input')?.value||'').trim();
   if(!v)return;
-  // รองรับ QR format: "WO:WO-202604-001" หรือแค่ WO No.
-  const ppNo=v.replace(/^WO:/,'').trim();
-  document.getElementById('wt-wo-select').value=ppNo;
+  // รองรับ format: "BATCH|WO-xxx|sku|n|date", "WO:WO-xxx", หรือแค่ WO No.
+  let ppNo=v;
+  if(v.startsWith('BATCH|')){ ppNo=v.split('|')[1]||v; }
+  else if(v.toUpperCase().startsWith('WO:')){ ppNo=v.slice(3); }
+  ppNo=ppNo.trim();
+  // set ใน select
+  ['wt-wo-select','wt-wo-sel'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.value=ppNo;
+  });
   wtSelectWO(ppNo);
+  msgEl('wt-msg-1',`✅ สแกนได้: ${ppNo}`,'s');
 }
 
 function wtSelectWO(ppNo){
   if(!ppNo) return;
-  msgEl('wt-msg-1',`<span class="spin"></span> โหลด WO ${ppNo}...`,'i');
+  // sync ทั้ง 2 select
+  ['wt-wo-select','wt-wo-sel'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el && el.value!==ppNo) el.value=ppNo;
+  });
+  // sync QR input
+  const qi=document.getElementById('wt-qr-input');
+  if(qi) qi.value=ppNo;
+  msgEl('wt-msg-1',`✅ เลือก ${ppNo} แล้ว — กด ✅ เพื่อโหลด BOM`,'s');
 }
 
 async function wtLoadBOM(){
-  const ppNo=(document.getElementById('wt-wo-select')?.value||
-              document.getElementById('wt-qr-input')?.value||'').trim();
+  // อ่าน WO จากทั้ง 2 select และ QR input
+  const ppNo=(
+    document.getElementById('wt-wo-select')?.value ||
+    document.getElementById('wt-wo-sel')?.value ||
+    document.getElementById('wt-qr-input')?.value || ''
+  ).trim().replace(/^WO:/i,'');
   if(!ppNo){msgEl('wt-msg-1','กรุณาเลือก Work Order ก่อน','e');return;}
   _wtBatchCount=parseInt(document.getElementById('wt-batch-count')?.value)||1;
+    // ใช้ num_batches จาก WO ถ้า batch count input ยังเป็น default 1
+    if(_wtBatchCount===1 && _wtWorkOrder.num_batches>1){
+      _wtBatchCount=Number(_wtWorkOrder.num_batches);
+      const bcEl=document.getElementById('wt-batch-count');
+      if(bcEl) bcEl.value=_wtBatchCount;
+    }
   msgEl('wt-msg-1','<span class="spin"></span> โหลด BOM...','i');
   try{
     // โหลด WO
@@ -17295,6 +17340,7 @@ async function wtLoadBOM(){
 
     // คำนวณ qty ตาม batch count
     const batchKg=Number(_wtWorkOrder.batch_kg||50);
+    const numBatches=Number(_wtWorkOrder.num_batches||_wtBatchCount||1);
     _wtBOM=bom.map(b=>({
       ...b,
       target_qty: parseFloat((Number(b.qty_per_batch||0)*_wtBatchCount).toFixed(4)),
