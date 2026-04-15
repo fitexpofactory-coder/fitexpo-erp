@@ -642,6 +642,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
       <button class="rgb" onclick="ribbonToggle(this)">⚙️ ระบบ <span class="rga">▾</span></button>
       <div class="rdd">
         <div class="rni" onclick="nav('import')" data-page="import">📥 Import</div>
+        <div class="rni" onclick="showSQLSetup()">🗄️ SQL Setup Guide</div>
         <div class="rni" onclick="nav('permissions')" data-page="permissions">🔐 สิทธิ์</div>
         <div class="rni" onclick="nav('actlog')" data-page="actlog">📋 Activity Log</div>
         <div class="rni" onclick="nav('users')" data-page="users">👤 ผู้ใช้</div>
@@ -2940,6 +2941,50 @@ async function loadDash(){
     const dashDb=document.getElementById('dash-db');
     if(dashDb)dashDb.innerHTML=`<div class="al als">✅ Supabase เชื่อมต่อแล้ว</div><div style="font-size:12px;color:var(--text2);margin-top:6px">👤 ${CU?.full_name||''} (${CU?.role||''})<br>⚡ Database พร้อมใช้งาน<br>v4.0 Full Edition</div>`;
 
+    // ── KPI เพิ่มเติม ──────────────────────────────────────────
+    // WO กำลังผลิต
+    try{
+      const woList=await sbG('production_plan',{
+        f:['status=neq.เสร็จสิ้น','status=neq.cancelled'],
+        s:'id', lim:999
+      });
+      const kvWo=document.getElementById('kv-wo');
+      if(kvWo) kvWo.textContent=woList.length;
+    }catch(e2){}
+
+    // FG Stock items
+    try{
+      const fgList=await sbG('master_product',{s:'sku',lim:999}).catch(()=>[]);
+      const kvFg=document.getElementById('kv-fg');
+      if(kvFg) kvFg.textContent=fgList.length;
+    }catch(e2){}
+
+    // PM งานค้างเดือนนี้
+    try{
+      const now=new Date();
+      const yr=now.getFullYear(), mn=now.getMonth()+1;
+      const pmList=await sbG('pm_tasks',{
+        f:[`year=eq.${yr}`,`month=eq.${mn}`,`status=eq.pending`],
+        s:'id', lim:999
+      }).catch(()=>[]);
+      const kvPm=document.getElementById('kv-pm');
+      if(kvPm){
+        kvPm.textContent=pmList.length;
+        kvPm.style.color=pmList.length>5?'var(--red)':pmList.length>0?'var(--amber)':'var(--green)';
+      }
+    }catch(e2){}
+
+    // Forecast เดือนนี้
+    try{
+      const now2=new Date();
+      const fcList=await sbG('forecast_orders',{
+        f:[`year=eq.${now2.getFullYear()}`,`month=eq.${now2.getMonth()+1}`],
+        s:'id', lim:999
+      }).catch(()=>[]);
+      const kvFc=document.getElementById('kv-fc');
+      if(kvFc) kvFc.textContent=fcList.length;
+    }catch(e2){}
+
   }catch(e){
     const dashDb=document.getElementById('dash-db');
     if(dashDb)dashDb.innerHTML=`<div class="al ale">❌ ${e.message}<br><button class="btn btnS sm" onclick="loadDash()" style="margin-top:6px">🔄 ลองใหม่</button></div>`;
@@ -4373,10 +4418,20 @@ async function buildDocHTML(type,code,n,dt,machine,method,customBatchKg=0,lossPc
       <div class="pdoc-tit-main">${pt("batch_title")}</div>
       <div class="pdoc-tit-sub">BATCH PRODUCTION RECORD | ${isFG?'สินค้าสำเร็จรูป':'WIP กึ่งสำเร็จรูป'}</div>
     </div>
-    <div class="pdoc-no">
-      <div style="font-size:8pt;color:#666">Batch Record No.</div>
-      <div class="pdoc-no-val">${brNo}</div>
-      <div style="margin-top:3px;font-size:9pt">วันที่: ${today}</div>
+    <div class="pdoc-no" style="display:flex;align-items:flex-start;gap:8px">
+      <div>
+        <div style="font-size:8pt;color:#666">Batch Record No.</div>
+        <div class="pdoc-no-val">${brNo}</div>
+        <div style="margin-top:3px;font-size:9pt">วันที่: ${today}</div>
+      </div>
+      <div style="text-align:center;flex-shrink:0">
+        <div id="qr-br-${batchIdx}"
+          data-qr="BATCH|${code}|${n}|${dt||new Date().toISOString().slice(0,10)}"
+          style="width:72px;height:72px;background:#f5f5f5;
+          border:1px solid #ddd;border-radius:4px;display:flex;align-items:center;
+          justify-content:center;font-size:8pt;color:#999">QR...</div>
+        <div style="font-size:6.5pt;color:#888;margin-top:2px;width:72px">สแกนชั่งน้ำหนัก</div>
+      </div>
     </div>
   </div>
 
@@ -4468,6 +4523,21 @@ async function buildDocHTML(type,code,n,dt,machine,method,customBatchKg=0,lossPc
     ${brNo} | FitExpo ERP | Batch ${batchIdx+1}/${n} | เอกสารนี้เป็นความลับทางการค้า
   </div>
 </div>`).join('\n');
+
+  // ── Inject QR codes into preview panel ──────────────────────
+  setTimeout(()=>{
+    document.querySelectorAll('[id^="qr-br-"][data-qr]').forEach(el=>{
+      const qrText=el.getAttribute('data-qr');
+      if(!qrText) return;
+      try{
+        const url=typeof generateQRDataURL==='function'
+          ? generateQRDataURL(qrText,72)
+          : `https://chart.googleapis.com/chart?chs=72x72&cht=qr&chl=${encodeURIComponent(qrText)}`;
+        el.style.cssText='width:72px;height:72px;padding:0;border:1px solid #ddd;border-radius:4px;background:white';
+        el.innerHTML=`<img src="${url}" width="72" height="72" style="image-rendering:pixelated;display:block">`;
+      }catch(e){}
+    });
+  },400);
 }
 
 async function printBatchFor(code){
@@ -4477,7 +4547,11 @@ async function printBatchFor(code){
     const docHtml=await buildDocHTML(type,code,n,dt,'','');
     const fullHtml=`<!DOCTYPE html><html><head>
       <meta charset="UTF-8"><title>Batch Record — ${code}</title>
-      <style>${PDOC_CSS}</style></head><body>${docHtml}</body></html>`;
+      <style>${PDOC_CSS}
+        .br-qr-inject{width:72px;height:72px}
+        @media print{.br-qr-inject{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+      </style></head><body>${docHtml}
+</body></html>`;
     openPreviewWindow(fullHtml,`Batch Record: ${code}`);
   }catch(e){
     alert('❌ ไม่สามารถสร้าง Batch Record: '+e.message);
@@ -13059,6 +13133,25 @@ function openPreviewWindow(htmlContent, title){
   const frame = document.getElementById('_preview_frame');
   const doc = frame.contentDocument || frame.contentWindow.document;
   doc.open(); doc.write(htmlContent); doc.close();
+  // Inject QR codes หลัง render
+  setTimeout(()=>{
+    try{
+      const fw = frame.contentWindow || frame.contentDocument?.defaultView;
+      if(!fw) return;
+      const qrEls = fw.document.querySelectorAll('[data-qr]');
+      qrEls.forEach(el=>{
+        const qrText = el.getAttribute('data-qr');
+        if(!qrText||qrText==='QR...') return;
+        // ใช้ generateQRDataURL จาก main window
+        const url = typeof generateQRDataURL==='function'
+          ? generateQRDataURL(qrText, 72) : '';
+        if(url){
+          el.style.cssText='width:72px;height:72px;padding:0;border:1px solid #ddd;border-radius:4px;background:white';
+          el.innerHTML=`<img src="${url}" width="72" height="72" style="image-rendering:pixelated;display:block">`;
+        }
+      });
+    }catch(e){ console.warn('QR inject:',e); }
+  }, 400);
   // ผูก print button กับ frame
   document.getElementById('_preview_print_btn').onclick = function(){
     const pw=window.open('','_blank','width=900,height=700');
@@ -18169,6 +18262,133 @@ async function doBulkPrintWIPQR(){
     </style></head><body>${labels}</body></html>`);
   pw.document.close();
   setTimeout(()=>{try{pw.focus();pw.print();}catch(e){}},900);
+}
+
+
+function showSQLSetup(){
+  const allSQL=`-- ══════════════════════════════════════════════
+-- FitExpo ERP — Supabase SQL Setup (รันครั้งเดียว)
+-- ══════════════════════════════════════════════
+
+-- 1. Forecast Orders
+CREATE TABLE IF NOT EXISTS forecast_orders (
+  id BIGSERIAL PRIMARY KEY, sku_code TEXT, sku_name TEXT,
+  year INT, month INT, forecast_qty NUMERIC,
+  delivery_date DATE, prod_date DATE, order_date DATE,
+  lead_time_days INT DEFAULT 7, safety_days INT DEFAULT 3,
+  status TEXT DEFAULT 'planned', note TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 2. PM Tables
+CREATE TABLE IF NOT EXISTS pm_assets (
+  id BIGSERIAL PRIMARY KEY, code TEXT UNIQUE, name TEXT,
+  category TEXT, freq TEXT DEFAULT 'monthly', tasks TEXT,
+  note TEXT, is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS pm_tasks (
+  id BIGSERIAL PRIMARY KEY, asset_code TEXT, asset_name TEXT,
+  asset_category TEXT, freq TEXT, tasks TEXT, due_date DATE,
+  year INT, month INT, status TEXT DEFAULT 'pending',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS pm_logs (
+  id BIGSERIAL PRIMARY KEY, task_id BIGINT, asset_code TEXT,
+  asset_name TEXT, log_date DATE, time_start TIME, time_end TIME,
+  technician TEXT, result TEXT DEFAULT 'pass', detail TEXT,
+  reading TEXT, parts_used TEXT, next_date DATE, note TEXT,
+  recorded_by TEXT, created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 3. Production Steps
+CREATE TABLE IF NOT EXISTS production_steps (
+  id BIGSERIAL PRIMARY KEY, sku_code TEXT NOT NULL,
+  step_no INTEGER DEFAULT 1, step_title TEXT, step_desc TEXT,
+  duration_min INTEGER, note TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 4. Stock Lot Tables
+CREATE TABLE IF NOT EXISTS material_lots (
+  id BIGSERIAL PRIMARY KEY, mat_code TEXT, lot_no TEXT,
+  qty NUMERIC DEFAULT 0, unit TEXT DEFAULT 'kg',
+  receive_date DATE, exp_date DATE, supplier TEXT,
+  status TEXT DEFAULT 'available', note TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS wip_stock_lots (
+  id BIGSERIAL PRIMARY KEY, wip_code TEXT, lot_no TEXT,
+  qty_kg NUMERIC DEFAULT 0, prod_date DATE, exp_date DATE,
+  status TEXT DEFAULT 'available', note TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS stock_product_lots (
+  id BIGSERIAL PRIMARY KEY, sku TEXT, lot_no TEXT,
+  qty_kg NUMERIC DEFAULT 0, prod_date DATE, exp_date DATE,
+  status TEXT DEFAULT 'available', note TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 5. Production Log Stations (OEE Multi-station)
+CREATE TABLE IF NOT EXISTS production_log_stations (
+  id BIGSERIAL PRIMARY KEY, batch_no TEXT, pp_no TEXT,
+  machine_code TEXT, num_workers INTEGER,
+  run_time_min INTEGER, downtime_min INTEGER,
+  planned_min INTEGER DEFAULT 480, output_qty NUMERIC,
+  availability_pct NUMERIC, downtime_reason TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 6. Column additions
+ALTER TABLE master_product ADD COLUMN IF NOT EXISTS stock_unit TEXT DEFAULT 'kg';
+ALTER TABLE master_product ADD COLUMN IF NOT EXISTS name_th TEXT;
+ALTER TABLE master_material ADD COLUMN IF NOT EXISTS images JSONB DEFAULT '[]';
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS meal_allowance_per_day NUMERIC DEFAULT 0;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS diligence_bonus NUMERIC DEFAULT 0;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS probation_months INTEGER DEFAULT 3;
+
+-- 7. RLS Policies
+ALTER TABLE forecast_orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pm_assets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pm_tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pm_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE material_lots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE wip_stock_lots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE stock_product_lots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE production_log_stations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE production_steps ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY IF NOT EXISTS "allow_all" ON forecast_orders FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY IF NOT EXISTS "allow_all" ON pm_assets FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY IF NOT EXISTS "allow_all" ON pm_tasks FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY IF NOT EXISTS "allow_all" ON pm_logs FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY IF NOT EXISTS "allow_all" ON material_lots FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY IF NOT EXISTS "allow_all" ON wip_stock_lots FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY IF NOT EXISTS "allow_all" ON stock_product_lots FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY IF NOT EXISTS "allow_all" ON production_log_stations FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY IF NOT EXISTS "allow_all" ON production_steps FOR ALL USING (true) WITH CHECK (true);`;
+
+  openMo('🗄️ SQL Setup Guide — Supabase',`
+    <div class="al alw" style="margin-bottom:10px;font-size:12px">
+      📌 คัดลอก SQL ด้านล่าง → เปิด Supabase Dashboard → SQL Editor → Paste → Run
+    </div>
+    <div style="position:relative">
+      <textarea class="fc2" style="font-family:monospace;font-size:11px;height:350px;
+        white-space:pre;overflow:auto;resize:vertical" readonly
+        id="sql-setup-txt">${allSQL}</textarea>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn btnP" style="flex:1" onclick="
+        navigator.clipboard?.writeText(document.getElementById('sql-setup-txt').value)
+          .then(()=>this.textContent='✅ คัดลอกแล้ว!')
+          .catch(()=>{document.getElementById('sql-setup-txt').select();document.execCommand('copy');this.textContent='✅ คัดลอกแล้ว!';})">
+        📋 คัดลอก SQL ทั้งหมด
+      </button>
+      <a class="btn btnT" href="https://supabase.com/dashboard" target="_blank">
+        🔗 เปิด Supabase
+      </a>
+    </div>`);
 }
 
 // ════════════════════════════════════════════════════════════
