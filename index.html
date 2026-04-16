@@ -18632,9 +18632,9 @@ async function hrLoadDaily(){
   area.innerHTML='<span class="spin"></span> กำลังโหลด...';
   try{
     const [attendance, empList]=await Promise.all([
-      sbG('hr_attendance',{f:[`work_date=eq.${date}`],ord:'emp_code.asc'}),
-      sbG('employees',{f:['status=eq.active'],ord:'emp_code.asc',
-        s:'emp_code,name_th,name_en,department,position'}).catch(()=>[])
+      sbG('attendance',{f:[`att_date=eq.${date}`],ord:'emp_code.asc'}),
+      sbG('employees',{f:['is_active=eq.true'],ord:'emp_code.asc',
+        s:'emp_code,first_name,last_name,department,position'}).catch(()=>[])
     ]);
     const sum=hrCalcSummary(attendance, empList);
     const dayName=['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัส','ศุกร์','เสาร์'][new Date(date).getDay()];
@@ -18691,7 +18691,7 @@ async function hrLoadDaily(){
             const hrs=a?.actual_work_min?Math.round(a.actual_work_min/60*10)/10:0;
             return`<tr>
               <td style="font-family:monospace;font-size:11px">${e.emp_code}</td>
-              <td style="font-weight:600">${e.name_th||e.name_en||'—'}</td>
+              <td style="font-weight:600">${(e.first_name||'') +' '+ (e.last_name||'')}</td>
               <td style="font-size:11px;color:var(--text3)">${e.department||'—'}</td>
               <td style="text-align:center">
                 <span style="background:${hrStatusColor(status)};color:white;
@@ -18700,10 +18700,10 @@ async function hrLoadDaily(){
                 </span>
               </td>
               <td style="text-align:center;font-size:11px;font-family:monospace">
-                ${a?.check_in?new Date(a.check_in).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'—'}
+                ${a?.check_in?(a.check_in||'').slice(11,16)||'—':'—'}
               </td>
               <td style="text-align:center;font-size:11px;font-family:monospace">
-                ${a?.check_out?new Date(a.check_out).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'—'}
+                ${a?.check_out?(a.check_out||'').slice(11,16)||'—':'—'}
               </td>
               <td style="text-align:right;font-weight:600">${hrs?hrs+' h':'—'}</td>
               <td style="text-align:right;color:${a?.late_min?'var(--amber)':''}">
@@ -18733,12 +18733,12 @@ async function hrLoadWeekly(){
     const endStr=end.toISOString().slice(0,10);
 
     const [attendance, empList]=await Promise.all([
-      sbG('hr_attendance',{
-        f:[`work_date=gte.${startStr}`,`work_date=lte.${endStr}`],
-        ord:'work_date.asc,emp_code.asc'
+      sbG('attendance',{
+        f:[`att_date=gte.${startStr}`,`att_date=lte.${endStr}`],
+        ord:'att_date.asc,emp_code.asc'
       }),
-      sbG('employees',{f:['status=eq.active'],ord:'emp_code.asc',
-        s:'emp_code,name_th,name_en,department'}).catch(()=>[])
+      sbG('employees',{f:['is_active=eq.true'],ord:'emp_code.asc',
+        s:'emp_code,first_name,last_name,department'}).catch(()=>[])
     ]);
 
     const days=[]; const dayNames=['จ','อ','พ','พฤ','ศ','ส','อา'];
@@ -18749,11 +18749,11 @@ async function hrLoadWeekly(){
 
     // per-day summary
     const daySums=days.map(d=>{
-      const dayAtt=attendance.filter(a=>a.work_date===d);
+      const dayAtt=attendance.filter(a=>a.att_date===d);
       return{date:d,...hrCalcSummary(dayAtt,empList)};
     });
 
-    const weekSum=hrCalcSummary(attendance.filter(a=>days.includes(a.work_date)),empList);
+    const weekSum=hrCalcSummary(attendance.filter(a=>days.includes(a.att_date)),empList);
 
     // per-employee weekly summary
     const empSums=empList.map(e=>{
@@ -18835,7 +18835,7 @@ async function hrLoadWeekly(){
             const pct=Math.round(e.presentDays/7*100);
             return`<tr>
               <td style="font-family:monospace;font-size:11px">${e.emp_code}</td>
-              <td style="font-weight:600">${e.name_th||e.name_en||'—'}</td>
+              <td style="font-weight:600">${(e.first_name||'') +' '+ (e.last_name||'')}</td>
               <td style="font-size:11px;color:var(--text3)">${e.department||'—'}</td>
               <td style="text-align:right;color:var(--green);font-weight:700">${e.presentDays}</td>
               <td style="text-align:right;color:var(--amber)">${e.lateDays}</td>
@@ -18864,12 +18864,12 @@ async function hrLoadMonthlyNew(){
   const area=document.getElementById('hr-monthly-area');
   area.innerHTML='<span class="spin"></span> กำลังโหลด...';
   try{
-    const filters=['work_date=gte.'+from,'work_date=lte.'+to];
+    const filters=['att_date=gte.'+from,'att_date=lte.'+to];
     if(empCode!=='all') filters.push(`emp_code=eq.${empCode}`);
     const [attendance, empList]=await Promise.all([
-      sbG('hr_attendance',{f:filters,ord:'work_date.asc,emp_code.asc'}),
-      sbG('employees',{f:['status=eq.active'],ord:'emp_code.asc',
-        s:'emp_code,name_th,name_en,department'}).catch(()=>[])
+      sbG('attendance',{f:filters,ord:'att_date.asc,emp_code.asc'}),
+      sbG('employees',{f:['is_active=eq.true'],ord:'emp_code.asc',
+        s:'emp_code,first_name,last_name,department'}).catch(()=>[])
     ]);
     const filteredEmps=empCode==='all'?empList:empList.filter(e=>e.emp_code===empCode);
     const mnNames=['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.',
@@ -18879,7 +18879,7 @@ async function hrLoadMonthlyNew(){
     const daySums=[];
     for(let d=1;d<=daysInMonth;d++){
       const dateStr=`${yr}-${mn}-${String(d).padStart(2,'0')}`;
-      const dayAtt=attendance.filter(a=>a.work_date===dateStr);
+      const dayAtt=attendance.filter(a=>a.att_date===dateStr);
       daySums.push({day:d,date:dateStr,...hrCalcSummary(dayAtt,filteredEmps)});
     }
 
@@ -18943,7 +18943,7 @@ async function hrLoadMonthlyNew(){
           <tbody>
           ${empSums.map(e=>`<tr>
             <td style="font-family:monospace;font-size:11px">${e.emp_code}</td>
-            <td style="font-weight:600">${e.name_th||e.name_en||'—'}</td>
+            <td style="font-weight:600">${(e.first_name||'') +' '+ (e.last_name||'')}</td>
             <td style="font-size:11px;color:var(--text3)">${e.department||'—'}</td>
             <td style="text-align:right;color:var(--text3)">${e.workDays}</td>
             <td style="text-align:right;color:var(--green);font-weight:700">${e.present}</td>
@@ -18981,12 +18981,12 @@ async function hrLoadYearlyNew(){
   area.innerHTML='<span class="spin"></span> กำลังโหลด...';
   try{
     const from=`${yr}-01-01`, to=`${yr}-12-31`;
-    const filters=['work_date=gte.'+from,'work_date=lte.'+to];
+    const filters=['att_date=gte.'+from,'att_date=lte.'+to];
     if(empCode!=='all') filters.push(`emp_code=eq.${empCode}`);
     const [attendance, empList]=await Promise.all([
-      sbG('hr_attendance',{f:filters,ord:'work_date.asc'}),
-      sbG('employees',{f:['status=eq.active'],ord:'emp_code.asc',
-        s:'emp_code,name_th,name_en,department'}).catch(()=>[])
+      sbG('attendance',{f:filters,ord:'att_date.asc'}),
+      sbG('employees',{f:['is_active=eq.true'],ord:'emp_code.asc',
+        s:'emp_code,first_name,last_name,department'}).catch(()=>[])
     ]);
     const filteredEmps=empCode==='all'?empList:empList.filter(e=>e.emp_code===empCode);
     const mnNames=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.',
@@ -18995,7 +18995,7 @@ async function hrLoadYearlyNew(){
     // monthly summary
     const monthSums=mnNames.map((mn2,mi)=>{
       const m=String(mi+1).padStart(2,'0');
-      const monthAtt=attendance.filter(a=>a.work_date?.startsWith(`${yr}-${m}`));
+      const monthAtt=attendance.filter(a=>a.att_date?.startsWith(`${yr}-${m}`));
       return{month:mn2,...hrCalcSummary(monthAtt,filteredEmps)};
     });
 
@@ -19090,7 +19090,7 @@ async function hrLoadYearlyNew(){
           <tbody>
           ${empSums.sort((a,b)=>b.pct-a.pct).map(e=>`<tr>
             <td style="font-family:monospace;font-size:11px">${e.emp_code}</td>
-            <td style="font-weight:600">${e.name_th||e.name_en||'—'}</td>
+            <td style="font-weight:600">${(e.first_name||'') +' '+ (e.last_name||'')}</td>
             <td style="font-size:11px;color:var(--text3)">${e.department||'—'}</td>
             <td style="text-align:right;color:var(--green);font-weight:700">${e.present}</td>
             <td style="text-align:right;color:var(--amber)">${e.late}</td>
@@ -19152,8 +19152,8 @@ async function hrReportInit(){
 
   // โหลดพนักงานใส่ select
   try{
-    const emps=await sbG('employees',{f:['status=eq.active'],
-      s:'emp_code,name_th',ord:'emp_code.asc'});
+    const emps=await sbG('employees',{f:['is_active=eq.true'],
+      s:'emp_code,first_name,last_name',ord:'emp_code.asc'});
     ['hr-mon-emp','hr-yr-emp'].forEach(id=>{
       const el=document.getElementById(id);
       if(!el) return;
