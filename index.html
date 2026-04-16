@@ -1878,6 +1878,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
           </select>
           <input type="month" class="fc2 sm" id="hr-mon-month" style="width:140px">
           <button class="btn btnP sm" onclick="hrLoadMonthlyNew()">📊 สร้าง</button>
+          <button class="btn btnN sm" onclick="(()=>{const m=document.getElementById('hr-mon-month')?.value||new Date().toISOString().slice(0,7);const[y,mn]=m.split('-');hrShowCalendar(parseInt(y),parseInt(mn));})()">📅 ปฏิทิน</button>
           <button class="btn btnT sm" onclick="hrPrintSection('hr-monthly-area','รายงานรายเดือน')">🖨️</button>
         </div>
       </div>
@@ -8138,30 +8139,110 @@ async function hrLoadHolidays(){
 }
 
 function showAddHRHoliday(){openMo('+ เพิ่มวันหยุด',hrHolForm());}
-function hrHolForm(h={}){return`
-  <div class="fgrp"><label class="flbl">วันที่หยุด</label><input type="date" class="fc2" id="hhf-date" value="${h.holiday_date||''}"></div>
-  <div class="fgrp"><label class="flbl">ชื่อวันหยุด</label><input type="text" class="fc2" id="hhf-name" value="${h.holiday_name||''}"></div>
-  <div style="display:flex;gap:10px">
-    <div class="fgrp" style="flex:1"><label class="flbl">ประเภท</label>
-      <select class="fc2" id="hhf-type"><option value="tradition">🎌 ประเพณี</option><option value="company">🏭 บริษัท</option><option value="substitute">🔄 ชดเชย</option></select>
+function hrHolForm(h={}){
+  const dayTypes=[
+    {v:'tradition',   l:'🎌 วันหยุดประเพณี (ราชการ)'},
+    {v:'company',     l:'🏭 วันหยุดบริษัท'},
+    {v:'weekly_off',  l:'📅 วันหยุดประจำสัปดาห์ (ส-อา)'},
+    {v:'swap_off',    l:'🔄 วันหยุดชดเชย (สลับหยุด)'},
+    {v:'swap_work',   l:'💼 วันทำงานพิเศษ (สลับมาทำ) → OT ถ้าทำ'},
+    {v:'workday',     l:'✅ วันทำงานปกติ'},
+  ];
+  return`
+  <div class="fgrp">
+    <label class="flbl">วันที่</label>
+    <input type="date" class="fc2" id="hhf-date" value="${h.holiday_date||''}">
+  </div>
+  <div class="fgrp">
+    <label class="flbl">ประเภทวัน</label>
+    <select class="fc2" id="hhf-type" onchange="hhfTypeChange()">
+      ${dayTypes.map(t=>`<option value="${t.v}" ${h.holiday_type===t.v?'selected':''}>${t.l}</option>`).join('')}
+    </select>
+  </div>
+  <div class="fgrp">
+    <label class="flbl">ชื่อ / คำอธิบาย</label>
+    <input type="text" class="fc2" id="hhf-name" value="${h.holiday_name||''}"
+      placeholder="เช่น สงกรานต์, สลับทำงาน ส.12 เม.ย., หยุดชดเชย พฤ.16 เม.ย.">
+  </div>
+  <div class="fgrp" id="hhf-swap-row" style="${(h.holiday_type==='swap_off'||h.holiday_type==='swap_work')?'':'display:none'}">
+    <label class="flbl">วันที่สลับด้วย (คู่กัน)</label>
+    <input type="date" class="fc2" id="hhf-swap-date" value="${h.swap_date||''}">
+    <div style="font-size:11px;color:var(--text3);margin-top:3px">
+      🔄 swap_work: วันนั้นมาทำ = ได้ OT | swap_off: วันนั้นหยุด = ไม่ขาด ยังได้เบี้ยขยัน
     </div>
-    <div class="fgrp" style="flex:1"><label class="flbl">ปี</label><input type="number" class="fc2" id="hhf-yr" value="${h.year||new Date().getFullYear()}"></div>
+  </div>
+  <div style="display:flex;gap:10px">
+    <div class="fgrp" style="flex:1">
+      <label class="flbl">ปี</label>
+      <input type="number" class="fc2" id="hhf-yr" value="${h.year||new Date().getFullYear()}">
+    </div>
+    <div class="fgrp" style="flex:1">
+      <label class="flbl">วันหยุดมีค่าจ้าง</label>
+      <select class="fc2" id="hhf-paid">
+        <option value="true"  ${h.is_paid!==false?'selected':''}>✅ มีค่าจ้าง</option>
+        <option value="false" ${h.is_paid===false?'selected':''}>❌ ไม่มีค่าจ้าง</option>
+      </select>
+    </div>
+  </div>
+  <div class="fgrp">
+    <label class="flbl">หมายเหตุ</label>
+    <input type="text" class="fc2" id="hhf-note" value="${h.note||''}"
+      placeholder="เพิ่มเติม...">
+  </div>
+  <div style="background:var(--bg3);border-radius:8px;padding:10px;margin-bottom:10px;font-size:11px;color:var(--text3)">
+    💡 <b>swap_work</b> = วันนั้นมาทำงาน → คนที่มา = OT | คนที่ไม่มา = ไม่ขาด + ยังได้เบี้ยขยัน<br>
+    💡 <b>swap_off</b> = วันนั้นหยุด → ไม่มีใครขาด ทุกคนได้เบี้ยขยัน
   </div>
   <button class="btn btnP" style="width:100%" onclick="hrSaveHoliday(${h.id||0})">💾 บันทึก</button>
-  <div id="hhf-msg" style="margin-top:8px"></div>`;}
+  <div id="hhf-msg" style="margin-top:8px"></div>`;
+}
+
+function hhfTypeChange(){
+  const t=document.getElementById('hhf-type')?.value;
+  const row=document.getElementById('hhf-swap-row');
+  if(row) row.style.display=(t==='swap_off'||t==='swap_work')?'':'none';
+}
+
 
 async function hrSaveHoliday(id){
-  const date=document.getElementById('hhf-date').value;
-  const name=document.getElementById('hhf-name').value.trim();
-  const yr=parseInt(document.getElementById('hhf-yr').value)||new Date().getFullYear();
-  if(!date||!name){msgEl('hhf-msg','กรุณากรอก','e');return;}
+  const date=document.getElementById('hhf-date')?.value;
+  const name=document.getElementById('hhf-name')?.value.trim();
+  const yr  =parseInt(document.getElementById('hhf-yr')?.value)||new Date().getFullYear();
+  const type=document.getElementById('hhf-type')?.value||'tradition';
+  const swap=document.getElementById('hhf-swap-date')?.value||null;
+  const paid=document.getElementById('hhf-paid')?.value!=='false';
+  const note=document.getElementById('hhf-note')?.value.trim()||'';
+  if(!date||!name){msgEl('hhf-msg','กรุณากรอกวันที่และชื่อ','e');return;}
   try{
-    const d={holiday_date:date,holiday_name:name,holiday_type:document.getElementById('hhf-type').value,year:yr,is_paid:true};
-    if(id){await sbU('holidays',d,`id=eq.${id}`);}else{await sbP('holidays',d);}
-    msgEl('hhf-msg','✅ บันทึก','s');
+    const d={
+      holiday_date: date,
+      holiday_name: name,
+      holiday_type: type,
+      year: yr,
+      is_paid: paid,
+      swap_date: swap||null,
+      note: note||null
+    };
+    if(id){await sbU('holidays',d,`id=eq.${id}`);}
+    else{await sbP('holidays',d);}
+    await logA('SAVE','holiday',`${type}: ${name} ${date}`);
+    msgEl('hhf-msg','✅ บันทึกแล้ว','s');
     setTimeout(()=>{closeMo();hrLoadHolidays();},800);
-  }catch(e){msgEl('hhf-msg','❌ '+e.message,'e');}
+  }catch(e){
+    if(e.message?.includes('column')&&e.message?.includes('swap_date')){
+      msgEl('hhf-msg',`❌ ต้อง ALTER TABLE holidays ก่อน:<br>
+        <code style="font-size:10px;cursor:pointer" onclick="navigator.clipboard?.writeText(this.textContent)">
+ALTER TABLE holidays
+  ADD COLUMN IF NOT EXISTS swap_date DATE,
+  ADD COLUMN IF NOT EXISTS note TEXT,
+  ADD COLUMN IF NOT EXISTS holiday_type TEXT DEFAULT 'tradition';
+        </code>`,'e');
+    }else{
+      msgEl('hhf-msg','❌ '+e.message,'e');
+    }
+  }
 }
+
 async function hrEditHoliday(id){const r=(await sbG('holidays',{f:[`id=eq.${id}`]}))[0];openMo('✏️ แก้ไขวันหยุด',hrHolForm(r));}
 async function hrDelHoliday(id){if(!confirm('ลบวันหยุดนี้?'))return;await sbD('holidays',`id=eq.${id}`);hrLoadHolidays();}
 
@@ -18883,7 +18964,16 @@ async function hrLoadMonthlyNew(){
       daySums.push({day:d,date:dateStr,...hrCalcSummary(dayAtt,filteredEmps)});
     }
 
-    // per employee monthly summary
+    // คำนวณ workDays ก่อน (ต้อง await ดึง holidays)
+    let workDays=0;
+    for(let dd=1;dd<=daysInMonth;dd++){
+      const ds=`${yr}-${mn}-${String(dd).padStart(2,'0')}`;
+      const dt=await getDayType(ds);
+      if(dt.isWork) workDays++;
+    }
+    if(!workDays) workDays=1;
+
+    // per employee monthly summary (sync .map())
     const empSums=filteredEmps.map(e=>{
       const eAtt=attendance.filter(a=>a.emp_code===e.emp_code);
       const present=eAtt.filter(a=>['present','ot','late'].includes(a.status)).length;
@@ -18892,11 +18982,7 @@ async function hrLoadMonthlyNew(){
       const leave=eAtt.filter(a=>a.status==='leave').length;
       const totalMin=eAtt.reduce((s,a)=>s+Number(a.actual_work_min||0),0);
       const lateMin=eAtt.reduce((s,a)=>s+Number(a.late_min||0),0);
-      // วันทำงานในเดือน (ไม่นับวันหยุด)
-      const workDays=daysInMonth-[...Array(daysInMonth)].filter((_,i)=>{
-        const d=new Date(yr,Number(mn)-1,i+1).getDay(); return d===0||d===6;
-      }).length;
-      const pct=workDays?Math.round(present/workDays*100):0;
+      const pct=Math.round(present/workDays*100);
       return{...e,present,late,absent,leave,workDays,pct,
         totalHrs:Math.round(totalMin/60*10)/10,lateMin};
     });
@@ -19161,6 +19247,191 @@ async function hrReportInit(){
         emps.map(e=>`<option value="${e.emp_code}">${e.emp_code} ${e.name_th||''}</option>`).join('');
     });
   }catch(e){}
+}
+
+
+// ════════════════════════════════════════════════════════════
+//  DAY TYPE LOGIC — กำหนดประเภทวันและผลต่อ attendance
+// ════════════════════════════════════════════════════════════
+
+// Cache holidays
+let _hrHolidayCache = null;
+async function getHolidays(){
+  if(_hrHolidayCache) return _hrHolidayCache;
+  _hrHolidayCache = await sbG('holidays',{ord:'holiday_date.asc'}).catch(()=>[]);
+  return _hrHolidayCache;
+}
+
+// ประเภทวัน
+// returns: {type, label, color, isWork, isOTDay, diligenceOk}
+async function getDayType(dateStr){
+  const d = new Date(dateStr);
+  const dow = d.getDay(); // 0=อา, 6=ส
+  const holidays = await getHolidays();
+  const h = holidays.find(h=>h.holiday_date===dateStr);
+
+  if(h){
+    const t = h.holiday_type||h.type||'tradition';
+    switch(t){
+      case 'swap_work':
+        return{type:'swap_work', label:'💼 ทำงานสลับ',
+          color:'#2563EB', isWork:false,  // ไม่บังคับมา
+          isOTDay:true,    // ถ้ามา = OT
+          diligenceOk:true, // ไม่มา ยังได้เบี้ยขยัน
+          holiday:h};
+      case 'swap_off':
+        return{type:'swap_off', label:'🔄 หยุดชดเชย',
+          color:'#7C3AED', isWork:false,
+          isOTDay:false, diligenceOk:true,
+          holiday:h};
+      case 'tradition':
+        return{type:'tradition', label:'🎌 วันหยุดประเพณี',
+          color:'#DC2626', isWork:false,
+          isOTDay:false, diligenceOk:true,
+          holiday:h};
+      case 'company':
+        return{type:'company', label:'🏭 หยุดบริษัท',
+          color:'#D97706', isWork:false,
+          isOTDay:false, diligenceOk:true,
+          holiday:h};
+      case 'workday':
+        return{type:'workday', label:'✅ วันทำงาน',
+          color:'#16a34a', isWork:true,
+          isOTDay:false, diligenceOk:null,
+          holiday:h};
+    }
+  }
+  // วันหยุดสัปดาห์ปกติ
+  if(dow===0||dow===6){
+    return{type:'weekly_off', label:'📅 วันหยุดสัปดาห์',
+      color:'#6B7280', isWork:false,
+      isOTDay:true,  // มาทำ = OT
+      diligenceOk:true};
+  }
+  // วันทำงานปกติ
+  return{type:'workday', label:'✅ วันทำงาน',
+    color:'#16a34a', isWork:true,
+    isOTDay:false, diligenceOk:null};
+}
+
+// คำนวณสถานะ attendance ของ employee ในวันหนึ่ง
+// คืน: {status, label, color, countAbsent, countDiligence, isOT}
+async function calcAttStatus(empCode, dateStr, attRecord){
+  const day = await getDayType(dateStr);
+
+  if(day.type==='swap_work'||day.type==='weekly_off'){
+    // วันทำงานสลับ/วันหยุดสัปดาห์
+    if(attRecord&&['present','late'].includes(attRecord.status)){
+      return{status:'ot', label:'💰 OT',
+        color:'#2563EB', countAbsent:false, countDiligence:true, isOT:true};
+    }
+    // ไม่มา = ไม่ขาด + ยังได้เบี้ยขยัน
+    return{status:'dayoff', label:'📅 วันหยุด',
+      color:'#6B7280', countAbsent:false, countDiligence:true, isOT:false};
+  }
+
+  if(day.type==='swap_off'||day.type==='tradition'||day.type==='company'){
+    // วันหยุดทุกประเภท
+    if(attRecord&&['present','late'].includes(attRecord.status)){
+      return{status:'ot_holiday', label:'💰 OT วันหยุด',
+        color:'#7C3AED', countAbsent:false, countDiligence:true, isOT:true};
+    }
+    return{status:'holiday', label:day.label,
+      color:day.color, countAbsent:false, countDiligence:true, isOT:false};
+  }
+
+  // วันทำงานปกติ
+  if(!attRecord||attRecord.status==='absent'){
+    return{status:'absent', label:'❌ ขาด',
+      color:'#DC2626', countAbsent:true, countDiligence:false, isOT:false};
+  }
+  if(attRecord.status==='leave'){
+    return{status:'leave', label:'📋 ลา',
+      color:'#2563EB', countAbsent:false, countDiligence:false, isOT:false};
+  }
+  if(attRecord.status==='late'){
+    return{status:'late', label:'⏰ สาย',
+      color:'#D97706', countAbsent:false, countDiligence:false, isOT:false};
+  }
+  return{status:'present', label:'✅ มา',
+    color:'#16a34a', countAbsent:false, countDiligence:true, isOT:false};
+}
+
+// ── ปฏิทินวันทำงาน — แสดงใน HR Report ──────────────────────
+async function hrShowCalendar(yr, mn){
+  const modal_body = `
+    <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:12px">
+      📅 ปฏิทินวันทำงาน — กดวันเพื่อแก้ไขประเภท
+    </div>
+    <div id="hr-cal-body"><span class="spin"></span> กำลังโหลด...</div>`;
+  openMo(`📅 จัดการวันทำงาน ${mn}/${yr}`, modal_body);
+  await hrRenderCalendar(yr, mn);
+}
+
+async function hrRenderCalendar(yr, mn){
+  const body = document.getElementById('hr-cal-body');
+  if(!body) return;
+  _hrHolidayCache = null; // reset cache
+  const holidays = await getHolidays();
+  const daysInMonth = new Date(yr, mn, 0).getDate();
+  const firstDow = new Date(yr, mn-1, 1).getDay()||7; // 1=จ ... 7=อา
+  const dayNames = ['จ','อ','พ','พฤ','ศ','ส','อา'];
+
+  let cal = `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:8px">
+    ${dayNames.map(d=>`<div style="text-align:center;font-size:11px;font-weight:700;
+      color:var(--text3);padding:4px">${d}</div>`).join('')}`;
+
+  // padding
+  for(let i=1;i<firstDow;i++){
+    cal += `<div></div>`;
+  }
+
+  for(let d=1;d<=daysInMonth;d++){
+    const dateStr = `${yr}-${String(mn).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dow = new Date(dateStr).getDay();
+    const isWeekend = dow===0||dow===6;
+    const h = holidays.find(h=>h.holiday_date===dateStr);
+    const type = h?.holiday_type||h?.type||(isWeekend?'weekly_off':'workday');
+    const typeColors = {
+      workday:'#dcfce7',tradition:'#fee2e2',company:'#fef3c7',
+      weekly_off:'#f3f4f6',swap_work:'#dbeafe',swap_off:'#ede9fe'
+    };
+    const typeIcons = {
+      workday:'✅',tradition:'🎌',company:'🏭',
+      weekly_off:'📅',swap_work:'💼',swap_off:'🔄'
+    };
+    cal += `<div onclick="hrEditDayType('${dateStr}')"
+      style="border-radius:6px;padding:4px;text-align:center;cursor:pointer;
+        background:${typeColors[type]||'#f9fafb'};
+        border:1px solid ${h?'#93c5fd':'#e5e7eb'};
+        min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center"
+      title="${h?.holiday_name||type}">
+      <div style="font-weight:700;font-size:13px">${d}</div>
+      <div style="font-size:9px">${typeIcons[type]||''}</div>
+      ${h?`<div style="font-size:8px;color:#1e40af;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%">${(h.holiday_name||'').slice(0,8)}</div>`:''}
+    </div>`;
+  }
+  cal += `</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;font-size:11px">
+      <span style="background:#dcfce7;padding:2px 8px;border-radius:4px">✅ ทำงาน</span>
+      <span style="background:#f3f4f6;padding:2px 8px;border-radius:4px">📅 หยุดสัปดาห์</span>
+      <span style="background:#fee2e2;padding:2px 8px;border-radius:4px">🎌 หยุดประเพณี</span>
+      <span style="background:#fef3c7;padding:2px 8px;border-radius:4px">🏭 หยุดบริษัท</span>
+      <span style="background:#dbeafe;padding:2px 8px;border-radius:4px">💼 ทำงานสลับ</span>
+      <span style="background:#ede9fe;padding:2px 8px;border-radius:4px">🔄 หยุดชดเชย</span>
+    </div>`;
+
+  body.innerHTML = cal;
+}
+
+function hrEditDayType(dateStr){
+  const d = new Date(dateStr);
+  const thDate = d.toLocaleDateString('th-TH',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  openMo(`📅 กำหนดประเภทวัน: ${thDate}`, `
+    <div style="font-size:13px;color:var(--text3);margin-bottom:12px">${dateStr}</div>
+    <input type="hidden" id="edt-date" value="${dateStr}">
+    ${hrHolForm({holiday_date:dateStr, year:d.getFullYear()})}
+  `);
 }
 
 // ════════════════════════════════════════════════════════════
