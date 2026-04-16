@@ -2927,8 +2927,8 @@ function loadPage(id){
   const extra={
     forecast:()=>{fcInitSelects();fcLoadDemand();},
     pm:()=>{setTimeout(pmInitYears,100);},
-    'hr-report':()=>{hrReportInit();}
-    weigh:()=>{wtInit();}
+    'hr-report':()=>{hrReportInit();},
+    'weigh':()=>{wtInit();}
   };
   if(fn[id]) fn[id]();
   else if(extra[id]) extra[id]();
