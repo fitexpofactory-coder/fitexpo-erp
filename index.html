@@ -17365,6 +17365,39 @@ async function wtLoadBOM(){
       's');
     wtSetStep(3);
     wtRenderBOM();
+
+    // ── ซ่อน step1 panel + scroll ไป BOM ─────────────────
+    setTimeout(function(){
+      // ซ่อน controls
+      var p1=document.getElementById('wt-panel-1');
+      if(p1) p1.style.display='none';
+
+      // เพิ่มปุ่ม "เปลี่ยน WO"
+      if(!document.getElementById('wt-show-ctrl')){
+        var btn=document.createElement('button');
+        btn.id='wt-show-ctrl';
+        btn.className='btn btnS sm';
+        btn.style.cssText='width:100%;margin-bottom:8px';
+        btn.innerHTML='⚙️ เปลี่ยน WO / แสดง Controls';
+        btn.onclick=function(){
+          var p=document.getElementById('wt-panel-1');
+          if(p){ p.style.display='block'; btn.style.display='none';
+            p.scrollIntoView({behavior:'smooth',block:'start'}); }
+        };
+        if(p1) p1.parentNode.insertBefore(btn, p1);
+      }
+
+      // scroll ไปที่ BOM panel
+      var panel=document.getElementById('wt-bom-panel');
+      if(panel){
+        panel.scrollIntoView({behavior:'smooth',block:'start'});
+        var mn=document.getElementById('mn');
+        if(mn) mn.scrollTo({top:panel.offsetTop-20,behavior:'smooth'});
+        panel.style.border='3px solid #1B5EC7';
+        setTimeout(function(){panel.style.border='';},2500);
+      }
+    }, 250);
+
   }catch(e){
     console.error('[wtLoadBOM]',e);
     msgEl('wt-msg-1','❌ Error: '+e.message,'e');
@@ -17378,10 +17411,7 @@ function wtRenderBOM(){
   const list    = document.getElementById('wt-items-list');
   const actions = document.getElementById('wt-actions');
 
-  if(!header){ alert('[Weigh] ERROR: ไม่พบ wt-bom-header'); return; }
-  if(!list)  { alert('[Weigh] ERROR: ไม่พบ wt-items-list'); return; }
-  if(!_wtWorkOrder){ alert('[Weigh] ERROR: _wtWorkOrder is null'); return; }
-  if(!_wtBOM || !_wtBOM.length){ alert('[Weigh] ERROR: _wtBOM ว่าง'); return; }
+  if(!header||!list||!_wtWorkOrder||!_wtBOM||!_wtBOM.length) return;
 
   // ── Header ──────────────────────────────────────────────
   header.innerHTML =
