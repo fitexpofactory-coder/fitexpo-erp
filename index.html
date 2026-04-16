@@ -17359,6 +17359,7 @@ async function wtLoadBOM(){
 
     const rmCount=_wtBOM.filter(b=>!b.mat_code.startsWith('WIP')).length;
     const wipCount=_wtBOM.filter(b=>b.mat_code.startsWith('WIP')).length;
+    console.log('[wtLoadBOM] BOM loaded:',_wtBOM.length,'items, first:',_wtBOM[0]);
     msgEl('wt-msg-1',
       `✅ โหลดสำเร็จ! BOM ${_wtBOM.length} รายการ (RM: ${rmCount}, WIP: ${wipCount}) × ${_wtBatchCount} batch`,
       's');
@@ -17372,118 +17373,120 @@ async function wtLoadBOM(){
 
 // ── Step 2+3: Render BOM items ────────────────────────────────
 function wtRenderBOM(){
-  const header=document.getElementById('wt-bom-header');
-  const list=document.getElementById('wt-items-list');
-  const actions=document.getElementById('wt-actions');
-  if(!header||!list||!_wtWorkOrder) return;
+  // ── ตรวจ elements ───────────────────────────────────────
+  const header  = document.getElementById('wt-bom-header');
+  const list    = document.getElementById('wt-items-list');
+  const actions = document.getElementById('wt-actions');
 
-  // Header info
-  header.innerHTML=`
-    <div style="background:var(--navy-light);border-radius:8px;padding:12px;margin-bottom:12px">
-      <div style="font-weight:800;font-size:14px;color:var(--navy)">
-        ${_wtWorkOrder.product_name||_wtWorkOrder.sku_code}
-      </div>
-      <div style="font-size:12px;color:var(--text3);margin-top:2px">
-        WO: <b>${_wtWorkOrder.pp_no}</b> | SKU: <b>${_wtWorkOrder.sku_code}</b> |
-        ${_wtBatchCount} Batch × ${_wtWorkOrder.batch_kg||50} kg
-      </div>
-      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-        <button class="btn btnT sm" onclick="wtPrintBatchQR()">🖨️ Print QR Batch</button>
-        <button class="btn btnS sm" onclick="wtSetStep(1);wtInit()">⬅ เลือก WO ใหม่</button>
-      </div>
-    </div>`;
+  if(!header){ alert('[Weigh] ERROR: ไม่พบ wt-bom-header'); return; }
+  if(!list)  { alert('[Weigh] ERROR: ไม่พบ wt-items-list'); return; }
+  if(!_wtWorkOrder){ alert('[Weigh] ERROR: _wtWorkOrder is null'); return; }
+  if(!_wtBOM || !_wtBOM.length){ alert('[Weigh] ERROR: _wtBOM ว่าง'); return; }
 
-  const done=_wtBOM.filter(b=>b.done).length;
-  // Progress
-  if(document.getElementById('wt-count-done')) document.getElementById('wt-count-done').textContent=done;
-  if(document.getElementById('wt-count-remain')) document.getElementById('wt-count-remain').textContent=_wtBOM.length-done;
-  const pct=_wtBOM.length?Math.round(done/_wtBOM.length*100):0;
-  const bar=document.getElementById('wt-progress-bar');
-  if(bar) bar.style.width=pct+'%';
+  // ── Header ──────────────────────────────────────────────
+  header.innerHTML =
+    '<div style="background:#EBF3FA;border-radius:8px;padding:12px;margin-bottom:12px">' +
+    '<div style="font-weight:800;font-size:14px;color:#1B3A5C">' +
+      (_wtWorkOrder.product_name||_wtWorkOrder.sku_code) +
+    '</div>' +
+    '<div style="font-size:12px;color:#6B7280;margin-top:4px">' +
+      'WO: <b>' + _wtWorkOrder.pp_no + '</b> | ' +
+      'SKU: <b>' + _wtWorkOrder.sku_code + '</b> | ' +
+      _wtBatchCount + ' batch × ' + (_wtWorkOrder.batch_kg||50) + ' kg' +
+    '</div>' +
+    '<div style="margin-top:8px;display:flex;gap:8px">' +
+      '<button class="btn btnT sm" onclick="wtPrintBatchQR()">🖨️ Print QR</button>' +
+      '<button class="btn btnS sm" onclick="wtSetStep(1);wtInit()">⬅ เลือก WO ใหม่</button>' +
+    '</div>' +
+    '</div>';
 
-  // แสดงทุก item พร้อมกัน — ไม่ต้อง sequential
-  list.innerHTML=_wtBOM.map((b,i)=>{
-    const isDone=b.done;
-    const tol=(b.target_qty*0.02).toFixed(3);
+  // ── Progress ─────────────────────────────────────────────
+  const done = _wtBOM.filter(function(b){return b.done;}).length;
+  var doneEl = document.getElementById('wt-count-done');
+  var remEl  = document.getElementById('wt-count-remain');
+  var barEl  = document.getElementById('wt-progress-bar');
+  if(doneEl) doneEl.textContent = done;
+  if(remEl)  remEl.textContent  = _wtBOM.length - done;
+  if(barEl)  barEl.style.width  = (_wtBOM.length ? Math.round(done/_wtBOM.length*100) : 0) + '%';
 
-    return`<div id="wt-item-${i}" style="border:2px solid ${isDone?'var(--green)':'var(--border)'};
-      border-radius:10px;padding:10px;margin-bottom:8px;
-      background:${isDone?'#F0FDF4':'white'}">
+  // ── Render items ──────────────────────────────────────────
+  var html2 = '';
+  for(var i=0; i<_wtBOM.length; i++){
+    var b = _wtBOM[i];
+    var isDone = b.done;
+    var borderColor = isDone ? '#22c55e' : '#E5E7EB';
+    var bgColor     = isDone ? '#F0FDF4' : 'white';
+    var numBg       = isDone ? '#22c55e' : '#E8ECF4';
+    var numColor    = isDone ? 'white'   : '#1B3A5C';
+    var codeColor   = (b.mat_code||'').indexOf('WIP')===0 ? '#7C3AED' : '#1B5EC7';
+    var lo = (b.target_qty*0.98).toFixed(3);
+    var hi = (b.target_qty*1.02).toFixed(3);
 
-      <!-- Row: รหัส + ชื่อ + น้ำหนักเป้า -->
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-        <div style="width:28px;height:28px;border-radius:50%;flex-shrink:0;
-          background:${isDone?'var(--green)':'var(--bg3)'};
-          color:${isDone?'white':'var(--navy)'};
-          display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px">
-          ${isDone?'✓':i+1}
-        </div>
-        <div style="flex:1;min-width:0">
-          <div style="font-family:monospace;font-size:11px;
-            color:${(b.mat_code||'').startsWith('WIP')?'var(--purple)':'var(--accent)'}">
-            ${b.mat_code}
-          </div>
-          <div style="font-weight:700;font-size:13px;
-            overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-            ${b.mat_name||b.mat_code}
-          </div>
-        </div>
-        <div style="text-align:right;flex-shrink:0">
-          <div style="font-size:10px;color:var(--text3)">เป้าหมาย</div>
-          <div style="font-weight:800;font-size:16px;color:var(--navy)">
-            ${b.target_qty} <span style="font-size:11px">${b.unit||'kg'}</span>
-          </div>
-          ${isDone?`<div style="font-size:11px;color:var(--green);font-weight:600">
-            ✅ ชั่งได้ ${b.weighed_qty} ${b.unit||'kg'}
-          </div>`:''}
-        </div>
-      </div>
+    html2 += '<div id="wt-item-' + i + '" style="' +
+      'border:2px solid ' + borderColor + ';border-radius:10px;padding:10px;margin-bottom:8px;' +
+      'background:' + bgColor + '">' +
 
-      ${!isDone?`
-      <!-- Row: สแกน QR + ชั่ง -->
-      <div style="border-top:1px solid var(--border);padding-top:8px">
-        <!-- QR verify -->
-        <div style="display:flex;gap:6px;margin-bottom:6px">
-          <input type="text" class="fc2" id="wt-rm-qr-${i}"
-            placeholder="สแกน QR รหัส ${b.mat_code} (หรือข้ามได้)"
-            style="font-family:monospace;font-size:13px;flex:1"
-            onkeydown="if(event.key==='Enter')wtVerifyRM(${i})">
-          <button class="btn btnT sm" onclick="wtVerifyRM(${i})">🔍</button>
-        </div>
-        <div id="wt-rm-verify-${i}" style="font-size:11px;margin-bottom:6px;min-height:16px"></div>
-        <!-- Weight input -->
-        <div style="display:flex;gap:6px;align-items:center">
-          <button class="btn btnS sm" onclick="wtReadScale(${i})" title="อ่านจากเครื่องชั่ง">
-            ⚖️ อ่านชั่ง
-          </button>
-          <input type="number" class="fc2" id="wt-item-weight-${i}"
-            placeholder="0.000" step="0.001" min="0"
-            style="font-size:16px;font-weight:700;text-align:right;
-              font-family:monospace;flex:1;color:var(--accent)">
-          <span style="font-size:13px;color:var(--text3);white-space:nowrap">
-            ${b.unit||'kg'}
-          </span>
-          <button class="btn btnG" onclick="wtConfirmItem(${i})"
-            style="padding:8px 16px;font-size:13px;white-space:nowrap">
-            ✅ ยืนยัน
-          </button>
-        </div>
-        <!-- Tolerance hint -->
-        <div style="font-size:10px;color:var(--text3);margin-top:4px;
-          display:flex;justify-content:space-between">
-          <span>±2%: ${(b.target_qty*0.98).toFixed(3)} – ${(b.target_qty*1.02).toFixed(3)} ${b.unit||'kg'}</span>
-          <span style="color:var(--amber)">⚠️ ต่างเกิน 5% ระบบจะแจ้ง</span>
-        </div>
-      </div>
-      `:''}
-    </div>`;
-  }).join('');
+      // รหัส + ชื่อ + เป้า
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:' + (isDone?'4':'8') + 'px">' +
+        '<div style="width:28px;height:28px;border-radius:50%;flex-shrink:0;' +
+          'background:' + numBg + ';color:' + numColor + ';' +
+          'display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px">' +
+          (isDone ? '✓' : (i+1)) +
+        '</div>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-family:monospace;font-size:11px;color:' + codeColor + '">' + (b.mat_code||'') + '</div>' +
+          '<div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
+            (b.mat_name||b.mat_code||'') +
+          '</div>' +
+        '</div>' +
+        '<div style="text-align:right;flex-shrink:0">' +
+          '<div style="font-size:10px;color:#6B7280">เป้าหมาย</div>' +
+          '<div style="font-weight:800;font-size:16px;color:#1B3A5C">' +
+            b.target_qty + ' <span style="font-size:11px">' + (b.unit||'kg') + '</span>' +
+          '</div>' +
+          (isDone ? '<div style="font-size:11px;color:#16a34a;font-weight:600">✅ ' + b.weighed_qty + ' ' + (b.unit||'kg') + '</div>' : '') +
+        '</div>' +
+      '</div>';
 
-  if(actions) actions.style.display=_wtBOM.length?'block':'none';
-  const btn=document.getElementById('wt-confirm-all-btn');
-  if(btn) btn.disabled=done<_wtBOM.length;
-  if(done===_wtBOM.length&&_wtBOM.length>0) wtSetStep(4);
-  else if(done>0) wtSetStep(3);
+    if(!isDone){
+      html2 +=
+        '<div style="border-top:1px solid #E5E7EB;padding-top:8px">' +
+          // QR scan
+          '<div style="display:flex;gap:6px;margin-bottom:6px">' +
+            '<input type="text" class="fc2" id="wt-rm-qr-' + i + '" ' +
+              'placeholder="สแกน QR ' + (b.mat_code||'') + ' (ข้ามได้)" ' +
+              'style="font-family:monospace;font-size:13px;flex:1" ' +
+              'onkeydown="if(event.key===\'Enter\')wtVerifyRM(' + i + ')">' +
+            '<button class="btn btnT sm" onclick="wtVerifyRM(' + i + ')">🔍</button>' +
+          '</div>' +
+          '<div id="wt-rm-verify-' + i + '" style="font-size:11px;margin-bottom:6px;min-height:16px"></div>' +
+          // น้ำหนัก
+          '<div style="display:flex;gap:6px;align-items:center">' +
+            '<button class="btn btnS sm" onclick="wtReadScale(' + i + ')">⚖️ อ่านชั่ง</button>' +
+            '<input type="number" class="fc2" id="wt-item-weight-' + i + '" ' +
+              'placeholder="0.000" step="0.001" min="0" ' +
+              'style="font-size:18px;font-weight:700;text-align:right;font-family:monospace;flex:1;color:#1B5EC7">' +
+            '<span style="font-size:13px;color:#6B7280;white-space:nowrap">' + (b.unit||'kg') + '</span>' +
+            '<button class="btn btnG" onclick="wtConfirmItem(' + i + ')" ' +
+              'style="padding:8px 16px;font-size:13px;white-space:nowrap">✅ ยืนยัน</button>' +
+          '</div>' +
+          '<div style="font-size:10px;color:#6B7280;margin-top:4px">' +
+            '±2%: ' + lo + ' – ' + hi + ' ' + (b.unit||'kg') +
+          '</div>' +
+        '</div>';
+    }
+
+    html2 += '</div>';
+  }
+
+  list.innerHTML = html2;
+  if(actions) actions.style.display = 'block';
+
+  var btn = document.getElementById('wt-confirm-all-btn');
+  if(btn) btn.disabled = (done < _wtBOM.length);
+
+  if(done === _wtBOM.length && _wtBOM.length > 0) wtSetStep(4);
+  else if(done > 0) wtSetStep(3);
   else wtSetStep(2);
 }
 
