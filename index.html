@@ -2204,7 +2204,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
         <div class="fgrp">
           <label class="flbl">QR Code / Batch ID</label>
           <div style="display:flex;gap:8px">
-            <input type="text" class="fc2" id="wt-qr-input"
+            <input type="text" class="fc2" id="wt-qr-input-legacy"
               placeholder="สแกนหรือพิมพ์ QR Code..."
               oninput="wtCheckQR(this.value)"
               style="font-family:monospace;font-size:14px">
@@ -2238,7 +2238,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
             </div>
           </div>
         </div>
-        <div id="wt-progress-bar" style="height:6px;background:var(--border);border-radius:3px;margin-bottom:16px;overflow:hidden">
+        <div id="wt-progress-bar-legacy" style="height:6px;background:var(--border);border-radius:3px;margin-bottom:16px;overflow:hidden">
           <div id="wt-progress-fill" style="height:100%;width:0%;background:var(--green);border-radius:3px;transition:width .3s"></div>
         </div>
 
@@ -2293,7 +2293,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
         <!-- Items list -->
         <div style="margin-top:16px">
           <div style="font-weight:700;font-size:12px;color:var(--navy);margin-bottom:8px">รายการ BOM ทั้งหมด</div>
-          <div id="wt-items-list"></div>
+          <div id="wt-items-list-legacy"></div>
         </div>
         <div style="margin-top:12px;display:flex;gap:8px">
           <button class="btn btnS sm" onclick="wtGoStep(2)">← ย้อนกลับ</button>
@@ -2475,129 +2475,157 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
      ═══════════════════════════════════════════════════════════ -->
 <div id="pg-weigh" class="pg">
 
-  <!-- Step Indicator -->
-  <div style="display:flex;align-items:center;margin-bottom:14px;overflow-x:auto;gap:0">
-    <div class="wt-step" id="wt-s1" style="flex:1;min-width:100px">
+  <!-- Step indicator -->
+  <div style="display:flex;align-items:center;gap:0;margin-bottom:16px;overflow-x:auto">
+    <div class="wt-step" id="wt-s1" style="flex:1;min-width:140px">
       <div class="wt-step-num" id="wt-n1">1</div>
-      <div class="wt-step-label">เลือก WO</div>
+      <div class="wt-step-label">เลือก Batch</div>
     </div>
     <div class="wt-step-line"></div>
-    <div class="wt-step" id="wt-s2" style="flex:1;min-width:100px">
+    <div class="wt-step" id="wt-s2" style="flex:1;min-width:140px">
       <div class="wt-step-num" id="wt-n2">2</div>
-      <div class="wt-step-label">ดู BOM</div>
+      <div class="wt-step-label">ยืนยัน BOM</div>
     </div>
     <div class="wt-step-line"></div>
-    <div class="wt-step" id="wt-s3" style="flex:1;min-width:100px">
+    <div class="wt-step" id="wt-s3" style="flex:1;min-width:140px">
       <div class="wt-step-num" id="wt-n3">3</div>
-      <div class="wt-step-label">ชั่ง</div>
+      <div class="wt-step-label">ชั่งน้ำหนัก</div>
     </div>
     <div class="wt-step-line"></div>
-    <div class="wt-step" id="wt-s4" style="flex:1;min-width:100px">
+    <div class="wt-step" id="wt-s4" style="flex:1;min-width:140px">
       <div class="wt-step-num" id="wt-n4">4</div>
-      <div class="wt-step-label">ตัด Stock</div>
+      <div class="wt-step-label">ยืนยัน & ตัด Stock</div>
     </div>
   </div>
 
-  <!-- Step 1: เลือก WO -->
-  <div class="card" id="wt-panel-1">
-    <div class="ct mb3">📋 เลือก Work Order</div>
-    <div class="fgrp">
-      <label class="flbl">สแกน QR Code Batch Record</label>
-      <div style="display:flex;gap:6px">
-        <input type="text" class="fc2" id="wt-qr-input"
-          placeholder="สแกน QR หรือพิมพ์ WO No..."
-          style="font-size:16px;font-family:monospace"
-          onkeydown="if(event.key==='Enter')wtScanBatch()">
-        <button class="btn btnP" onclick="wtScanBatch()">🔍</button>
-      </div>
-    </div>
-    <div class="fgrp">
-      <label class="flbl">เลือก Work Order
-        <button type="button" class="btn btnS xs" style="margin-left:8px" onclick="wtInit()">🔄</button>
-      </label>
-      <select class="fc2" id="wt-wo-select" onchange="wtSelectWO(this.value)">
-        <option value="">⏳ กำลังโหลด...</option>
-      </select>
-      <div id="wt-wo-debug" style="font-size:11px;color:var(--text3);margin-top:3px"></div>
-    </div>
-    <div class="fgrp">
-      <label class="flbl">จำนวน Batch</label>
-      <input type="number" class="fc2" id="wt-batch-count" value="1" min="1" max="20">
-    </div>
-    <button class="btn btnP" style="width:100%;padding:12px;font-size:15px" onclick="wtLoadBOM()">
-      ✅ โหลด BOM และเริ่มชั่งน้ำหนัก
-    </button>
-    <div id="wt-msg-1" style="margin-top:8px"></div>
-  </div>
-
-  <!-- เครื่องชั่ง -->
-  <div class="card">
-    <div class="ct mb3">⚖️ เครื่องชั่ง</div>
-    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-      <button class="btn btnG sm" onclick="wtConnectScale()">🔌 เชื่อมต่อ Serial</button>
-      <button class="btn btnS sm" onclick="wtTareScale()">⚖️ TARE</button>
-      <button class="btn btnD sm" onclick="wtDisconnectScale()">⏏️ ตัด</button>
-      <span id="wt-scale-status" style="font-size:12px;color:var(--text3);align-self:center">ไม่ได้เชื่อมต่อ</span>
-    </div>
-    <div style="display:flex;gap:6px;align-items:center">
-      <input type="number" class="fc2" id="wt-weight-display"
-        placeholder="0.000" step="0.001"
-        style="font-size:22px;font-weight:800;text-align:right;color:var(--accent);font-family:monospace;flex:1">
-      <span style="font-size:14px;color:var(--text3)">kg</span>
-    </div>
-    <div id="wt-scale-log" style="font-size:10px;color:var(--text3);margin-top:4px;font-family:monospace"></div>
-    <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
-      <select class="fc2 sm" id="wt-label-size" style="width:160px">
-        <option value="100x50">สติกเกอร์ 100×50 mm</option>
-        <option value="70x40">สติกเกอร์ 70×40 mm</option>
-        <option value="50x30">สติกเกอร์ 50×30 mm</option>
-      </select>
-      <input type="checkbox" id="wt-auto-print" checked style="width:16px;height:16px">
-      <label for="wt-auto-print" style="font-size:12px;cursor:pointer">พิมพ์สติกเกอร์อัตโนมัติ</label>
-    </div>
-  </div>
-
-  <!-- BOM + รายการชั่ง -->
-  <div class="card" id="wt-bom-panel">
-    <div id="wt-bom-header">
-      <div style="color:var(--text3);text-align:center;padding:30px 0">
-        <div style="font-size:40px;margin-bottom:8px">⚖️</div>
-        <div style="font-size:14px">เลือก Work Order แล้วกด <b>✅ โหลด BOM และเริ่มชั่งน้ำหนัก</b></div>
-      </div>
-    </div>
-    <div id="wt-items-list"></div>
-    <div id="wt-actions" style="display:none;margin-top:12px">
-      <div style="background:var(--bg3);border-radius:8px;padding:12px;margin-bottom:10px">
-        <div style="display:flex;gap:16px;align-items:center">
-          <div style="text-align:center">
-            <div style="font-weight:800;font-size:22px;color:var(--green)" id="wt-count-done">0</div>
-            <div style="font-size:10px;color:var(--text3)">ชั่งแล้ว</div>
-          </div>
-          <div style="text-align:center">
-            <div style="font-weight:800;font-size:22px;color:var(--amber)" id="wt-count-remain">0</div>
-            <div style="font-size:10px;color:var(--text3)">คงเหลือ</div>
-          </div>
-          <div style="flex:1">
-            <div style="height:10px;background:var(--border);border-radius:5px;overflow:hidden">
-              <div id="wt-progress-bar" style="height:100%;width:0%;background:var(--green);transition:width .3s;border-radius:5px"></div>
-            </div>
+  <div class="g2">
+    <!-- LEFT: Control Panel -->
+    <div>
+      <!-- Step 1: Select Batch -->
+      <div class="card" id="wt-panel-1">
+        <div class="ct mb3">📋 Step 1 — เลือก Batch Record</div>
+        <!-- QR Scan input -->
+        <div class="fgrp">
+          <label class="flbl">สแกน QR Code หรือพิมพ์ WO/Batch No.</label>
+          <div style="display:flex;gap:6px">
+            <input type="text" class="fc2" id="wt-qr-input"
+              placeholder="สแกน QR หรือพิมพ์ WO No..."
+              style="font-size:16px;font-family:monospace"
+              onkeydown="if(event.key==='Enter')wtScanBatch()">
+            <button class="btn btnP" onclick="wtScanBatch()">🔍</button>
           </div>
         </div>
+        <!-- หรือเลือกจาก dropdown -->
+        <div class="fgrp">
+          <label class="flbl">หรือเลือก Work Order
+            <button type="button" class="btn btnS xs" style="margin-left:8px"
+              onclick="wtInit()" title="รีโหลด WO">🔄</button>
+          </label>
+          <select class="fc2" id="wt-wo-select" onchange="wtSelectWO(this.value)">
+            <option value="">⏳ กำลังโหลด...</option>
+          </select>
+          <div id="wt-wo-debug" style="font-size:11px;color:var(--text3);margin-top:4px"></div>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">จำนวน Batch ที่จะชั่ง</label>
+          <input type="number" class="fc2" id="wt-batch-count" value="1" min="1" max="20">
+        </div>
+        <button class="btn btnP" style="width:100%" onclick="wtLoadBOM()">
+          ✅ ยืนยันเลือก Batch → ดู BOM
+        </button>
+        <div id="wt-msg-1" style="margin-top:8px"></div>
       </div>
-      <button class="btn btnP" style="width:100%;font-size:15px;padding:12px"
-        id="wt-confirm-all-btn" onclick="wtConfirmAll()" disabled>
-        ✅ ยืนยันครบ → ตัด Stock RM ทั้งหมด
-      </button>
-      <div id="wt-msg-final" style="margin-top:8px"></div>
+
+      <!-- Scale Connection -->
+      <div class="card">
+        <div class="ch">
+          <div class="ct">⚖️ เครื่องชั่ง</div>
+          <div id="wt-scale-status" style="font-size:12px;color:var(--text3)">ไม่ได้เชื่อมต่อ</div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <button class="btn btnG sm" onclick="wtConnectScale()">🔌 เชื่อมต่อ Serial</button>
+          <button class="btn btnS sm" onclick="wtDisconnectScale()">⏏️ ตัดการเชื่อมต่อ</button>
+          <button class="btn btnT sm" onclick="wtTareScale()">⚖️ TARE/Zero</button>
+        </div>
+        <!-- Manual weight input fallback -->
+        <div class="fgrp" style="margin:0">
+          <label class="flbl">น้ำหนักปัจจุบัน (กรอกเองหรืออ่านจากเครื่องชั่ง)</label>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input type="number" class="fc2" id="wt-weight-display"
+              placeholder="0.000" step="0.001"
+              style="font-size:22px;font-weight:800;text-align:right;color:var(--accent);font-family:monospace">
+            <span style="font-size:14px;color:var(--text3);white-space:nowrap">kg</span>
+          </div>
+        </div>
+        <div id="wt-scale-log" style="font-size:10px;color:var(--text3);margin-top:4px;font-family:monospace;max-height:40px;overflow:hidden"></div>
+      </div>
+
+      <!-- Label Printer Settings -->
+      <div class="card">
+        <div class="ct mb3">🏷️ พิมพ์สติกเกอร์</div>
+        <div class="fgrp">
+          <label class="flbl">ขนาดสติกเกอร์</label>
+          <select class="fc2" id="wt-label-size">
+            <option value="100x50">100×50 mm (แนะนำ)</option>
+            <option value="70x40">70×40 mm</option>
+            <option value="50x30">50×30 mm</option>
+          </select>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="checkbox" id="wt-auto-print" checked style="width:16px;height:16px">
+          <label for="wt-auto-print" style="font-size:12px;cursor:pointer">
+            พิมพ์สติกเกอร์อัตโนมัติเมื่อยืนยันน้ำหนัก
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: BOM + Weighing List -->
+    <div>
+      <div class="card" id="wt-bom-panel">
+        <div id="wt-bom-header" style="margin-bottom:12px">
+          <div style="color:var(--text3);text-align:center;padding:40px 0">
+            <div style="font-size:36px;margin-bottom:10px">⚖️</div>
+            <div>เลือก Batch Record และกด ✅ เพื่อเริ่มต้น</div>
+          </div>
+        </div>
+        <div id="wt-items-list"></div>
+        <!-- Bottom actions -->
+        <div id="wt-actions" style="display:none;margin-top:12px">
+          <div style="background:var(--bg3);border-radius:8px;padding:12px;margin-bottom:10px">
+            <div style="font-size:12px;color:var(--text3);margin-bottom:6px">สรุปความคืบหน้า</div>
+            <div style="display:flex;gap:16px">
+              <div style="text-align:center">
+                <div style="font-weight:800;font-size:20px;color:var(--green)" id="wt-count-done">0</div>
+                <div style="font-size:10px;color:var(--text3)">ชั่งแล้ว</div>
+              </div>
+              <div style="text-align:center">
+                <div style="font-weight:800;font-size:20px;color:var(--amber)" id="wt-count-remain">0</div>
+                <div style="font-size:10px;color:var(--text3)">คงเหลือ</div>
+              </div>
+              <div style="flex:1">
+                <div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin-top:8px">
+                  <div id="wt-progress-bar" style="height:100%;width:0%;background:var(--green);border-radius:4px;transition:width .3s"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button class="btn btnP" style="width:100%;font-size:15px;padding:12px"
+            id="wt-confirm-all-btn" onclick="wtConfirmAll()" disabled>
+            ✅ ยืนยันครบ → ตัด Stock RM ทั้งหมด
+          </button>
+          <div id="wt-msg-final" style="margin-top:8px"></div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- QR Modal -->
+  <!-- QR Print Modal for Batch Record -->
   <div id="wt-qr-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);
     z-index:2000;align-items:center;justify-content:center">
     <div style="background:white;border-radius:14px;padding:20px;max-width:400px;width:90%">
       <div style="font-weight:800;font-size:15px;color:var(--navy);margin-bottom:12px">
-        🖨️ QR Code Batch Record
+        🖨️ พิมพ์ QR Code สำหรับ Batch
       </div>
       <div id="wt-qr-content" style="text-align:center;padding:10px"></div>
       <div style="display:flex;gap:8px;margin-top:12px">
@@ -2607,7 +2635,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
     </div>
   </div>
 </div>
-
+</main>
 </div>
   </div><!-- /wrap -->
 </div><!-- /app -->
@@ -2616,7 +2644,6 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
 <div class="mo" id="mo" onclick="if(event.target===this)closeMo()">
   <div class="mbox"><div class="mhdr"><div class="mtit" id="mo-t">—</div><button class="mclose" onclick="closeMo()">✕</button></div><div id="mo-b"></div></div>
 </div>
-</main>
 <script>
 // ════════════════════════════════════════════════════════════
 //  GLOBAL STATE VARIABLES — ต้องอยู่ก่อนทุก function
@@ -17359,45 +17386,11 @@ async function wtLoadBOM(){
 
     const rmCount=_wtBOM.filter(b=>!b.mat_code.startsWith('WIP')).length;
     const wipCount=_wtBOM.filter(b=>b.mat_code.startsWith('WIP')).length;
-    console.log('[wtLoadBOM] BOM loaded:',_wtBOM.length,'items, first:',_wtBOM[0]);
     msgEl('wt-msg-1',
       `✅ โหลดสำเร็จ! BOM ${_wtBOM.length} รายการ (RM: ${rmCount}, WIP: ${wipCount}) × ${_wtBatchCount} batch`,
       's');
     wtSetStep(3);
     wtRenderBOM();
-
-    // ── ซ่อน step1 panel + scroll ไป BOM ─────────────────
-    setTimeout(function(){
-      // ซ่อน controls
-      var p1=document.getElementById('wt-panel-1');
-      if(p1) p1.style.display='none';
-
-      // เพิ่มปุ่ม "เปลี่ยน WO"
-      if(!document.getElementById('wt-show-ctrl')){
-        var btn=document.createElement('button');
-        btn.id='wt-show-ctrl';
-        btn.className='btn btnS sm';
-        btn.style.cssText='width:100%;margin-bottom:8px';
-        btn.innerHTML='⚙️ เปลี่ยน WO / แสดง Controls';
-        btn.onclick=function(){
-          var p=document.getElementById('wt-panel-1');
-          if(p){ p.style.display='block'; btn.style.display='none';
-            p.scrollIntoView({behavior:'smooth',block:'start'}); }
-        };
-        if(p1) p1.parentNode.insertBefore(btn, p1);
-      }
-
-      // scroll ไปที่ BOM panel
-      var panel=document.getElementById('wt-bom-panel');
-      if(panel){
-        panel.scrollIntoView({behavior:'smooth',block:'start'});
-        var mn=document.getElementById('mn');
-        if(mn) mn.scrollTo({top:panel.offsetTop-20,behavior:'smooth'});
-        panel.style.border='3px solid #1B5EC7';
-        setTimeout(function(){panel.style.border='';},2500);
-      }
-    }, 250);
-
   }catch(e){
     console.error('[wtLoadBOM]',e);
     msgEl('wt-msg-1','❌ Error: '+e.message,'e');
@@ -17406,117 +17399,118 @@ async function wtLoadBOM(){
 
 // ── Step 2+3: Render BOM items ────────────────────────────────
 function wtRenderBOM(){
-  // ── ตรวจ elements ───────────────────────────────────────
-  const header  = document.getElementById('wt-bom-header');
-  const list    = document.getElementById('wt-items-list');
-  const actions = document.getElementById('wt-actions');
+  const header=document.getElementById('wt-bom-header');
+  const list=document.getElementById('wt-items-list');
+  const actions=document.getElementById('wt-actions');
+  if(!header||!list||!_wtWorkOrder) return;
 
-  if(!header||!list||!_wtWorkOrder||!_wtBOM||!_wtBOM.length) return;
+  // Header info
+  header.innerHTML=`
+    <div style="background:var(--navy-light);border-radius:8px;padding:12px;margin-bottom:12px">
+      <div style="font-weight:800;font-size:14px;color:var(--navy)">
+        ${_wtWorkOrder.product_name||_wtWorkOrder.sku_code}
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-top:2px">
+        WO: <b>${_wtWorkOrder.pp_no}</b> | SKU: <b>${_wtWorkOrder.sku_code}</b> |
+        ${_wtBatchCount} Batch × ${_wtWorkOrder.batch_kg||50} kg
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <button class="btn btnT sm" onclick="wtPrintBatchQR()">🖨️ Print QR Batch</button>
+        <button class="btn btnS sm" onclick="wtSetStep(1);wtInit()">⬅ เลือก WO ใหม่</button>
+      </div>
+    </div>`;
 
-  // ── Header ──────────────────────────────────────────────
-  header.innerHTML =
-    '<div style="background:#EBF3FA;border-radius:8px;padding:12px;margin-bottom:12px">' +
-    '<div style="font-weight:800;font-size:14px;color:#1B3A5C">' +
-      (_wtWorkOrder.product_name||_wtWorkOrder.sku_code) +
-    '</div>' +
-    '<div style="font-size:12px;color:#6B7280;margin-top:4px">' +
-      'WO: <b>' + _wtWorkOrder.pp_no + '</b> | ' +
-      'SKU: <b>' + _wtWorkOrder.sku_code + '</b> | ' +
-      _wtBatchCount + ' batch × ' + (_wtWorkOrder.batch_kg||50) + ' kg' +
-    '</div>' +
-    '<div style="margin-top:8px;display:flex;gap:8px">' +
-      '<button class="btn btnT sm" onclick="wtPrintBatchQR()">🖨️ Print QR</button>' +
-      '<button class="btn btnS sm" onclick="wtSetStep(1);wtInit()">⬅ เลือก WO ใหม่</button>' +
-    '</div>' +
-    '</div>';
+  const done=_wtBOM.filter(b=>b.done).length;
+  // Progress
+  if(document.getElementById('wt-count-done')) document.getElementById('wt-count-done').textContent=done;
+  if(document.getElementById('wt-count-remain')) document.getElementById('wt-count-remain').textContent=_wtBOM.length-done;
+  const pct=_wtBOM.length?Math.round(done/_wtBOM.length*100):0;
+  const bar=document.getElementById('wt-progress-bar');
+  if(bar) bar.style.width=pct+'%';
 
-  // ── Progress ─────────────────────────────────────────────
-  const done = _wtBOM.filter(function(b){return b.done;}).length;
-  var doneEl = document.getElementById('wt-count-done');
-  var remEl  = document.getElementById('wt-count-remain');
-  var barEl  = document.getElementById('wt-progress-bar');
-  if(doneEl) doneEl.textContent = done;
-  if(remEl)  remEl.textContent  = _wtBOM.length - done;
-  if(barEl)  barEl.style.width  = (_wtBOM.length ? Math.round(done/_wtBOM.length*100) : 0) + '%';
+  // แสดงทุก item พร้อมกัน — ไม่ต้อง sequential
+  list.innerHTML=_wtBOM.map((b,i)=>{
+    const isDone=b.done;
+    const tol=(b.target_qty*0.02).toFixed(3);
 
-  // ── Render items ──────────────────────────────────────────
-  var html2 = '';
-  for(var i=0; i<_wtBOM.length; i++){
-    var b = _wtBOM[i];
-    var isDone = b.done;
-    var borderColor = isDone ? '#22c55e' : '#E5E7EB';
-    var bgColor     = isDone ? '#F0FDF4' : 'white';
-    var numBg       = isDone ? '#22c55e' : '#E8ECF4';
-    var numColor    = isDone ? 'white'   : '#1B3A5C';
-    var codeColor   = (b.mat_code||'').indexOf('WIP')===0 ? '#7C3AED' : '#1B5EC7';
-    var lo = (b.target_qty*0.98).toFixed(3);
-    var hi = (b.target_qty*1.02).toFixed(3);
+    return`<div id="wt-item-${i}" style="border:2px solid ${isDone?'var(--green)':'var(--border)'};
+      border-radius:10px;padding:10px;margin-bottom:8px;
+      background:${isDone?'#F0FDF4':'white'}">
 
-    html2 += '<div id="wt-item-' + i + '" style="' +
-      'border:2px solid ' + borderColor + ';border-radius:10px;padding:10px;margin-bottom:8px;' +
-      'background:' + bgColor + '">' +
+      <!-- Row: รหัส + ชื่อ + น้ำหนักเป้า -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="width:28px;height:28px;border-radius:50%;flex-shrink:0;
+          background:${isDone?'var(--green)':'var(--bg3)'};
+          color:${isDone?'white':'var(--navy)'};
+          display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px">
+          ${isDone?'✓':i+1}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-family:monospace;font-size:11px;
+            color:${(b.mat_code||'').startsWith('WIP')?'var(--purple)':'var(--accent)'}">
+            ${b.mat_code}
+          </div>
+          <div style="font-weight:700;font-size:13px;
+            overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+            ${b.mat_name||b.mat_code}
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:10px;color:var(--text3)">เป้าหมาย</div>
+          <div style="font-weight:800;font-size:16px;color:var(--navy)">
+            ${b.target_qty} <span style="font-size:11px">${b.unit||'kg'}</span>
+          </div>
+          ${isDone?`<div style="font-size:11px;color:var(--green);font-weight:600">
+            ✅ ชั่งได้ ${b.weighed_qty} ${b.unit||'kg'}
+          </div>`:''}
+        </div>
+      </div>
 
-      // รหัส + ชื่อ + เป้า
-      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:' + (isDone?'4':'8') + 'px">' +
-        '<div style="width:28px;height:28px;border-radius:50%;flex-shrink:0;' +
-          'background:' + numBg + ';color:' + numColor + ';' +
-          'display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px">' +
-          (isDone ? '✓' : (i+1)) +
-        '</div>' +
-        '<div style="flex:1;min-width:0">' +
-          '<div style="font-family:monospace;font-size:11px;color:' + codeColor + '">' + (b.mat_code||'') + '</div>' +
-          '<div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
-            (b.mat_name||b.mat_code||'') +
-          '</div>' +
-        '</div>' +
-        '<div style="text-align:right;flex-shrink:0">' +
-          '<div style="font-size:10px;color:#6B7280">เป้าหมาย</div>' +
-          '<div style="font-weight:800;font-size:16px;color:#1B3A5C">' +
-            b.target_qty + ' <span style="font-size:11px">' + (b.unit||'kg') + '</span>' +
-          '</div>' +
-          (isDone ? '<div style="font-size:11px;color:#16a34a;font-weight:600">✅ ' + b.weighed_qty + ' ' + (b.unit||'kg') + '</div>' : '') +
-        '</div>' +
-      '</div>';
+      ${!isDone?`
+      <!-- Row: สแกน QR + ชั่ง -->
+      <div style="border-top:1px solid var(--border);padding-top:8px">
+        <!-- QR verify -->
+        <div style="display:flex;gap:6px;margin-bottom:6px">
+          <input type="text" class="fc2" id="wt-rm-qr-${i}"
+            placeholder="สแกน QR รหัส ${b.mat_code} (หรือข้ามได้)"
+            style="font-family:monospace;font-size:13px;flex:1"
+            onkeydown="if(event.key==='Enter')wtVerifyRM(${i})">
+          <button class="btn btnT sm" onclick="wtVerifyRM(${i})">🔍</button>
+        </div>
+        <div id="wt-rm-verify-${i}" style="font-size:11px;margin-bottom:6px;min-height:16px"></div>
+        <!-- Weight input -->
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="btn btnS sm" onclick="wtReadScale(${i})" title="อ่านจากเครื่องชั่ง">
+            ⚖️ อ่านชั่ง
+          </button>
+          <input type="number" class="fc2" id="wt-item-weight-${i}"
+            placeholder="0.000" step="0.001" min="0"
+            style="font-size:16px;font-weight:700;text-align:right;
+              font-family:monospace;flex:1;color:var(--accent)">
+          <span style="font-size:13px;color:var(--text3);white-space:nowrap">
+            ${b.unit||'kg'}
+          </span>
+          <button class="btn btnG" onclick="wtConfirmItem(${i})"
+            style="padding:8px 16px;font-size:13px;white-space:nowrap">
+            ✅ ยืนยัน
+          </button>
+        </div>
+        <!-- Tolerance hint -->
+        <div style="font-size:10px;color:var(--text3);margin-top:4px;
+          display:flex;justify-content:space-between">
+          <span>±2%: ${(b.target_qty*0.98).toFixed(3)} – ${(b.target_qty*1.02).toFixed(3)} ${b.unit||'kg'}</span>
+          <span style="color:var(--amber)">⚠️ ต่างเกิน 5% ระบบจะแจ้ง</span>
+        </div>
+      </div>
+      `:''}
+    </div>`;
+  }).join('');
 
-    if(!isDone){
-      html2 +=
-        '<div style="border-top:1px solid #E5E7EB;padding-top:8px">' +
-          // QR scan
-          '<div style="display:flex;gap:6px;margin-bottom:6px">' +
-            '<input type="text" class="fc2" id="wt-rm-qr-' + i + '" ' +
-              'placeholder="สแกน QR ' + (b.mat_code||'') + ' (ข้ามได้)" ' +
-              'style="font-family:monospace;font-size:13px;flex:1" ' +
-              'onkeydown="if(event.key===\'Enter\')wtVerifyRM(' + i + ')">' +
-            '<button class="btn btnT sm" onclick="wtVerifyRM(' + i + ')">🔍</button>' +
-          '</div>' +
-          '<div id="wt-rm-verify-' + i + '" style="font-size:11px;margin-bottom:6px;min-height:16px"></div>' +
-          // น้ำหนัก
-          '<div style="display:flex;gap:6px;align-items:center">' +
-            '<button class="btn btnS sm" onclick="wtReadScale(' + i + ')">⚖️ อ่านชั่ง</button>' +
-            '<input type="number" class="fc2" id="wt-item-weight-' + i + '" ' +
-              'placeholder="0.000" step="0.001" min="0" ' +
-              'style="font-size:18px;font-weight:700;text-align:right;font-family:monospace;flex:1;color:#1B5EC7">' +
-            '<span style="font-size:13px;color:#6B7280;white-space:nowrap">' + (b.unit||'kg') + '</span>' +
-            '<button class="btn btnG" onclick="wtConfirmItem(' + i + ')" ' +
-              'style="padding:8px 16px;font-size:13px;white-space:nowrap">✅ ยืนยัน</button>' +
-          '</div>' +
-          '<div style="font-size:10px;color:#6B7280;margin-top:4px">' +
-            '±2%: ' + lo + ' – ' + hi + ' ' + (b.unit||'kg') +
-          '</div>' +
-        '</div>';
-    }
-
-    html2 += '</div>';
-  }
-
-  list.innerHTML = html2;
-  if(actions) actions.style.display = 'block';
-
-  var btn = document.getElementById('wt-confirm-all-btn');
-  if(btn) btn.disabled = (done < _wtBOM.length);
-
-  if(done === _wtBOM.length && _wtBOM.length > 0) wtSetStep(4);
-  else if(done > 0) wtSetStep(3);
+  if(actions) actions.style.display=_wtBOM.length?'block':'none';
+  const btn=document.getElementById('wt-confirm-all-btn');
+  if(btn) btn.disabled=done<_wtBOM.length;
+  if(done===_wtBOM.length&&_wtBOM.length>0) wtSetStep(4);
+  else if(done>0) wtSetStep(3);
   else wtSetStep(2);
 }
 
