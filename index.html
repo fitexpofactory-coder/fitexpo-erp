@@ -519,6 +519,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
 })(window);
 
   </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 
@@ -13292,37 +13293,44 @@ function openPreviewWindow(htmlContent, title){
   const frame = document.getElementById('_preview_frame');
   const doc = frame.contentDocument || frame.contentWindow.document;
   doc.open(); doc.write(htmlContent); doc.close();
-  // Inject QR codes หลัง render
-  setTimeout(()=>{
+  // Inject QR codes หลัง render — ใช้ makeQRDataURL (async, CDN+fallback)
+  async function injectQRtoFrame(){
+    await new Promise(r=>setTimeout(r,500)); // รอ iframe render
     try{
-      const fw = frame.contentWindow || frame.contentDocument?.defaultView;
+      const fw = frame.contentWindow;
       if(!fw) return;
       const qrEls = fw.document.querySelectorAll('[data-qr]');
-      qrEls.forEach(el=>{
+      if(!qrEls.length) return;
+      for(const el of qrEls){
         const qrText = el.getAttribute('data-qr');
-        if(!qrText||qrText==='QR...') return;
-        // ใช้ generateQRDataURL จาก main window
-        const url = typeof generateQRDataURL==='function'
-          ? generateQRDataURL(qrText, 72) : '';
+        if(!qrText||qrText==='QR...') continue;
+        const url = await makeQRDataURL(qrText, 100); // ขนาดใหญ่ขึ้น 100px
         if(url){
-          el.style.cssText='width:72px;height:72px;padding:0;border:1px solid #ddd;border-radius:4px;background:white';
-          el.innerHTML=`<img src="${url}" width="72" height="72" style="image-rendering:pixelated;display:block">`;
+          el.style.cssText='width:72px;height:72px;padding:0;border:1px solid #ddd;border-radius:4px;background:white;overflow:hidden';
+          el.innerHTML='<img src="'+url+'" width="72" height="72" style="image-rendering:crisp-edges;display:block">';
         }
-      });
+      }
     }catch(e){ console.warn('QR inject:',e); }
-  }, 400);
-  // ผูก print button กับ frame
+  }
+  injectQRtoFrame();
+  // ผูก print button — print จาก iframe โดยตรง (มี QR inject แล้ว)
   document.getElementById('_preview_print_btn').onclick = function(){
-    const pw=window.open('','_blank','width=900,height=700');
-    if(pw){
-      pw.document.open();
-      pw.document.write(htmlContent);
-      pw.document.close();
-      pw.onload=()=>{ pw.focus(); pw.print(); };
-      setTimeout(()=>{ try{ pw.focus(); pw.print(); }catch(e){} },800);
-    } else {
-      // popup blocked → fallback iframe
-      try{ frame.contentWindow.focus(); frame.contentWindow.print(); }catch(e){}
+    try{
+      // รอให้ QR inject เสร็จก่อน print
+      const fw = frame.contentWindow;
+      fw.focus();
+      fw.print();
+    }catch(e){
+      // fallback: เปิด window ใหม่พร้อม QR data urls
+      const fw2 = frame.contentWindow;
+      const updatedHtml = fw2 ? fw2.document.documentElement.outerHTML : htmlContent;
+      const pw = window.open('','_blank','width=900,height=700');
+      if(pw){
+        pw.document.open();
+        pw.document.write('<!DOCTYPE html>'+updatedHtml);
+        pw.document.close();
+        setTimeout(()=>{ try{ pw.focus(); pw.print(); }catch(ex){} }, 600);
+      }
     }
   };
 }
