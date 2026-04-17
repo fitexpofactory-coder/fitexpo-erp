@@ -14998,9 +14998,33 @@ async function _renderRMLots(code, name, unit){
       Number(stock.balance_opening||0)+Number(stock.qty_in||0)-Number(stock.qty_out||0));
 
     // โหลด material_lots table
-    let lots=await sbG('material_lots',{
-      f:[`mat_code=eq.${code}`], ord:'receive_date.desc'
-    }).catch(()=>[]);
+    const _lotsRaw2 = await Promise.all([
+      sbG('material_lots',{
+        f:[`mat_code=eq.${code}`], ord:'receive_date.desc'
+      }).catch(()=>[]),
+      sbG('lot_entries',{
+        f:[`material_code=eq.${code}`], ord:'receive_date.desc'
+      }).catch(()=>[])
+    ]);
+    const [lotsOld2, lotsNew2] = _lotsRaw2;
+    const lotsNorm = lotsNew2.map(l=>({
+      id:l.id, mat_code:l.material_code,
+      lot_no:l.lot_no||'',
+      qty:+(l.qty_remaining??l.qty_received??0),
+      qty_received:+(l.qty_received||0),
+      receive_date:l.receive_date||'',
+      exp_date:l.exp_date||'',
+      supplier:l.supplier||'',
+      po_no:l.po_no||'',
+      price_per_unit:+(l.price_per_unit||0),
+      status:+(l.qty_remaining||0)>0?'active':'used',
+      note:l.note||'', _src:'lot_entries'
+    }));
+    const seen=new Set();
+    const lots=[...lotsNorm,...lotsOld2].filter(l=>{
+      const k=l.lot_no||String(l.id);
+      if(seen.has(k))return false; seen.add(k); return true;
+    });    // dummy to satisfy replacement
 
     // โหลด receive history จาก activity_log
     const logs=await sbG('activity_log',{
