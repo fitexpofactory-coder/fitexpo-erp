@@ -5207,11 +5207,17 @@ async function submitReceiveRM(){
       // ดึง balance_opening จาก master มาด้วย
       const masterRow=_matData.find(m=>m.code===code)||{};
       const masterBal=Number(masterRow.balance_opening||0);
-      const newRow={code,name,unit,
+      // stock_material อาจไม่มี column 'name' → ใช้เฉพาะ column ที่แน่ใจ
+      const newRow={
+        code, unit,
         qty_in:qty, qty_out:0,
-        balance_opening:masterBal, // ใช้ยอดจากทะเบียน
+        balance_opening:masterBal,
         stock_min:masterRow.stock_min||0,
-        lot_no:lot, receive_date:rcvDate};
+        lot_no:lot||null,
+        receive_date:rcvDate
+      };
+      // เพิ่ม name เฉพาะถ้ามีค่า (column อาจไม่มีใน schema เก่า)
+      if(name) newRow.name=name;
       if(exp)newRow.exp_date=exp;
       if(supp)newRow.supplier=supp;
       if(note)newRow.note=note;
@@ -5236,7 +5242,16 @@ async function submitReceiveRM(){
     window._cachedRM=null;window._cachedWIPStock=null;
     msgEl('rcv-msg',`✅ บันทึกสำเร็จ!<br>รหัส: ${code} | จำนวน: ${qty} ${unit} | Lot: ${lot||'—'} | วันที่: ${rcvDate}`,'s');
     setTimeout(()=>{closeMo();loadRM();},1200);
-  }catch(e){msgEl('rcv-msg','❌ '+e.message,'e');}
+  }catch(e){
+    const msg=e.message||'Unknown error';
+    // แสดง field ที่ทำให้ error
+    if(msg.includes('400')||msg.includes('column')){
+      msgEl('rcv-msg',`❌ บันทึกไม่ได้: ${msg}<br>
+        <small style="color:#999">ตรวจสอบว่า column ใน stock_material ตรงกัน</small>`,'e');
+    } else {
+      msgEl('rcv-msg','❌ '+msg,'e');
+    }
+  }
 }
 
 function showIssueRM(code=''){openMo('📤 เบิกวัตถุดิบ (ระบบ FIFO)',`
