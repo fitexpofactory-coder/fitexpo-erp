@@ -18063,27 +18063,103 @@ function buildRMQRLabel(r, opts={}){
 
 // ── พิมพ์ QR Sticker RM/PK จาก Stock RM page ───────────────
 async function printRMQRSticker(code){
-  // โหลดข้อมูล lot ล่าสุด
-  const mat=(await sbG('master_material',{f:[`code=eq.${code}`]}).catch(()=>[]))[0]||{};
-  const stock=(await sbG('stock_material',{f:[`code=eq.${code}`]}).catch(()=>[]))[0]||{};
-  const lots=(await sbG('material_lots',{f:[`mat_code=eq.${code}`],ord:'receive_date.desc',lim:5}).catch(()=>[]));
+  // โหลดข้อมูล lot — ดึงจากหลายแหล่ง
+  const [mat, stock, lotsEntries, lotsLegacy] = await Promise.all([
+    sbG('master_material',{f:[`code=eq.${code}`]}).catch(()=>[]),
+    sbG('stock_material',{f:[`code=eq.${code}`]}).catch(()=>[]),
+    // lot_entries = ตารางใหม่ที่ submitReceiveRM บันทึก
+    sbG('lot_entries',{f:[`material_code=eq.${code}`],
+      ord:'receive_date.desc',lim:10}).catch(()=>[]),
+    // material_lots = ตารางเก่า (อาจมีจาก Lot Manager)
+    sbG('material_lots',{f:[`mat_code=eq.${code}`],
+      ord:'receive_date.desc',lim:5}).catch(()=>[]),
+  ]);
+  const matInfo = mat[0]||{};
+  const stockInfo = stock[0]||{};
+
+  // รวม lots จากทุกแหล่ง แปลงให้ format เดียวกัน
+  const lotsFromEntries = lotsEntries.map(l=>({
+    lot_no:   l.lot_no||l.lot,
+    exp_date: l.exp_date||'',
+    receive_date: l.receive_date||'',
+    qty:      l.qty_remaining||l.qty_received||0,
+    supplier: l.supplier||'',
+    source:   'lot_entries'
+  })).filter(l=>l.lot_no);
+
+  const lotsFromLegacy = lotsLegacy.map(l=>({
+    lot_no:   l.lot_no||l.lot,
+    exp_date: l.exp_date||'',
+    receive_date: l.receive_date||'',
+    qty:      l.qty||0,
+    supplier: l.supplier||'',
+    source:   'material_lots'
+  })).filter(l=>l.lot_no);
+
+  // รวมและ dedup
+  const allLots = [...lotsFromEntries, ...lotsFromLegacy];
+  const seenLots = new Set();
+  const lots = allLots.filter(l=>{
+    if(seenLots.has(l.lot_no)) return false;
+    seenLots.add(l.lot_no); return true;
+  });
+
+  // ถ้า lot_entries ว่าง → fallback ใช้ stock_material.lot_no ถ้ามี
+  if(!lots.length && stockInfo.lot_no){
+    lots.push({
+      lot_no: stockInfo.lot_no,
+      exp_date: stockInfo.exp_date||'',
+      receive_date: stockInfo.receive_date||'',
+      qty: 0,
+      supplier: stockInfo.supplier||'',
+      source: 'stock_material'
+    });
+  }
 
   openMo(`🏷️ พิมพ์ QR Sticker — ${code}`, `
     <div style="background:var(--bg3);border-radius:8px;padding:10px;margin-bottom:12px">
-      <div style="font-weight:700;color:var(--navy)">${mat.name||code}</div>
-      <div style="font-size:12px;color:var(--text3)">${code} | ${mat.unit||'kg'}</div>
+      <div style="font-weight:700;color:var(--navy)">${matInfo.name||code}</div>
+      <div style="font-size:12px;color:var(--text3)">${code} | ${matInfo.unit||'kg'}</div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="fgrp">
-        <label class="flbl">Lot No.</label>
-        <select class="fc2" id="qr-lot-sel">
-          <option value="">— ไม่ระบุ Lot —</option>
-          ${lots.map(l=>`<option value="${l.lot_no}|${l.exp_date||''}" data-exp="${l.exp_date||''}">${l.lot_no}${l.exp_date?' (EXP:'+l.exp_date+')':''}</option>`).join('')}
+        <label class="flbl">Lot No.
+          <span style="font-size:10px;color:var(--text3);font-weight:400">
+            (พบ ${lots.length} lot)
+          </span>
+        </label>
+        <select class="fc2" id="qr-lot-sel" onchange="
+          const v=this.value.split('|');
+          const manEl=document.getElementById('qr-lot-manual');
+          const expEl=document.getElementById('qr-exp-manual');
+          if(manEl&&v[0]) manEl.value=v[0];
+          if(expEl&&v[1]) expEl.value=v[1];
+        ">
+          <option value="">— เลือก Lot หรือกรอกเอง —</option>
+          ${lots.length
+            ? lots.map(l=>`<option value="${l.lot_no}|${l.exp_date||''}">
+                ${l.lot_no}
+                ${l.exp_date?' | EXP:'+l.exp_date:''}
+                ${l.receive_date?' | รับ:'+l.receive_date:''}
+                ${l.qty?' | คงเหลือ:'+l.qty+' '+matInfo.unit:''}
+              </option>`).join('')
+            : '<option value="">⚠️ ยังไม่มี Lot — กรอกเองด้านล่าง</option>'
+          }
         </select>
       </div>
       <div class="fgrp">
         <label class="flbl">Supplier</label>
-        <input type="text" class="fc2" id="qr-supplier" value="${mat.supplier||stock.supplier||''}">
+        <input type="text" class="fc2" id="qr-supplier" value="${matInfo.supplier||stockInfo.supplier||''}">
+      </div>
+      <div class="fgrp" style="grid-column:1/-1">
+        <label class="flbl">กรอก Lot No. เอง (ถ้าไม่มีในรายการ)</label>
+        <div style="display:flex;gap:6px">
+          <input type="text" class="fc2" id="qr-lot-manual"
+            placeholder="เช่น LOT-20260416-001" style="flex:1">
+          <input type="date" class="fc2" id="qr-exp-manual"
+            placeholder="EXP Date" style="width:150px"
+            value="${stockInfo.exp_date||''}">
+        </div>
       </div>
       <div class="fgrp">
         <label class="flbl">จำนวนสติกเกอร์</label>
@@ -18101,7 +18177,7 @@ async function printRMQRSticker(code){
     <div style="border:1px solid var(--border);border-radius:8px;padding:10px;margin:10px 0;
       text-align:center;background:var(--bg3)">
       <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Preview QR Data</div>
-      <img id="qr-preview-img" src="${qrImgUrl('RM|'+code+'|'+(mat.name||'')+'||',120)}"
+      <img id="qr-preview-img" src="${qrImgUrl('RM|'+code+'|'+(matInfo.name||'')+'||',120)}"
         width="120" height="120"
         onerror="this.style.display='none'">
       <div style="font-family:monospace;font-size:10px;color:var(--accent);margin-top:4px">
@@ -18116,7 +18192,12 @@ async function printRMQRSticker(code){
 
 async function doPrintRMQR(code, name, unit){
   const lotVal=document.getElementById('qr-lot-sel')?.value||'';
-  const [lot='', exp='']=lotVal.split('|');
+  const [lotFromSel='', expFromSel='']=lotVal.split('|');
+  // ใช้ manual input ถ้า select ว่าง หรือ manual มีค่า
+  const manualLot = document.getElementById('qr-lot-manual')?.value||'';
+  const manualExp = document.getElementById('qr-exp-manual')?.value||'';
+  const lot = manualLot || lotFromSel;
+  const exp  = manualExp  || expFromSel;
   const supplier=document.getElementById('qr-supplier')?.value||'';
   const copies=parseInt(document.getElementById('qr-copies')?.value)||1;
   const size=document.getElementById('qr-size')?.value||'60x40';
