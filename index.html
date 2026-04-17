@@ -6899,7 +6899,7 @@ const _hrPageFn={
 // ── HELPERS ───────────────────────────────────────────────
 const hrDate=d=>d?new Date(d).toLocaleDateString('th-TH',{year:'numeric',month:'short',day:'numeric'}):'—';
 const hrDay=d=>{if(!d)return'';const days=['อา','จ','อ','พ','พฤ','ศ','ส'];return days[new Date(d).getDay()];};
-const hrTime=d=>d?new Date(d).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'—';
+const hrTime=d=>d?new Date(d).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Bangkok'}):'—';
 const hrIsHol=d=>_hrHols.some(h=>h.holiday_date===d);
 function hrLeaveTypeName(t){return{annual:'📅 พักร้อน',sick:'🤒 ป่วย',personal:'👤 กิจ',maternity:'🤱 คลอด',ordain:'🙏 บวช',other:'📝 อื่นๆ'}[t]||t;}
 function hrStBadge(s){return{pending:'<span class="badge ba">⏳ รอ</span>',approved:'<span class="badge bg">✅ อนุมัติ</span>',rejected:'<span class="badge br">❌ ปฏิเสธ</span>',cancelled:'<span class="badge bx">ยกเลิก</span>',present:'<span class="badge bg">✅</span>',late:'<span class="badge ba">⏰ สาย</span>',absent:'<span class="badge br">❌ ขาด</span>',leave:'<span class="badge bp">🏖️ ลา</span>',holiday:'<span class="badge bt">🎌</span>'}[s]||`<span class="badge bx">${s}</span>`;}
@@ -18905,10 +18905,10 @@ async function hrLoadDaily(){
           </span>
         </td>
         <td style="text-align:center;font-size:11px;font-family:monospace">
-          ${(a?.check_in||'').slice(11,16)||'—'}
+          ${toThaiTime(a?.check_in)}
         </td>
         <td style="text-align:center;font-size:11px;font-family:monospace">
-          ${(a?.check_out||'').slice(11,16)||'—'}
+          ${toThaiTime(a?.check_out)}
         </td>
         <td style="text-align:right;font-weight:600">${hrs?hrs+' h':'—'}</td>
         <td style="text-align:right;color:${a?.late_min?'#D97706':''}">
@@ -19663,6 +19663,11 @@ function hrEditDayType(dateStr){
     ${hrHolForm({holiday_date:dateStr, year:d.getFullYear()})}
   `);
 }
+
+
+// แปลง ISO timestamp → เวลาไทย (UTC+7) format HH:MM
+function toThaiTime(isoStr){ return hrTime(isoStr); }
+
 
 // ════════════════════════════════════════════════════════════
 //  CLOCK
