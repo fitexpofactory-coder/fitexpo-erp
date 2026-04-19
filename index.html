@@ -587,23 +587,23 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
     <div class="rg">
       <button class="rgb" onclick="ribbonToggle(this)">🔧 Production <span class="rga">▾</span></button>
       <div class="rdd">
-        <div class="rni" onclick="nav('production')" data-page="production">🔧 Production Order</div>
-        <div class="rni" onclick="nav('prod-plan')" data-page="prod-plan">📅 Production Plan</div>
+        <div class="rni" onclick="nav('production')" data-page="production">🔧 Production Order / ใบสั่งผลิต</div>
+        <div class="rni" onclick="nav('prod-plan')" data-page="prod-plan">📅 Production Plan / วางแผนผลิต</div>
         <div class="rni" onclick="nav('bom-mgr')" data-page="bom-mgr">📋 BOM Manager</div>
         <div class="rni" onclick="nav('wip-prod')" data-page="wip-prod">🔄 WIP Production</div>
         <div class="rni" onclick="nav('print-docs')" data-page="print-docs">🖨️ Batch Record</div>
         <div class="rni" onclick="nav('rm-matrix')" data-page="rm-matrix">📊 Matrix RM</div>
-        <div class="rni" onclick="nav('weigh')" data-page="weigh">⚖️ Weighing</div>
+        <div class="rni" onclick="nav('weigh')" data-page="weigh">⚖️ Weighing Program / ชั่งน้ำหนัก</div>
         <div class="rni" onclick="nav('forecast')" data-page="forecast">📈 Forecast & Plan</div>
       </div>
     </div>
     <div class="rg">
       <button class="rgb" onclick="ribbonToggle(this)">📊 OEE & PM <span class="rga">▾</span></button>
       <div class="rdd">
-        <div class="rni" onclick="nav('oee-log')" data-page="oee-log">⏱️ OEE Log</div>
+        <div class="rni" onclick="nav('oee-log')" data-page="oee-log">⏱️ OEE Log / บันทึก OEE</div>
         <div class="rni" onclick="nav('oee-dashboard')" data-page="oee-dashboard">📊 OEE Dashboard</div>
-        <div class="rni" onclick="nav('machines')" data-page="machines">⚙️ Machines</div>
-        <div class="rni" onclick="nav('pm')" data-page="pm">🔧 PM Plan</div>
+        <div class="rni" onclick="nav('machines')" data-page="machines">⚙️ Machine Management / เครื่องจักร</div>
+        <div class="rni" onclick="nav('pm')" data-page="pm">🔧 Preventive Maintenance / แผน PM</div>
       </div>
     </div>
     <div class="rg">
@@ -618,25 +618,25 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
       <div class="rdd">
         <div class="rni" onclick="nav('inv-locations')" data-page="inv-locations">📍 Location</div>
         <div class="rni" onclick="nav('inv-assign')" data-page="inv-assign">🏷️ Assign Location</div>
-        <div class="rni" onclick="nav('inv-count')" data-page="inv-count">📋 New Count Session</div>
-        <div class="rni" onclick="nav('inv-sessions')" data-page="inv-sessions">📊 All Sessions</div>
-        <div class="rni" onclick="nav('inv-sheet')" data-page="inv-sheet">✍️ Enter Count</div>
+        <div class="rni" onclick="nav('inv-count')" data-page="inv-count">📋 New Count Session / สร้างรอบนับ</div>
+        <div class="rni" onclick="nav('inv-sessions')" data-page="inv-sessions">📊 Count Sessions / รอบนับทั้งหมด</div>
+        <div class="rni" onclick="nav('inv-sheet')" data-page="inv-sheet">✍️ Enter Count Results / กรอกผลนับ</div>
       </div>
     </div>
     <div class="rg">
       <button class="rgb" onclick="ribbonToggle(this)">👥 HR <span class="rga">▾</span></button>
       <div class="rdd">
-        <div class="rni" onclick="nav('hr-checkin')" data-page="hr-checkin">⏰ Check In/Out</div>
-        <div class="rni" onclick="nav('hr-attendance')" data-page="hr-attendance">📅 Attendance</div>
-        <div class="rni" onclick="nav('hr-leave')" data-page="hr-leave">🏖️ Leave Request</div>
-        <div class="rni" onclick="nav('hr-ot')" data-page="hr-ot">⏱️ OT Request</div>
-        <div class="rni" onclick="nav('hr-approve')" data-page="hr-approve">✅ Approve</div>
-        <div class="rni" onclick="nav('hr-report')" data-page="hr-report">📋 HR Report</div>
-        <div class="rni" onclick="nav('hr-employees')" data-page="hr-employees">👥 Employees</div>
-        <div class="rni" onclick="nav('hr-holidays')" data-page="hr-holidays">🎌 Holidays</div>
-        <div class="rni" onclick="nav('hr-payroll')" data-page="hr-payroll">💰 Payroll</div>
+        <div class="rni" onclick="nav('hr-checkin')" data-page="hr-checkin">⏰ Check In / Check Out</div>
+        <div class="rni" onclick="nav('hr-attendance')" data-page="hr-attendance">📅 Attendance Record / บันทึกเวลางาน</div>
+        <div class="rni" onclick="nav('hr-leave')" data-page="hr-leave">🏖️ Leave Request / ขอลางาน</div>
+        <div class="rni" onclick="nav('hr-ot')" data-page="hr-ot">⏱️ OT Request / ขอทำงานล่วงเวลา</div>
+        <div class="rni" onclick="nav('hr-approve')" data-page="hr-approve">✅ Approve Requests / อนุมัติคำขอ</div>
+        <div class="rni" onclick="nav('hr-report')" data-page="hr-report">📋 HR Attendance Report</div>
+        <div class="rni" onclick="nav('hr-employees')" data-page="hr-employees">👥 Employee Management / พนักงาน</div>
+        <div class="rni" onclick="nav('hr-holidays')" data-page="hr-holidays">🎌 Holiday Calendar / วันหยุด</div>
+        <div class="rni" onclick="nav('hr-payroll')" data-page="hr-payroll">💰 Payroll Processing / เงินเดือน</div>
         <div class="rni" onclick="nav('hr-payslip')" data-page="hr-payslip">🧾 Pay Slip</div>
-        <div class="rni" onclick="nav('hr-diligence')" data-page="hr-diligence">🏅 Diligence Bonus</div>
+        <div class="rni" onclick="nav('hr-diligence')" data-page="hr-diligence">🏅 Diligence Bonus / เบี้ยขยัน</div>
       </div>
     </div>
     <div class="rg">
@@ -644,9 +644,9 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
       <div class="rdd">
         <div class="rni" onclick="nav('import')" data-page="import">📥 Import</div>
         <div class="rni" onclick="showSQLSetup()">🗄️ SQL Setup Guide</div>
-        <div class="rni" onclick="nav('permissions')" data-page="permissions">🔐 Permissions</div>
+        <div class="rni" onclick="nav('permissions')" data-page="permissions">🔐 Permission Management / สิทธิ์</div>
         <div class="rni" onclick="nav('actlog')" data-page="actlog">📋 Activity Log</div>
-        <div class="rni" onclick="nav('users')" data-page="users">👤 Users</div>
+        <div class="rni" onclick="nav('users')" data-page="users">👤 User Management / ผู้ใช้</div>
       </div>
     </div>
   </div>
@@ -730,12 +730,12 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
   <div class="tw"><table>
     <thead><tr>
       <th style="width:36px">รูป</th>
-      <th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_name">ชื่อ</th><th>Type</th><th data-i18n="col_unit">${pt('unit')}</th>
+      <th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_name">Name / ชื่อ</th><th>Type</th><th data-i18n="col_unit">${pt('unit')}</th>
       <th data-i18n="col_open_bal">Balance เปิด</th><th style="color:var(--green)">รับเข้า</th>
       <th style="color:var(--red)">เบิก</th>
-      <th style="font-weight:800;color:var(--navy)">คงเหลือ</th>
-      <th>Min</th><th data-i18n="col_status">สถานะ</th><th>EXP</th>
-      <th data-i18n="col_lot">Lot ล่าสุด</th><th data-i18n="col_recv_date">วันรับล่าสุด</th><th>Action</th>
+      <th style="font-weight:800;color:var(--navy)">Balance / คงเหลือ</th>
+      <th>Min</th><th data-i18n="col_status">Status / สถานะ</th><th>EXP</th>
+      <th data-i18n="col_lot">Latest Lot</th><th data-i18n="col_recv_date">Last Received / วันรับล่าสุด</th><th>Action</th>
     </tr></thead>
     <tbody id="rm-tb"></tbody>
   </table></div>
@@ -750,7 +750,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
     <button class="btn btnS sm" onclick="loadWIPStock()">🔄</button>
   </div>
   <div class="tw"><table>
-    <thead><tr><th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_wip_name">${_lang==="en"?"WIP Name":"ชื่อ WIP"}</th><th data-i18n="col_cat">หมวด</th><th>ผลิตเข้า (kg)</th><th>เบิก (kg)</th><th>คงเหลือ (kg)</th><th>Min</th><th data-i18n="col_status">สถานะ</th></tr></thead>
+    <thead><tr><th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_wip_name">${_lang==="en"?"WIP Name":"ชื่อ WIP"}</th><th data-i18n="col_cat">หมวด</th><th>ผลิตเข้า (kg)</th><th>เบิก (kg)</th><th>คงเหลือ (kg)</th><th>Min</th><th data-i18n="col_status">Status / สถานะ</th></tr></thead>
     <tbody id="wip-stock-tb"></tbody>
   </table></div>
 </div>
@@ -765,7 +765,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
     <button class="btn btnS sm" onclick="loadFG()">🔄</button>
   </div>
   <div class="tw"><table>
-    <thead><tr><th>SKU</th><th data-i18n="col_name">ชื่อ</th><th data-i18n="col_recv">รับเข้า</th><th>ขาย</th><th data-i18n="col_balance">คงเหลือ</th><th>Min</th><th data-i18n="col_status">สถานะ</th><th></th></tr></thead>
+    <thead><tr><th>SKU</th><th data-i18n="col_name">Name / ชื่อ</th><th data-i18n="col_recv">รับเข้า</th><th>ขาย</th><th data-i18n="col_balance">Balance / คงเหลือ</th><th>Min</th><th data-i18n="col_status">Status / สถานะ</th><th></th></tr></thead>
     <tbody id="fg-tb"></tbody>
   </table></div>
 </div>
@@ -865,7 +865,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
   <div class="tw"><table id="po-list-tb">
     <thead><tr>
       <th>เลขที่ PO</th><th>Supplier</th><th>วันที่สั่ง</th>
-      <th>กำหนดส่ง</th><th>ยอดรวม</th><th data-i18n="col_status">สถานะ</th>
+      <th>Delivery Date / กำหนดส่ง</th><th>ยอดรวม</th><th data-i18n="col_status">Status / สถานะ</th>
       <th>${pt('remark')}</th><th>Action</th>
     </tr></thead>
     <tbody id="po-tb"></tbody>
@@ -899,7 +899,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
             <input type="number" class="fc2" id="wo-target-qty" placeholder="เช่น 5000" min="0" step="1" oninput="calcWOBatch()">
           </div>
           <div class="fgrp">
-            <label class="flbl">หน่วย</label>
+            <label class="flbl">Unit / หน่วย</label>
             <select class="fc2" id="wo-target-unit" onchange="calcWOBatch()">
               <option value="pcs">ชิ้น (pcs)</option>
               <option value="kg">กิโลกรัม (kg)</option>
@@ -928,7 +928,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
         <div class="fgrp"><label class="flbl">📉 Loss % (สูญเสีย)</label><input type="number" class="fc2" id="wo-loss" value="0" min="0" max="99" step="0.1" placeholder="0" onchange="calcBOMScaled()"></div>
       </div>
       <div class="fgrp"><label class="flbl"><span data-i18n="lbl_prod_date">วันที่ผลิต</span></label><input type="date" class="fc2" id="wo-dt"></div>
-      <div class="fgrp"><label class="flbl"><span data-i18n="lbl_operator">ผู้ดำเนินการ</span></label><input type="text" class="fc2" id="wo-op" placeholder="ชื่อ-นามสกุล"></div>
+      <div class="fgrp"><label class="flbl"><span data-i18n="lbl_operator">ผู้ดำเนินการ</span></label><input type="text" class="fc2" id="wo-op" placeholder="Full Name / ชื่อ-นามสกุล"></div>
       <div class="fgrp"><label class="flbl"><span data-i18n="lbl_machine">เครื่องจักรที่ใช้</span></label><input type="text" class="fc2" id="wo-machine" placeholder="เช่น Enrober Line A, Ball Mill"></div>
       <div class="fgrp"><label class="flbl">วิธีการผลิต / ขั้นตอนพิเศษ</label><textarea class="fc2" id="wo-method" placeholder="เช่น 1.ชั่งสูตร 2.ผสม 3.Enrob..."></textarea></div>
       <div style="display:flex;gap:8px">
@@ -1007,7 +1007,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
       <div class="fgrp"><label class="flbl">เครื่องจักร / Line</label><input type="text" class="fc2" id="wl-machine" placeholder="เช่น Mixer A, Syrup Tank B"></div>
       <div class="fgrp"><label class="flbl">วิธีการผลิต</label><textarea class="fc2" id="wl-method" rows="3" placeholder="ขั้นตอนการผลิต WIP..."></textarea></div>
       <div class="fgrp"><label class="flbl">QC</label><select class="fc2" id="wl-qc"><option value="1">✅ ผ่าน</option><option value="0">❌ ไม่ผ่าน</option></select></div>
-      <div class="fgrp"><label class="flbl"><span data-i18n="lbl_note">หมายเหตุ</span></label><input type="text" class="fc2" id="wl-note"></div>
+      <div class="fgrp"><label class="flbl"><span data-i18n="lbl_note">Note / หมายเหตุ</span></label><input type="text" class="fc2" id="wl-note"></div>
       <div style="display:flex;gap:8px">
         <button class="btn btnG" style="flex:1" onclick="submitWIPLog()">💾 บันทึก</button>
         <button class="btn btnT sm" onclick="printWIPFromForm()">🖨️ Print สูตร WIP</button>
@@ -1090,7 +1090,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
     <button class="btn btnS sm" onclick="loadSO()">🔄</button>
   </div>
   <div class="tw"><table>
-    <thead><tr><th>SO No.</th><th>วันที่</th><th>ลูกค้า</th><th>SKU</th><th>${pt('qty')}</th><th>ยอดรวม</th><th data-i18n="col_status">สถานะ</th><th>action</th></tr></thead>
+    <thead><tr><th>SO No.</th><th>Date / วันที่</th><th>ลูกค้า</th><th>SKU</th><th>${pt('qty')}</th><th>ยอดรวม</th><th data-i18n="col_status">Status / สถานะ</th><th>action</th></tr></thead>
     <tbody id="so-tb"></tbody>
   </table></div>
 </div>
@@ -1112,7 +1112,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
         <button class="btn btnN sm" onclick="checkDupMaterials()">🔍 หารหัสซ้ำ</button>
   </div>
   <div class="tw"><table>
-    <thead><tr><th data-i18n="col_img">รูป</th><th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_name">ชื่อ</th><th>Type</th><th data-i18n="col_cat">หมวด</th><th>ราคา/หน่วย</th><th data-i18n="col_open_bal">Balance เปิด</th><th>Min</th><th>EXP</th><th>Supplier</th><th data-i18n="col_edit">แก้ไข</th></tr></thead>
+    <thead><tr><th data-i18n="col_img">รูป</th><th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_name">Name / ชื่อ</th><th>Type</th><th data-i18n="col_cat">หมวด</th><th>ราคา/หน่วย</th><th data-i18n="col_open_bal">Balance เปิด</th><th>Min</th><th>EXP</th><th>Supplier</th><th data-i18n="col_edit">แก้ไข</th></tr></thead>
     <tbody id="mat-tb"></tbody>
   </table></div>
 </div>
@@ -1128,7 +1128,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
     <button class="btn btnS sm" onclick="loadProdMgr()">🔄</button>
   </div>
   <div class="tw"><table>
-    <thead><tr><th>SKU</th><th>ชื่อ (EN)</th><th>Line</th><th>Flavour</th><th>ขนาด (g)</th><th>Batch kg</th><th>ราคาขาย</th><th>FDA</th><th data-i18n="col_status">สถานะ</th><th data-i18n="col_edit">แก้ไข</th><th>BOM</th></tr></thead>
+    <thead><tr><th>SKU</th><th>ชื่อ (EN)</th><th>Line</th><th>Flavour</th><th>ขนาด (g)</th><th>Batch kg</th><th>ราคาขาย</th><th>FDA</th><th data-i18n="col_status">Status / สถานะ</th><th data-i18n="col_edit">แก้ไข</th><th>BOM</th></tr></thead>
     <tbody id="prod-tb"></tbody>
   </table></div>
 </div>
@@ -1144,7 +1144,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
   </div>
   <div class="tw"><table>
     <thead><tr>
-      <th>รหัส</th>
+      <th>Code / รหัส</th>
       <th>ชื่อ WIP</th>
       <th>หมวด</th>
       <th>Batch kg</th>
@@ -1170,7 +1170,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
     <button class="btn btnS sm" onclick="loadSuppMgr()">🔄</button>
   </div>
   <div class="tw"><table>
-    <thead><tr><th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_name">ชื่อ</th><th>วัสดุหลัก</th><th>ผู้ติดต่อ</th><th>โทร</th><th>Email</th><th>Credit</th><th>Lead Time</th><th data-i18n="col_status">สถานะ</th><th data-i18n="col_edit">แก้ไข</th></tr></thead>
+    <thead><tr><th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_name">Name / ชื่อ</th><th>วัสดุหลัก</th><th>ผู้ติดต่อ</th><th>โทร</th><th>Email</th><th>Credit</th><th>Lead Time</th><th data-i18n="col_status">Status / สถานะ</th><th data-i18n="col_edit">แก้ไข</th></tr></thead>
     <tbody id="supp-tb"></tbody>
   </table></div>
 </div>
@@ -1184,7 +1184,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
     <button class="btn btnS sm" onclick="loadCustMgr()">🔄</button>
   </div>
   <div class="tw"><table>
-    <thead><tr><th data-i18n="col_code">${pt('code')}</th><th>ชื่อบริษัท</th><th>เลขภาษี</th><th>ผู้ติดต่อ</th><th>โทร</th><th>Email</th><th>เครดิต</th><th data-i18n="col_status">สถานะ</th><th data-i18n="col_edit">แก้ไข</th></tr></thead>
+    <thead><tr><th data-i18n="col_code">${pt('code')}</th><th>ชื่อบริษัท</th><th>เลขภาษี</th><th>ผู้ติดต่อ</th><th>โทร</th><th>Email</th><th>เครดิต</th><th data-i18n="col_status">Status / สถานะ</th><th data-i18n="col_edit">แก้ไข</th></tr></thead>
     <tbody id="cust-tb"></tbody>
   </table></div>
 </div>
@@ -1326,7 +1326,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
       <div style="background:var(--bg3);border-radius:8px;padding:12px;margin-bottom:12px">
         <div class="ct mb3">⚙️ เวลาเครื่องจักร (นาที)</div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-          <div class="fgrp"><label class="flbl">Run Time (นาที)</label><input type="number" class="fc2" id="oee-runtime" value="0" oninput="calcOEE()"></div>
+          <div class="fgrp"><label class="flbl">Run Time / เวลาเดิน (นาที)</label><input type="number" class="fc2" id="oee-runtime" value="0" oninput="calcOEE()"></div>
           <div class="fgrp"><label class="flbl">Downtime ซ่อม (นาที)</label><input type="number" class="fc2" id="oee-downtime" value="0" oninput="calcOEE()"></div>
           <div class="fgrp"><label class="flbl">Cleaning Time (นาที)</label><input type="number" class="fc2" id="oee-cleaning" value="0" oninput="calcOEE()"></div>
           <div class="fgrp"><label class="flbl">Changeover/Setup (นาที)</label><input type="number" class="fc2" id="oee-changeover" value="0" oninput="calcOEE()"></div>
@@ -1339,9 +1339,9 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
           <div class="fgrp"><label class="flbl">แผน (หน่วย/kg)</label><input type="number" class="fc2" id="oee-plan-qty" value="0" oninput="calcOEE()"></div>
           <div class="fgrp"><label class="flbl">ผลิตได้จริง</label><input type="number" class="fc2" id="oee-actual-qty" value="0" oninput="calcOEE()"></div>
-          <div class="fgrp"><label class="flbl">Good (ผ่าน QC)</label><input type="number" class="fc2" id="oee-good-qty" value="0" oninput="calcOEE()"></div>
+          <div class="fgrp"><label class="flbl">Good / ผ่าน QC</label><input type="number" class="fc2" id="oee-good-qty" value="0" oninput="calcOEE()"></div>
           <div class="fgrp"><label class="flbl">Rework</label><input type="number" class="fc2" id="oee-rework-qty" value="0" oninput="calcOEE()"></div>
-          <div class="fgrp"><label class="flbl">Reject (ทิ้ง)</label><input type="number" class="fc2" id="oee-reject-qty" value="0" oninput="calcOEE()"></div>
+          <div class="fgrp"><label class="flbl">Reject / ทิ้ง</label><input type="number" class="fc2" id="oee-reject-qty" value="0" oninput="calcOEE()"></div>
           <div class="fgrp"><label class="flbl">QC</label>
             <select class="fc2" id="oee-qc"><option value="1">✅ ผ่าน</option><option value="0">❌ ไม่ผ่าน</option></select>
           </div>
@@ -1357,7 +1357,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
           <div style="text-align:center;border-left:2px solid rgba(255,255,255,.3)"><div style="font-size:10px;opacity:.7">OEE</div><div id="oee-total" style="font-size:26px;font-weight:900;font-family:var(--mono)">—</div></div>
         </div>
       </div>
-      <div class="fgrp"><label class="flbl"><span data-i18n="lbl_note">หมายเหตุ</span></label><textarea class="fc2" id="oee-note" rows="2"></textarea></div>
+      <div class="fgrp"><label class="flbl"><span data-i18n="lbl_note">Note / หมายเหตุ</span></label><textarea class="fc2" id="oee-note" rows="2"></textarea></div>
       <button class="btn btnG" style="width:100%" onclick="saveOEELog()">💾 บันทึก OEE Log</button>
       <div id="oee-msg" style="margin-top:8px"></div>
     </div>
@@ -1437,7 +1437,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
   <div class="card">
     <div class="ct mb3">📋 รายละเอียด OEE Log</div>
     <div class="tw"><table>
-      <thead><tr><th>วันที่</th><th>PP No.</th><th>สินค้า</th><th>เครื่องจักร</th><th>กะ</th><th>คน</th><th>เวลา(นาที)</th><th>Downtime</th><th>แผน</th><th>จริง</th><th>Good</th><th>Rework</th><th>Reject</th><th>Yield%</th><th>Avail%</th><th>Perf%</th><th>Qual%</th><th>OEE%</th></tr></thead>
+      <thead><tr><th>Date / วันที่</th><th>PP No.</th><th>สินค้า</th><th>เครื่องจักร</th><th>กะ</th><th>คน</th><th>เวลา(นาที)</th><th>Downtime</th><th>แผน</th><th>จริง</th><th>Good</th><th>Rework</th><th>Reject</th><th>Yield%</th><th>Avail%</th><th>Perf%</th><th>Qual%</th><th>OEE%</th></tr></thead>
       <tbody id="oee-detail-tb"></tbody>
     </table></div>
   </div>
@@ -1451,7 +1451,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
     <button class="btn btnS sm" onclick="loadMachines()">🔄</button>
   </div>
   <div class="tw"><table>
-    <thead><tr><th data-i18n="col_code">${pt('code')}</th><th>ชื่อเครื่องจักร</th><th>${pt('type')}</th><th>Line</th><th>กำลังการผลิต/ชม.</th><th>เวลาแผน/วัน (ชม.)</th><th data-i18n="col_status">สถานะ</th><th data-i18n="col_edit">แก้ไข</th></tr></thead>
+    <thead><tr><th data-i18n="col_code">${pt('code')}</th><th>ชื่อเครื่องจักร</th><th>${pt('type')}</th><th>Line</th><th>กำลังการผลิต/ชม.</th><th>เวลาแผน/วัน (ชม.)</th><th data-i18n="col_status">Status / สถานะ</th><th data-i18n="col_edit">แก้ไข</th></tr></thead>
     <tbody id="machines-tb"></tbody>
   </table></div>
 </div>
@@ -1470,7 +1470,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
     <button class="btn btnG sm" onclick="savePerms()" style="margin-left:auto">💾 บันทึกสิทธิ์</button>
   </div>
   <div class="tw"><table id="perms-table">
-    <thead><tr><th>Module</th><th data-i18n="col_name">ชื่อ</th><th style="text-align:center">👁️ ดู</th><th style="text-align:center">➕ สร้าง</th><th style="text-align:center">✏️ แก้ไข</th><th style="text-align:center">🗑️ ลบ</th><th style="text-align:center">🖨️ พิมพ์</th><th style="text-align:center">✅ อนุมัติ</th></tr></thead>
+    <thead><tr><th>Module</th><th data-i18n="col_name">Name / ชื่อ</th><th style="text-align:center">👁️ ดู</th><th style="text-align:center">➕ สร้าง</th><th style="text-align:center">✏️ แก้ไข</th><th style="text-align:center">🗑️ ลบ</th><th style="text-align:center">🖨️ พิมพ์</th><th style="text-align:center">✅ อนุมัติ</th></tr></thead>
     <tbody id="perms-tb"></tbody>
   </table></div>
   <div id="perms-msg" style="margin-top:10px"></div>
@@ -1498,7 +1498,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
   <div class="card">
     <div class="ch"><div class="ct">📍 รายการ Location ทั้งหมด</div></div>
     <div class="tw"><table>
-      <thead><tr><th>Location Code</th><th>ห้อง</th><th>ชั้นวาง</th><th>ช่อง</th><th>${pt('type')}</th><th>อุณหภูมิ</th><th>ความจุ</th><th data-i18n="col_status">สถานะ</th><th data-i18n="col_edit">แก้ไข</th></tr></thead>
+      <thead><tr><th>Location Code</th><th>ห้อง</th><th>ชั้นวาง</th><th>ช่อง</th><th>${pt('type')}</th><th>อุณหภูมิ</th><th>ความจุ</th><th data-i18n="col_status">Status / สถานะ</th><th data-i18n="col_edit">แก้ไข</th></tr></thead>
       <tbody id="loc-tb"></tbody>
     </table></div>
   </div>
@@ -1554,13 +1554,13 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
         </div>
       </div>
       <div>
-        <div class="fgrp"><label class="flbl">% สุ่มนับ (Spot Check)</label>
+        <div class="fgrp"><label class="flbl">Spot Check % / สุ่มนับ</label>
           <input type="number" class="fc2" id="cs-pct" value="30" min="1" max="100">
           <div style="font-size:11px;color:var(--text3);margin-top:4px">เช่น 30 = สุ่มนับ 30% ของรายการ</div>
         </div>
         <div class="fgrp"><label class="flbl">ผู้นับหลัก</label><input type="text" class="fc2" id="cs-counter" placeholder="ชื่อผู้นับ"></div>
         <div class="fgrp"><label class="flbl">${pt('sig_checked')}</label><input type="text" class="fc2" id="cs-verifier" placeholder="ชื่อผู้ตรวจ"></div>
-        <div class="fgrp"><label class="flbl"><span data-i18n="lbl_note">หมายเหตุ</span></label><input type="text" class="fc2" id="cs-note" placeholder="..."></div>
+        <div class="fgrp"><label class="flbl"><span data-i18n="lbl_note">Note / หมายเหตุ</span></label><input type="text" class="fc2" id="cs-note" placeholder="..."></div>
       </div>
     </div>
     <div style="display:flex;gap:8px;margin-top:4px">
@@ -1581,7 +1581,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
     <button class="btn btnS sm" onclick="loadInvSessions()">🔄</button>
   </div>
   <div class="tw"><table>
-    <thead><tr><th>Session No.</th><th>${pt('type')}</th><th>วันที่</th><th>สต็อก</th><th>${pt('item')}</th><th>ตรงกัน</th><th>ส่วนต่าง</th><th data-i18n="col_status">สถานะ</th><th>Action</th></tr></thead>
+    <thead><tr><th>Session No.</th><th>${pt('type')}</th><th>Date / วันที่</th><th>สต็อก</th><th>${pt('item')}</th><th>ตรงกัน</th><th>ส่วนต่าง</th><th data-i18n="col_status">Status / สถานะ</th><th>Action</th></tr></thead>
     <tbody id="inv-sess-tb"></tbody>
   </table></div>
 </div>
@@ -1613,11 +1613,11 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
   </div>
   <div class="tw"><table>
     <thead><tr>
-      <th>#</th><th>Type</th><th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_name">ชื่อ</th><th>Location</th>
+      <th>#</th><th>Type</th><th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_name">Name / ชื่อ</th><th>Location</th>
       <th>Lot</th><th data-i18n="col_unit">${pt('unit')}</th><th>ยอดระบบ</th>
       <th style="background:#FFFDE7">นับครั้ง 1 ✍️</th>
       <th style="background:#E8F5E9">นับครั้ง 2 ✍️</th>
-      <th>ส่วนต่าง</th><th>%</th><th data-i18n="col_status">สถานะ</th><th>${pt('remark')}</th>
+      <th>ส่วนต่าง</th><th>%</th><th data-i18n="col_status">Status / สถานะ</th><th>${pt('remark')}</th>
     </tr></thead>
     <tbody id="inv-sheet-tb"></tbody>
   </table></div>
@@ -1680,11 +1680,11 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
   </div>
   <div class="tw"><table>
     <thead><tr>
-      <th id="att-th-emp" style="display:none">รหัส</th>
+      <th id="att-th-emp" style="display:none">Code / รหัส</th>
       <th id="att-th-name" style="display:none">ชื่อ-สกุล</th>
-      <th>วันที่</th><th>วัน</th><th>เข้า</th><th>ออก</th>
+      <th>Date / วันที่</th><th>วัน</th><th>เข้า</th><th>ออก</th>
       <th>ชม.</th><th>สาย(นาที)</th><th>OT(นาที)</th><th>OT</th>
-      <th data-i18n="col_status">สถานะ</th><th>หมายเหตุ</th><th>แก้ไข</th>
+      <th data-i18n="col_status">Status / สถานะ</th><th>Note / หมายเหตุ</th><th>แก้ไข</th>
     </tr></thead>
     <tbody id="hr-att-tb"></tbody>
   </table></div>
@@ -1803,7 +1803,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
       <button class="btn btnS sm" onclick="hrLoadApproveLeave()">🔄</button>
     </div>
     <div class="tw"><table>
-      <thead><tr><th>เลขที่</th><th>พนักงาน</th><th>ประเภทลา</th><th>วันที่ลา</th><th>${pt('qty')}</th><th>เหตุผล</th><th data-i18n="col_status">สถานะ</th><th>Action</th></tr></thead>
+      <thead><tr><th>เลขที่</th><th>พนักงาน</th><th>Leave Type / ประเภทลา</th><th>Leave Date / วันที่ลา</th><th>${pt('qty')}</th><th>เหตุผล</th><th data-i18n="col_status">Status / สถานะ</th><th>Action</th></tr></thead>
       <tbody id="hrap-leave-tb"></tbody>
     </table></div>
   </div>
@@ -1817,7 +1817,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
       <button class="btn btnS sm" onclick="hrLoadApproveOT()">🔄</button>
     </div>
     <div class="tw"><table>
-      <thead><tr><th>เลขที่</th><th>พนักงาน</th><th>วันที่</th><th>เวลา</th><th>ชม.</th><th>${pt('type')}</th><th>เหตุผล</th><th data-i18n="col_status">สถานะ</th><th>Action</th></tr></thead>
+      <thead><tr><th>เลขที่</th><th>พนักงาน</th><th>Date / วันที่</th><th>เวลา</th><th>ชม.</th><th>${pt('type')}</th><th>เหตุผล</th><th data-i18n="col_status">Status / สถานะ</th><th>Action</th></tr></thead>
       <tbody id="hrap-ot-tb"></tbody>
     </table></div>
   </div>
@@ -1864,7 +1864,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
     โดย Role จะเชื่อมกับสิทธิ์ HR ที่กำหนดไว้ครับ
   </div>
   <div class="tw"><table>
-    <thead><tr><th data-i18n="col_code">${pt('code')}</th><th>ชื่อ-นามสกุล</th><th>${pt('dept')}</th><th>ตำแหน่ง</th><th>กะ</th><th>Username</th><th>สิทธิ์ HR</th><th>ERP Role</th><th data-i18n="col_status">สถานะ</th><th data-i18n="col_edit">แก้ไข</th></tr></thead>
+    <thead><tr><th data-i18n="col_code">${pt('code')}</th><th>ชื่อ-นามสกุล</th><th>${pt('dept')}</th><th>ตำแหน่ง</th><th>กะ</th><th>Username</th><th>สิทธิ์ HR</th><th>ERP Role</th><th data-i18n="col_status">Status / สถานะ</th><th data-i18n="col_edit">แก้ไข</th></tr></thead>
     <tbody id="hr-emp-tb"></tbody>
   </table></div>
 </div>
@@ -1989,7 +1989,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
   </div>
   <div class="g2">
     <div class="tw"><table>
-      <thead><tr><th>วันที่</th><th>วัน</th><th>ชื่อวันหยุด</th><th>${pt('type')}</th><th>ค่าจ้าง</th><th data-i18n="col_edit">แก้ไข</th></tr></thead>
+      <thead><tr><th>Date / วันที่</th><th>วัน</th><th>ชื่อวันหยุด</th><th>${pt('type')}</th><th>ค่าจ้าง</th><th data-i18n="col_edit">แก้ไข</th></tr></thead>
       <tbody id="hr-hol-tb"></tbody>
     </table></div>
     <div class="card" id="hr-hol-cal"></div>
@@ -2149,7 +2149,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
     <div style="display:flex;align-items:center;gap:0;margin-bottom:20px;overflow-x:auto">
       <div class="wt-step on" id="wts-1">
         <div class="wt-step-num">1</div>
-        <div class="wt-step-label">เลือก Batch</div>
+        <div class="wt-step-label">Select Batch</div>
       </div>
       <div class="wt-step-line"></div>
       <div class="wt-step" id="wts-2">
@@ -2375,7 +2375,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
           </div>
         </div>
         <div class="fgrp">
-          <label class="flbl">กำหนดส่ง / วันที่ต้องการ</label>
+          <label class="flbl">Due Date / กำหนดส่ง</label>
           <input type="date" class="fc2" id="fc-delivery">
         </div>
         <div class="fgrp">
@@ -2480,17 +2480,17 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
   <div style="display:flex;align-items:center;gap:0;margin-bottom:16px;overflow-x:auto">
     <div class="wt-step" id="wt-s1" style="flex:1;min-width:140px">
       <div class="wt-step-num" id="wt-n1">1</div>
-      <div class="wt-step-label">เลือก Batch</div>
+      <div class="wt-step-label">Select Batch</div>
     </div>
     <div class="wt-step-line"></div>
     <div class="wt-step" id="wt-s2" style="flex:1;min-width:140px">
       <div class="wt-step-num" id="wt-n2">2</div>
-      <div class="wt-step-label">ยืนยัน BOM</div>
+      <div class="wt-step-label">Confirm BOM</div>
     </div>
     <div class="wt-step-line"></div>
     <div class="wt-step" id="wt-s3" style="flex:1;min-width:140px">
       <div class="wt-step-num" id="wt-n3">3</div>
-      <div class="wt-step-label">ชั่งน้ำหนัก</div>
+      <div class="wt-step-label">Weighing</div>
     </div>
     <div class="wt-step-line"></div>
     <div class="wt-step" id="wt-s4" style="flex:1;min-width:140px">
@@ -2510,7 +2510,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
           <label class="flbl">สแกน QR Code หรือพิมพ์ WO/Batch No.</label>
           <div style="display:flex;gap:6px">
             <input type="text" class="fc2" id="wt-qr-input"
-              placeholder="สแกน QR หรือพิมพ์ WO No..."
+              placeholder="Scan QR or type WO No. / สแกน QR หรือพิมพ์..."
               style="font-size:16px;font-family:monospace"
               onkeydown="if(event.key==='Enter')wtScanBatch()">
             <button class="btn btnP" onclick="wtScanBatch()">🔍</button>
@@ -2528,7 +2528,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
           <div id="wt-wo-debug" style="font-size:11px;color:var(--text3);margin-top:4px"></div>
         </div>
         <div class="fgrp">
-          <label class="flbl">จำนวน Batch ที่จะชั่ง</label>
+          <label class="flbl">No. of Batches / จำนวน Batch</label>
           <input type="number" class="fc2" id="wt-batch-count" value="1" min="1" max="20">
         </div>
         <button class="btn btnP" style="width:100%" onclick="wtLoadBOM()">
@@ -2602,7 +2602,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
               </div>
               <div style="text-align:center">
                 <div style="font-weight:800;font-size:20px;color:var(--amber)" id="wt-count-remain">0</div>
-                <div style="font-size:10px;color:var(--text3)">คงเหลือ</div>
+                <div style="font-size:10px;color:var(--text3)">Balance / คงเหลือ</div>
               </div>
               <div style="flex:1">
                 <div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin-top:8px">
@@ -2873,6 +2873,8 @@ function loadPage(id){
     'weigh':()=>{wtInit();}
   };
   if(fn[id]) fn[id]();
+  // re-apply translations หลัง page load
+  if(_lang==='en') setTimeout(applyLabelTranslations, 200);
   else if(extra[id]) extra[id]();
   else console.warn('loadPage: unknown page',id);
 }
@@ -3280,7 +3282,7 @@ function showAddBOMRow(code,table,codeField,batchKg){
     </div>
     <div style="display:flex;gap:10px">
       <div class="fgrp" style="flex:1"><label class="flbl">รหัสวัสดุ</label><input type="text" class="fc2" id="nbr-code" placeholder="RM-xxx / WIP-xxx / PK-xxx"></div>
-      <div class="fgrp" style="flex:1"><label class="flbl">ชื่อวัสดุ</label><input type="text" class="fc2" id="nbr-name" placeholder="จะกรอกอัตโนมัติ"></div>
+      <div class="fgrp" style="flex:1"><label class="flbl">Material Name / ชื่อวัสดุ</label><input type="text" class="fc2" id="nbr-name" placeholder="จะกรอกอัตโนมัติ"></div>
     </div>
     <div style="display:flex;gap:10px">
       <div class="fgrp" style="flex:1">
@@ -3302,7 +3304,7 @@ function showAddBOMRow(code,table,codeField,batchKg){
           oninput="bomCalcFromPct(${batchKg})">
         <div style="font-size:10px;color:var(--accent);margin-top:2px" id="nbr-kg-preview"></div>
       </div>
-      <div class="fgrp" style="flex:1"><label class="flbl">หน่วย</label>
+      <div class="fgrp" style="flex:1"><label class="flbl">Unit / หน่วย</label>
         <select class="fc2" id="nbr-unit">
           <option>kg</option><option>g</option><option>liter</option>
           <option>ml</option><option>pcs</option>
@@ -3437,7 +3439,7 @@ async function editBOMRow(id,code,table,codeField,batchKg){
         <input type="text" class="fc2" id="ebr-code" value="${mc}">
       </div>
       <div class="fgrp">
-        <label class="flbl">ชื่อ</label>
+        <label class="flbl">Name / ชื่อ</label>
         <input type="text" class="fc2" id="ebr-name" value="${mn}">
       </div>
     </div>
@@ -3453,7 +3455,7 @@ async function editBOMRow(id,code,table,codeField,batchKg){
         <div style="font-size:10px;color:var(--text3);margin-top:2px">${pct>0?(pct/100*(batchKg||50)).toFixed(3)+' kg':'0 = ใช้ qty'}</div>
       </div>
       <div class="fgrp">
-        <label class="flbl">หน่วย</label>
+        <label class="flbl">Unit / หน่วย</label>
         <select class="fc2" id="ebr-unit">
           <option ${r.unit==='kg'?'selected':''}>kg</option>
           <option ${r.unit==='g'?'selected':''}>g</option>
@@ -3487,7 +3489,7 @@ async function editBOMRow(id,code,table,codeField,batchKg){
     </div>
 
     <div class="fgrp">
-      <label class="flbl">หมายเหตุ</label>
+      <label class="flbl">Note / หมายเหตุ</label>
       <input type="text" class="fc2" id="ebr-note" value="${r.note||''}" placeholder="หมายเหตุเพิ่มเติม">
     </div>
     <button class="btn btnP" style="width:100%;margin-top:6px"
@@ -3631,7 +3633,7 @@ async function loadWOBOM(){
           🏭 WIP: ${name} | ${batchKg}kg/batch | Yield ${yieldPct}%
         </div>
         <div class="tw"><table>
-          <thead><tr><th>รหัส</th><th>ชื่อ</th><th>qty/batch</th><th>มีอยู่</th><th>สถานะ</th></tr></thead>
+          <thead><tr><th>Code / รหัส</th><th>Name / ชื่อ</th><th>qty/batch</th><th>มีอยู่</th><th>Status / สถานะ</th></tr></thead>
           <tbody>${rows}</tbody>
         </table></div>`;
     }else{
@@ -3678,7 +3680,7 @@ async function loadWOBOM(){
           📦 FG: ${name} | ${batchKg}kg/batch | Yield ${yieldPct}%
         </div>
         <div class="tw"><table>
-          <thead><tr><th>รหัส</th><th>ชื่อ</th><th>qty/batch</th><th>มีอยู่</th><th>สถานะ</th></tr></thead>
+          <thead><tr><th>Code / รหัส</th><th>Name / ชื่อ</th><th>qty/batch</th><th>มีอยู่</th><th>Status / สถานะ</th></tr></thead>
           <tbody>${rows}</tbody>
         </table></div>`;
     }
@@ -3735,10 +3737,10 @@ async function runMRC(){
       <div class="tw" style="max-height:260px;overflow-y:auto">
       <table>
         <thead><tr style="position:sticky;top:0;background:var(--bg2)">
-          <th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_name">ชื่อ</th><th>Type</th>
+          <th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_name">Name / ชื่อ</th><th>Type</th>
           <th style="color:var(--amber)">ต้องการ (kg)</th>
           <th style="color:var(--green)">${_lang==="en"?"In Stock":"มีใน Stock"}</th>
-          <th data-i18n="col_status">สถานะ</th>
+          <th data-i18n="col_status">Status / สถานะ</th>
           <th style="color:var(--red)">${_lang==="en"?"Shortage":"ขาด"}</th>
           <th style="color:var(--green)">ราคา/หน่วย</th>
         </tr></thead>
@@ -3906,7 +3908,7 @@ function showMRCSummary(){
       <table style="width:100%;font-size:12px;border-collapse:collapse">
         <thead><tr style="background:rgba(239,68,68,.1)">
           <th style="padding:4px 8px;text-align:left">${pt('code')}</th>
-          <th style="padding:4px 8px;text-align:left">ชื่อ</th>
+          <th style="padding:4px 8px;text-align:left">Name / ชื่อ</th>
           <th style="padding:4px 8px;text-align:right">${pt('needed')}</th>
           <th style="padding:4px 8px;text-align:right">${pt('stock')}</th>
           <th style="padding:4px 8px;text-align:right;color:var(--red)">${pt('shortage')}</th>
@@ -3927,10 +3929,10 @@ function showMRCSummary(){
       <table style="width:100%;border-collapse:collapse">
         <thead><tr style="background:var(--bg2)">
           <th style="padding:4px 8px;text-align:left">${pt('code')}</th>
-          <th style="padding:4px 8px;text-align:left">ชื่อ</th>
+          <th style="padding:4px 8px;text-align:left">Name / ชื่อ</th>
           <th style="padding:4px 8px;text-align:right">ต้องการ (kg)</th>
           <th style="padding:4px 8px;text-align:right">Stock</th>
-          <th style="padding:4px 8px">สถานะ</th>
+          <th style="padding:4px 8px">Status / สถานะ</th>
         </tr></thead>
         <tbody>
           ${mrc.rows.map(r=>`<tr style="border-bottom:1px solid var(--border)">
@@ -3960,7 +3962,7 @@ function showPOSuggestion(){
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead><tr style="background:var(--bg2)">
-        <th style="padding:6px">รหัส RM</th><th style="padding:6px">ชื่อ</th>
+        <th style="padding:6px">รหัส RM</th><th style="padding:6px">Name / ชื่อ</th>
         <th style="padding:6px;text-align:right">ขาด (kg)</th>
         <th style="padding:6px;text-align:right">แนะนำสั่ง (+buffer 20%)</th>
       </tr></thead>
@@ -4031,8 +4033,8 @@ function pt(k){return (_lang==='en'?PT_EN:PT_TH)[k]||k;}
   </table>`:'<div style="color:#059669;font-weight:700;margin-bottom:12px">✅ Stock พอทุกรายการ</div>'}
   <div style="font-weight:700;margin-bottom:6px">📋 รายการวัตถุดิบทั้งหมด</div>
   <table>
-    <thead><tr><th>#</th><th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_name">ชื่อ</th><th>${pt('type')}</th>
-    <th>${pt('needed')}</th><th>Stock</th><th data-i18n="col_status">สถานะ</th></tr></thead>
+    <thead><tr><th>#</th><th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_name">Name / ชื่อ</th><th>${pt('type')}</th>
+    <th>${pt('needed')}</th><th>Stock</th><th data-i18n="col_status">Status / สถานะ</th></tr></thead>
     <tbody>
       ${mrc.rows.map((r,i)=>`<tr style="${r.ok?'':'background:#FEF2F2'}">
         <td style="text-align:center">${i+1}</td>
@@ -4316,7 +4318,7 @@ async function buildDocHTML(type,code,n,dt,machine,method,customBatchKg=0,lossPc
       <th style="text-align:right">น้ำหนัก/Batch</th>
       <th style="text-align:center">%</th>
       <th style="text-align:right;color:#1B5EC7">ชั่งจริง ✍️</th>
-      <th>หน่วย</th><th style="width:40px">Initial</th><th>Lot No.</th>
+      <th>Unit / หน่วย</th><th style="width:40px">Initial</th><th>Lot No.</th>
     </tr></thead>`;
 
   const _kgFn = (arr) => arr.reduce((s,r)=>{
@@ -4364,7 +4366,7 @@ async function buildDocHTML(type,code,n,dt,machine,method,customBatchKg=0,lossPc
           <th>#</th><th>รหัสวัสดุ</th><th>ชื่อวัตถุดิบ</th>
           <th style="text-align:right">น้ำหนัก/Batch</th>
           <th style="text-align:right;color:#9D174D">ชั่งจริง ✍️</th>
-          <th>หน่วย</th><th>Initial</th><th>Lot No.</th>
+          <th>Unit / หน่วย</th><th>Initial</th><th>Lot No.</th>
         </tr></thead>
         <tbody>${tblRows(fillItems,'#9D174D',0,'base')}</tbody>
         <tfoot><tr style="background:#FCE7F3;font-weight:700">
@@ -4381,7 +4383,7 @@ async function buildDocHTML(type,code,n,dt,machine,method,customBatchKg=0,lossPc
           <th>#</th><th>รหัสวัสดุ</th><th>ชื่อวัตถุดิบ</th>
           <th style="text-align:right">น้ำหนัก/Batch</th>
           <th style="text-align:right;color:#D97706">ชั่งจริง ✍️</th>
-          <th>หน่วย</th><th>Initial</th><th>Lot No.</th>
+          <th>Unit / หน่วย</th><th>Initial</th><th>Lot No.</th>
         </tr></thead>
         <tbody>${tblRows(coatItems,'#D97706',0,'base')}</tbody>
         <tfoot><tr style="background:#FEF3C7;font-weight:700">
@@ -4398,7 +4400,7 @@ async function buildDocHTML(type,code,n,dt,machine,method,customBatchKg=0,lossPc
           <th>#</th><th>รหัสวัสดุ</th><th>ชื่อวัตถุดิบ</th>
           <th style="text-align:right">น้ำหนัก/Batch</th>
           <th style="text-align:right;color:#059669">ชั่งจริง ✍️</th>
-          <th>หน่วย</th><th>Initial</th><th>Lot No.</th>
+          <th>Unit / หน่วย</th><th>Initial</th><th>Lot No.</th>
         </tr></thead>
         <tbody>${tblRows(crunchItems,'#059669',0,'base')}</tbody>
         <tfoot><tr style="background:#ECFDF5;font-weight:700">
@@ -4442,7 +4444,7 @@ async function buildDocHTML(type,code,n,dt,machine,method,customBatchKg=0,lossPc
 
   <div class="pdoc-info" style="grid-template-columns:1fr 1fr 1fr 1fr">
     <div class="pdoc-info-row" style="grid-template-columns:1fr 1fr 1fr 1fr">
-      <div class="pdoc-cell"><span class="pdoc-cell-lbl">รหัส</span><span style="font-family:monospace;color:#1B5EC7">${code}</span></div>
+      <div class="pdoc-cell"><span class="pdoc-cell-lbl">Code / รหัส</span><span style="font-family:monospace;color:#1B5EC7">${code}</span></div>
       <div class="pdoc-cell"><span class="pdoc-cell-lbl">ชื่อสินค้า / WIP</span><b>${name||code}</b></div>
       <div class="pdoc-cell" style="background:${n>1?'rgba(27,94,199,.08)':'inherit'}">
         <span class="pdoc-cell-lbl">Batch ที่ ${batchIdx+1}/${n} | ${batchKg} kg/batch</span>
@@ -4496,7 +4498,7 @@ async function buildDocHTML(type,code,n,dt,machine,method,customBatchKg=0,lossPc
       <th>#</th><th>รหัส PK</th><th>ชื่อบรรจุภัณฑ์</th>
       <th style="text-align:right">จำนวน/Batch</th><th style="text-align:center">%</th>
       <th style="text-align:right;color:#C2410C">นับจริง ✍️</th>
-      <th>หน่วย</th><th>Initial</th><th>หมายเหตุ</th>
+      <th>Unit / หน่วย</th><th>Initial</th><th>Note / หมายเหตุ</th>
     </tr></thead>
     <tbody>${tblRows(pk,'#C2410C',0,'pk')}</tbody>
   </table>`:''}
@@ -4665,7 +4667,7 @@ function renderMatTable(data){
         ${m.images&&m.images.filter(Boolean).length?`<button class="btn btnT sm" onclick="showMatImages(${m.id},'${m.code}')">🖼️</button>`:''}
       </td>
     </tr>`;
-  }).join(''):'<tr><td colspan="10" style="text-align:center;color:var(--text3)">ยังไม่มีข้อมูล</td></tr>';
+  }).join(''):'<tr><td colspan="10" style="text-align:center;color:var(--text3)">No data / ยังไม่มีข้อมูล</td></tr>';
 }
 
 function showAddMat(){
@@ -4679,9 +4681,9 @@ function matForm(m={}){
   return`
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
     <div class="fgrp"><label class="flbl">รหัส (RM-xxx หรือ PK-xxx)</label><input type="text" class="fc2" id="mf-code" value="${m.code||''}" placeholder="RM-PRO-WPC"></div>
-    <div class="fgrp"><label class="flbl">ชื่อวัสดุ</label><input type="text" class="fc2" id="mf-name" value="${m.name||''}"></div>
+    <div class="fgrp"><label class="flbl">Material Name / ชื่อวัสดุ</label><input type="text" class="fc2" id="mf-name" value="${m.name||''}"></div>
     <div class="fgrp"><label class="flbl">หมวดหมู่</label><input type="text" class="fc2" id="mf-cat" value="${m.category||''}" placeholder="Protein Source"></div>
-    <div class="fgrp"><label class="flbl">หน่วย</label>
+    <div class="fgrp"><label class="flbl">Unit / หน่วย</label>
       <select class="fc2" id="mf-unit">
         <option value="kg" ${(m.unit||'kg')==='kg'?'selected':''}>kg (กิโลกรัม)</option>
         <option value="g" ${m.unit==='g'?'selected':''}>g (กรัม)</option>
@@ -4693,12 +4695,12 @@ function matForm(m={}){
         <option value="Bag" ${m.unit==='Bag'?'selected':''}>Bag (ถุง)</option>
       </select>
     </div>
-    <div class="fgrp"><label class="flbl">ราคา/หน่วย (฿)</label><input type="number" class="fc2" id="mf-price" value="${m.price_per_unit||0}" step="0.01"></div>
+    <div class="fgrp"><label class="flbl">Price/Unit / ราคา (฿)</label><input type="number" class="fc2" id="mf-price" value="${m.price_per_unit||0}" step="0.01"></div>
     <div class="fgrp"><label class="flbl">Balance เปิด</label><input type="number" class="fc2" id="mf-bal" value="${m.balance_opening||0}" step="0.001"></div>
     <div class="fgrp"><label class="flbl">Stock Min</label><input type="number" class="fc2" id="mf-min" value="${m.stock_min||0}" step="0.001"></div>
     <div class="fgrp"><label class="flbl">EXP Date</label><input type="text" class="fc2" id="mf-exp" value="${m.exp_date||''}" placeholder="dd/mm/yyyy"></div>
     <div class="fgrp"><label class="flbl">Supplier</label><input type="text" class="fc2" id="mf-supp" value="${m.supplier||''}"></div>
-    <div class="fgrp"><label class="flbl"><span data-i18n="lbl_note">หมายเหตุ</span></label><input type="text" class="fc2" id="mf-note" value="${m.note||''}"></div>
+    <div class="fgrp"><label class="flbl"><span data-i18n="lbl_note">Note / หมายเหตุ</span></label><input type="text" class="fc2" id="mf-note" value="${m.note||''}"></div>
   </div>
   <div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px">
     <div style="font-size:12px;font-weight:700;margin-bottom:10px;color:var(--text2)">📸 รูปภาพวัตถุดิบ (สูงสุด 4 รูป)</div>
@@ -4858,7 +4860,7 @@ async function loadProdMgr(){
   try{_prodData=await sbG('master_product',{s:'sku,name_en,batch_kg,price_sell,fda_number,status'});renderProdTable();}catch(e){console.error(e);}
 }
 function renderProdTable(){
-  document.getElementById('prod-tb').innerHTML=_prodData.length?_prodData.map(p=>`<tr><td class="mn" style="font-size:10px">${p.sku}</td><td>${p.name_en||''}</td><td><span class="badge bb">${p.product_line||''}</span></td><td>${p.flavour||''}</td><td class="mn">${p.size_g||''}g</td><td class="mn">${p.batch_kg||''}kg</td><td class="mn">${p.price_sell?thb(p.price_sell):'—'}</td><td class="mn" style="color:var(--green);font-size:10px">${p.fda_number||''}</td><td>${badge(p.status||'Active')}</td><td style="white-space:nowrap"><button class="btn btnS sm" onclick="editProd('${p.sku}')">✏️</button><button class="btn btnD sm" onclick="delProd('${p.sku}')">🗑</button></td><td><button class="btn btnT sm" onclick="goBOM('${p.sku}')">BOM</button></td></tr>`).join(''):'<tr><td colspan="11" style="text-align:center;color:var(--text3)">ยังไม่มีข้อมูล</td></tr>';
+  document.getElementById('prod-tb').innerHTML=_prodData.length?_prodData.map(p=>`<tr><td class="mn" style="font-size:10px">${p.sku}</td><td>${p.name_en||''}</td><td><span class="badge bb">${p.product_line||''}</span></td><td>${p.flavour||''}</td><td class="mn">${p.size_g||''}g</td><td class="mn">${p.batch_kg||''}kg</td><td class="mn">${p.price_sell?thb(p.price_sell):'—'}</td><td class="mn" style="color:var(--green);font-size:10px">${p.fda_number||''}</td><td>${badge(p.status||'Active')}</td><td style="white-space:nowrap"><button class="btn btnS sm" onclick="editProd('${p.sku}')">✏️</button><button class="btn btnD sm" onclick="delProd('${p.sku}')">🗑</button></td><td><button class="btn btnT sm" onclick="goBOM('${p.sku}')">BOM</button></td></tr>`).join(''):'<tr><td colspan="11" style="text-align:center;color:var(--text3)">No data / ยังไม่มีข้อมูล</td></tr>';
 }
 async function goBOM(sku){
   // 1. ไปหน้า BOM
@@ -5089,10 +5091,10 @@ function showReceiveRM(code='',name=''){openMo('📥 รับวัตถุด
     </div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-    <div class="fgrp"><label class="flbl">รหัสวัสดุ *</label><input type="text" class="fc2" id="rcv-code" value="${code}" placeholder="RM-PRO-WPC หรือ PK-001"></div>
-    <div class="fgrp"><label class="flbl">ชื่อวัสดุ</label><input type="text" class="fc2" id="rcv-name" value="${name}" placeholder="ชื่อ..."></div>
-    <div class="fgrp"><label class="flbl">จำนวนที่รับ *</label><input type="number" class="fc2" id="rcv-qty" step="0.001" placeholder="0.000"></div>
-    <div class="fgrp"><label class="flbl">หน่วย *</label>
+    <div class="fgrp"><label class="flbl">Material Code / รหัสวัสดุ *</label><input type="text" class="fc2" id="rcv-code" value="${code}" placeholder="RM-PRO-WPC หรือ PK-001"></div>
+    <div class="fgrp"><label class="flbl">Material Name / ชื่อวัสดุ</label><input type="text" class="fc2" id="rcv-name" value="${name}" placeholder="ชื่อ..."></div>
+    <div class="fgrp"><label class="flbl">Qty Received / จำนวนที่รับ *</label><input type="number" class="fc2" id="rcv-qty" step="0.001" placeholder="0.000"></div>
+    <div class="fgrp"><label class="flbl">Unit / หน่วย *</label>
       <select class="fc2" id="rcv-unit">
         <option value="kg">kg (กิโลกรัม)</option>
         <option value="g">g (กรัม)</option>
@@ -5104,14 +5106,14 @@ function showReceiveRM(code='',name=''){openMo('📥 รับวัตถุด
         <option value="Bag">Bag (ถุง)</option>
       </select>
     </div>
-    <div class="fgrp"><label class="flbl">วันที่รับเข้า *</label><input type="date" class="fc2" id="rcv-date" value="${new Date().toISOString().slice(0,10)}"></div>
+    <div class="fgrp"><label class="flbl">Receive Date / วันที่รับเข้า *</label><input type="date" class="fc2" id="rcv-date" value="${new Date().toISOString().slice(0,10)}"></div>
     <div class="fgrp"><label class="flbl">Lot / Batch No.</label><input type="text" class="fc2" id="rcv-lot" placeholder="LOT-2568-xxx"></div>
     <div class="fgrp"><label class="flbl">PO No.</label><input type="text" class="fc2" id="rcv-po" placeholder="PO-2568-xxx"></div>
     <div class="fgrp"><label class="flbl">Supplier</label><input type="text" class="fc2" id="rcv-supp" placeholder="ชื่อ / รหัส Supplier"></div>
-    <div class="fgrp"><label class="flbl">ราคา/หน่วย (฿)</label><input type="number" class="fc2" id="rcv-price" value="0" step="0.01"></div>
+    <div class="fgrp"><label class="flbl">Price/Unit / ราคา (฿)</label><input type="number" class="fc2" id="rcv-price" value="0" step="0.01"></div>
     <div class="fgrp"><label class="flbl">EXP Date</label><input type="text" class="fc2" id="rcv-exp" placeholder="dd/mm/yyyy"></div>
   </div>
-  <div class="fgrp"><label class="flbl"><span data-i18n="lbl_note">หมายเหตุ</span></label><input type="text" class="fc2" id="rcv-note" placeholder="..."></div>
+  <div class="fgrp"><label class="flbl"><span data-i18n="lbl_note">Note / หมายเหตุ</span></label><input type="text" class="fc2" id="rcv-note" placeholder="..."></div>
   <div class="al ali" style="font-size:12px">📌 ระบบจะบันทึก Lot แยกตามวันที่รับ เพื่อใช้ระบบ FIFO (เบิกของเก่าออกก่อน)</div>
   <button class="btn btnG" style="width:100%;margin-top:8px" onclick="submitReceiveRM()">💾 บันทึกรับเข้า</button>
   <div id="rcv-msg" style="margin-top:8px"></div>`);}
@@ -5212,7 +5214,7 @@ function showIssueRM(code=''){openMo('📤 เบิกวัตถุดิบ 
     <div class="fgrp" style="flex:1"><label class="flbl">วันที่เบิก</label><input type="date" class="fc2" id="iss-date" value="${new Date().toISOString().slice(0,10)}"></div>
   </div>
   <div class="fgrp"><label class="flbl">Production Plan No.</label><input type="text" class="fc2" id="iss-pp" placeholder="PP-2568-xxx"></div>
-  <div class="fgrp"><label class="flbl"><span data-i18n="lbl_note">หมายเหตุ</span></label><input type="text" class="fc2" id="iss-note" placeholder="..."></div>
+  <div class="fgrp"><label class="flbl"><span data-i18n="lbl_note">Note / หมายเหตุ</span></label><input type="text" class="fc2" id="iss-note" placeholder="..."></div>
   <div class="al ali" style="font-size:12px">📌 ระบบจะเบิกจาก Lot ที่รับเข้ามาก่อนสุด (FIFO) โดยอัตโนมัติ</div>
   <button class="btn btnD" style="width:100%;margin-top:8px" onclick="submitIssueRM()">📤 ยืนยันเบิก (FIFO)</button>
   <div id="iss-msg" style="margin-top:8px"></div>`);
@@ -5235,7 +5237,7 @@ async function loadFIFOInfo(code){
     if(lots.length){
       html+=`<div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">📦 Lot คงเหลือ (เรียงตาม FIFO — เบิกจากบนสุดก่อน):</div>`;
       html+=`<div class="tw"><table>
-        <thead><tr><th>Lot No.</th><th>วันที่รับ</th><th data-i18n="col_balance">คงเหลือ</th><th data-i18n="col_unit">${pt('unit')}</th><th>EXP</th><th>Supplier</th></tr></thead>
+        <thead><tr><th>Lot No.</th><th>วันที่รับ</th><th data-i18n="col_balance">Balance / คงเหลือ</th><th data-i18n="col_unit">${pt('unit')}</th><th>EXP</th><th>Supplier</th></tr></thead>
         <tbody>${lots.map((l,i)=>`<tr style="${i===0?'background:#E8F5E9;font-weight:600':''}">
           <td class="mn">${i===0?'⭐ ':''} ${l.lot_no||'—'}</td>
           <td style="font-size:11px">${l.receive_date?new Date(l.receive_date).toLocaleDateString('th-TH'):'—'}</td>
@@ -5289,7 +5291,7 @@ async function submitIssueRM(){
 
 function showReceiveFG(){openMo('📥 รับ FG',`
   <div class="fgrp"><label class="flbl">SKU</label><input type="text" class="fc2" id="fgr-sku"></div>
-  <div class="fgrp"><label class="flbl">ชื่อ</label><input type="text" class="fc2" id="fgr-name"></div>
+  <div class="fgrp"><label class="flbl">Name / ชื่อ</label><input type="text" class="fc2" id="fgr-name"></div>
   <div class="fgrp"><label class="flbl">จำนวน (หน่วย)</label><input type="number" class="fc2" id="fgr-qty"></div>
   <button class="btn btnG" style="width:100%" onclick="submitReceiveFG()">💾 รับเข้า</button>
   <div id="fgr-msg" style="margin-top:8px"></div>`);}
@@ -5353,7 +5355,7 @@ async function showLotHistory(code,name){
         </div>
       </div>
       <div class="tw"><table>
-        <thead><tr><th>วันที่รับ</th><th>Lot No.</th><th data-i18n="col_recv">รับเข้า</th><th data-i18n="col_balance">คงเหลือ</th><th data-i18n="col_unit">${pt('unit')}</th><th>ราคา/หน่วย</th><th>EXP</th><th>PO No.</th><th>Supplier</th><th data-i18n="col_status">สถานะ</th></tr></thead>
+        <thead><tr><th>วันที่รับ</th><th>Lot No.</th><th data-i18n="col_recv">รับเข้า</th><th data-i18n="col_balance">Balance / คงเหลือ</th><th data-i18n="col_unit">${pt('unit')}</th><th>ราคา/หน่วย</th><th>EXP</th><th>PO No.</th><th>Supplier</th><th data-i18n="col_status">Status / สถานะ</th></tr></thead>
         <tbody>${lots.map(l=>`<tr style="${l.is_depleted?'opacity:.5':''}">
           <td style="font-size:12px">${l.receive_date?new Date(l.receive_date).toLocaleDateString('th-TH'):'—'}</td>
           <td class="mn" style="color:var(--teal)">${l.lot_no||'—'}</td>
@@ -5379,9 +5381,9 @@ function showCreateSO(){openMo('🛒 สร้าง SO',`
     <div class="fgrp"><label class="flbl">ลูกค้า</label><input type="text" class="fc2" id="so-cust"></div>
     <div class="fgrp"><label class="flbl">SKU</label><input type="text" class="fc2" id="so-sku"></div>
     <div class="fgrp"><label class="flbl">จำนวน</label><input type="number" class="fc2" id="so-qty"></div>
-    <div class="fgrp"><label class="flbl">ราคา/หน่วย (฿)</label><input type="number" class="fc2" id="so-price" step="0.01"></div>
+    <div class="fgrp"><label class="flbl">Price/Unit / ราคา (฿)</label><input type="number" class="fc2" id="so-price" step="0.01"></div>
   </div>
-  <div class="fgrp"><label class="flbl"><span data-i18n="lbl_note">หมายเหตุ</span></label><input type="text" class="fc2" id="so-note"></div>
+  <div class="fgrp"><label class="flbl"><span data-i18n="lbl_note">Note / หมายเหตุ</span></label><input type="text" class="fc2" id="so-note"></div>
   <button class="btn btnP" style="width:100%" onclick="submitCreateSO()">💾 สร้าง SO</button>
   <div id="so-msg" style="margin-top:8px"></div>`);}
 async function submitCreateSO(){
@@ -5442,7 +5444,7 @@ async function buildMasterPrintHTML(type){
     </tr>`;}).join('');
   } else if(type==='prod'){
     const d=await sbG('master_product',{s:'sku,name_en,batch_kg,price_sell,fda_number,status',ord:'sku.asc'});
-    headers='<tr><th>#</th><th>SKU</th><th>ชื่อสินค้า</th><th>Product Line</th><th>Flavour</th><th>ขนาด(g)</th><th>Batch(kg)</th><th>ราคาขาย</th><th>เลข FDA</th><th data-i18n="col_status">สถานะ</th></tr>';
+    headers='<tr><th>#</th><th>SKU</th><th>ชื่อสินค้า</th><th>Product Line</th><th>Flavour</th><th>ขนาด(g)</th><th>Batch(kg)</th><th>ราคาขาย</th><th>เลข FDA</th><th data-i18n="col_status">Status / สถานะ</th></tr>';
     rows=d.map((r,i)=>`<tr style="background:${i%2===0?'#fff':'#f9f9f9'}">
       <td style="text-align:center">${i+1}</td>
       <td style="font-family:monospace;font-size:8pt;color:#1B5EC7">${r.sku||''}</td>
@@ -5748,7 +5750,7 @@ async function loadOEEDashboard(){
         <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border)"><span>ผลิตจริง</span><span class="mn" style="color:var(--accent)">${fmt(totActual,0)}</span></div>
         <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border)"><span>ผ่าน QC (Good)</span><span class="mn" style="color:var(--green)">${fmt(totGood,0)}</span></div>
         <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border)"><span>Rework</span><span class="mn" style="color:var(--amber)">${fmt(totRework,0)}</span></div>
-        <div style="display:flex;justify-content:space-between;padding:5px 0"><span>Reject (ทิ้ง)</span><span class="mn" style="color:var(--red)">${fmt(totReject,0)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 0"><span>Reject / ทิ้ง</span><span class="mn" style="color:var(--red)">${fmt(totReject,0)}</span></div>
         <div style="background:var(--bg3);border-radius:6px;padding:8px;margin-top:8px;text-align:center">
           <div style="font-size:11px;color:var(--text3)">Yield โดยรวม</div>
           <div style="font-size:22px;font-weight:800;color:${totPlan>0&&(totActual/totPlan)*100>=90?'var(--green)':'var(--amber)'};">${totPlan>0?fmt((totActual/totPlan)*100,1):'—'}%</div>
@@ -5819,7 +5821,7 @@ async function loadMachines(){
         <button class="btn btnS sm" onclick="editMachine('${m.code}')">✏️</button>
         <button class="btn btnD sm" onclick="delMachine('${m.code}')">🗑</button>
       </td>
-    </tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px">ยังไม่มีข้อมูล</td></tr>';
+    </tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px">No data / ยังไม่มีข้อมูล</td></tr>';
   }catch(e){console.error(e);}
 }
 
@@ -5828,12 +5830,12 @@ function machineForm(m={}){return`
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
     <div class="fgrp"><label class="flbl">รหัสเครื่องจักร</label><input type="text" class="fc2" id="mf2-code" value="${m.code||''}" placeholder="MCH-MXR-01"></div>
     <div class="fgrp"><label class="flbl">ชื่อเครื่องจักร</label><input type="text" class="fc2" id="mf2-name" value="${m.name||''}"></div>
-    <div class="fgrp"><label class="flbl">ประเภท</label><input type="text" class="fc2" id="mf2-type" value="${m.type||''}" placeholder="Mixer/Enrober/Packaging"></div>
+    <div class="fgrp"><label class="flbl">Type / ประเภท</label><input type="text" class="fc2" id="mf2-type" value="${m.type||''}" placeholder="Mixer/Enrober/Packaging"></div>
     <div class="fgrp"><label class="flbl">Line</label><input type="text" class="fc2" id="mf2-line" value="${m.line||''}" placeholder="Line A"></div>
     <div class="fgrp"><label class="flbl">กำลังการผลิตมาตรฐาน/ชม.</label><input type="number" class="fc2" id="mf2-cap" value="${m.std_capacity_per_hr||0}"></div>
     <div class="fgrp"><label class="flbl">เวลาผลิตแผน/วัน (ชม.)</label><input type="number" class="fc2" id="mf2-uptime" value="${m.planned_uptime_hr||8}"></div>
   </div>
-  <div class="fgrp"><label class="flbl"><span data-i18n="lbl_note">หมายเหตุ</span></label><input type="text" class="fc2" id="mf2-note" value="${m.note||''}"></div>
+  <div class="fgrp"><label class="flbl"><span data-i18n="lbl_note">Note / หมายเหตุ</span></label><input type="text" class="fc2" id="mf2-note" value="${m.note||''}"></div>
   <button class="btn btnP" style="width:100%" onclick="saveMachine('${m.code||''}')">💾 Save</button>
   <div id="mf2-msg" style="margin-top:8px"></div>`;}
 async function saveMachine(oldCode){
@@ -5954,12 +5956,12 @@ function locForm(l={}){return`
     <div class="fgrp"><label class="flbl">ชื่อห้อง</label><input type="text" class="fc2" id="lf-rname" value="${l.room_name||''}" placeholder="ห้องวัตถุดิบแห้ง"></div>
     <div class="fgrp"><label class="flbl">ชั้นวาง (Rack)</label><input type="text" class="fc2" id="lf-rack" value="${l.rack_no||''}" placeholder="R01"></div>
     <div class="fgrp"><label class="flbl">ช่อง (Slot)</label><input type="text" class="fc2" id="lf-slot" value="${l.slot_no||''}" placeholder="S01"></div>
-    <div class="fgrp"><label class="flbl">ประเภท</label>
+    <div class="fgrp"><label class="flbl">Type / ประเภท</label>
       <select class="fc2" id="lf-cat"><option value="RM" ${l.category==='RM'?'selected':''}>🧱 RM & PK</option><option value="WIP" ${l.category==='WIP'?'selected':''}>🏭 WIP</option><option value="FG" ${l.category==='FG'?'selected':''}>📦 FG</option></select></div>
     <div class="fgrp"><label class="flbl">อุณหภูมิ</label>
       <select class="fc2" id="lf-temp"><option value="ambient">🌡️ ปกติ</option><option value="chilled" ${l.temp_control==='chilled'?'selected':''}>🧊 เย็น</option><option value="frozen" ${l.temp_control==='frozen'?'selected':''}>❄️ แช่แข็ง</option></select></div>
     <div class="fgrp"><label class="flbl">ความจุ (kg)</label><input type="number" class="fc2" id="lf-cap" value="${l.capacity_kg||0}"></div>
-    <div class="fgrp"><label class="flbl"><span data-i18n="lbl_note">หมายเหตุ</span></label><input type="text" class="fc2" id="lf-note" value="${l.note||''}"></div>
+    <div class="fgrp"><label class="flbl"><span data-i18n="lbl_note">Note / หมายเหตุ</span></label><input type="text" class="fc2" id="lf-note" value="${l.note||''}"></div>
   </div>
   <button class="btn btnP" style="width:100%" onclick="saveLoc(${l.id||0})">💾 Save</button>
   <div id="lf-msg" style="margin-top:8px"></div>`;}
@@ -5991,7 +5993,7 @@ async function showInvAssign(type){
   if(type==='RM')data=await sbG('stock_material',{s:'id,code,name,unit,location_code'});
   else if(type==='WIP')data=await sbG('wip_stock',{s:'id,code,name,location_code'});
   else data=await sbG('stock_product',{s:'id,sku,name,location_code'});
-  document.getElementById('assign-thead').innerHTML=`<tr><th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_name">ชื่อ</th><th>Location ปัจจุบัน</th><th>กำหนด Location</th></tr>`;
+  document.getElementById('assign-thead').innerHTML=`<tr><th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_name">Name / ชื่อ</th><th>Location ปัจจุบัน</th><th>กำหนด Location</th></tr>`;
   document.getElementById('assign-tb').innerHTML=data.map(d=>{
     const code=d.code||d.sku;
     return`<tr><td class="mn" style="color:var(--accent)">${code}</td><td>${d.name||''}</td>
@@ -6040,7 +6042,7 @@ async function previewInvCount(){
     if(type==='spot'){const sh=[...items].sort(()=>Math.random()-.5);items=sh.slice(0,Math.ceil(items.length*pct/100));}
     document.getElementById('inv-preview-cnt').textContent=items.length+' รายการ';
     document.getElementById('inv-preview-body').innerHTML=`<div class="tw"><table>
-      <thead><tr><th>#</th><th>Type</th><th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_name">ชื่อ</th><th>Location</th><th>ยอดระบบ</th><th data-i18n="col_unit">${pt('unit')}</th></tr></thead>
+      <thead><tr><th>#</th><th>Type</th><th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_name">Name / ชื่อ</th><th>Location</th><th>ยอดระบบ</th><th data-i18n="col_unit">${pt('unit')}</th></tr></thead>
       <tbody>${items.slice(0,20).map((r,i)=>`<tr><td>${i+1}</td><td>${r.type==='RM'?'<span class="badge bb">RM</span>':r.type==='WIP'?'<span class="badge bp">WIP</span>':'<span class="badge bg">FG</span>'}</td><td class="mn">${r.code}</td><td style="font-size:12px">${r.name||''}</td><td>${r.loc?`<span class="loc-badge">📍 ${r.loc}</span>`:'—'}</td><td class="mn">${fmt(r.sys_qty,3)}</td><td>${r.unit}</td></tr>`).join('')}
       ${items.length>20?`<tr><td colspan="7" style="text-align:center;color:var(--text3)">...อีก ${items.length-20} รายการ</td></tr>`:''}</tbody></table></div>`;
     document.getElementById('inv-preview-card').style.display='block';
@@ -6204,7 +6206,7 @@ async function buildInvPrintHTML(sessionNo){
   for(const[room,rLines] of Object.entries(groups)){
     html+=`<div style="background:#1B3A5C;color:white;padding:5px 10px;font-size:9pt;font-weight:800;margin-bottom:0">📍 ${room} — ${rLines.length} รายการ</div>
     <table class="ipd-table" style="margin-bottom:10px">
-      <thead><tr style="background:#EBF3FA"><th>#</th><th>Type</th><th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_name">ชื่อ</th><th>Lot</th><th data-i18n="col_unit">${pt('unit')}</th><th>ยอดระบบ</th><th style="background:#FFFDE7;width:65px">ครั้ง 1 ✍️</th><th style="background:#E8F5E9;width:65px">ครั้ง 2 ✍️</th><th style="width:55px">ส่วนต่าง</th><th>${pt('remark')}</th></tr></thead>
+      <thead><tr style="background:#EBF3FA"><th>#</th><th>Type</th><th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_name">Name / ชื่อ</th><th>Lot</th><th data-i18n="col_unit">${pt('unit')}</th><th>ยอดระบบ</th><th style="background:#FFFDE7;width:65px">ครั้ง 1 ✍️</th><th style="background:#E8F5E9;width:65px">ครั้ง 2 ✍️</th><th style="width:55px">ส่วนต่าง</th><th>${pt('remark')}</th></tr></thead>
       <tbody>
         ${rLines.map((l,i)=>`<tr style="background:${i%2===0?'#fff':'#f9f9f9'}">
           <td style="text-align:center">${i+1}</td>
@@ -7276,7 +7278,7 @@ async function hrLoadAttendance(){
         </div>
         <div class="tw"><table>
           <thead><tr>
-            <th>รหัส</th><th>ชื่อ-สกุล</th><th>แผนก</th>
+            <th>Code / รหัส</th><th>ชื่อ-สกุล</th><th>Dept. / แผนก</th>
             <th style="color:var(--green)">มา</th><th style="color:var(--amber)">สาย</th>
             <th style="color:var(--red)">ขาด</th><th style="color:var(--orange)">OT(ชม.)</th>
             <th>เวลารวม(ชม.)</th><th>Edit</th>
@@ -7364,8 +7366,8 @@ async function hrEditAtt(id){
       <div class="fgrp">
         <label class="flbl">📋 สถานะ</label>
         <select class="fc2" id="hrea-status">
-          <option value="present" ${d.status==='present'?'selected':''}>✅ มาทำงาน</option>
-          <option value="late" ${d.status==='late'?'selected':''}>⏰ มาสาย</option>
+          <option value="present" ${d.status==='present'?'selected':''}>✅ Present / มา</option>
+          <option value="late" ${d.status==='late'?'selected':''}>⏰ Late / สาย</option>
           <option value="absent" ${d.status==='absent'?'selected':''}>❌ ขาด</option>
           <option value="leave" ${d.status==='leave'?'selected':''}>🏖️ ลา</option>
           <option value="holiday" ${d.status==='holiday'?'selected':''}>🎌 วันหยุด</option>
@@ -7919,7 +7921,7 @@ async function hrLoadMonthly(){
         <div style="text-align:center;padding:8px 12px;background:rgba(194,65,12,.08);border-radius:6px"><div style="font-size:20px;font-weight:800;color:var(--orange)">${fmt(otHrs,1)}</div><div style="font-size:10px;color:var(--text3)">OT ชม.</div></div>
       </div></div>
       <div class="tw"><table>
-        <thead><tr><th>วันที่</th><th>วัน</th><th>เข้า</th><th>ออก</th><th>ชม.</th><th>${pt('late')}</th><th>OT(นาที)</th><th data-i18n="col_status">สถานะ</th></tr></thead>
+        <thead><tr><th>Date / วันที่</th><th>วัน</th><th>เข้า</th><th>ออก</th><th>ชม.</th><th>${pt('late')}</th><th>OT(นาที)</th><th data-i18n="col_status">Status / สถานะ</th></tr></thead>
         <tbody>${att.map(a=>`<tr><td>${hrDate(a.att_date)}</td><td>${hrDay(a.att_date)}</td><td class="mn">${hrTime(a.check_in)}</td><td class="mn">${hrTime(a.check_out)}</td><td class="mn">${a.actual_work_min?fmt(a.actual_work_min/60,1):'—'}</td><td class="mn" style="color:${a.late_min>0?'var(--amber)':'var(--text3)'}">${a.late_min||0}</td><td class="mn" style="color:${a.ot_min>0?'var(--orange)':'var(--text3)'}">${a.ot_min||0}</td><td>${hrStBadge(a.status)}</td></tr>`).join('')}
         <tr style="background:var(--bg3);font-weight:700"><td colspan="4" style="text-align:right">รวม:</td><td class="mn">${fmt(att.reduce((s,a)=>s+Number(a.actual_work_min||0),0)/60,1)} ชม.</td><td class="mn" style="color:var(--amber)">${att.reduce((s,a)=>s+Number(a.late_min||0),0)} นาที</td><td class="mn" style="color:var(--orange)">${att.reduce((s,a)=>s+Number(a.ot_min||0),0)} นาที</td><td></td></tr>
       </tbody></table></div>
@@ -7949,9 +7951,9 @@ async function hrLoadYearly(){
       <div class="tw"><table>
         <thead><tr><th>${pt('item')}</th>${months.map(m=>`<th style="text-align:center">${m}</th>`).join('')}<th>${pt('total')}</th></tr></thead>
         <tbody>
-          <tr><td>✅ มาทำงาน</td>${months.map((_,i)=>`<td class="mn" style="text-align:center">${att.filter(a=>['present','late'].includes(a.status)&&new Date(a.att_date).getMonth()===i).length}</td>`).join('')}<td class="mn" style="text-align:center;font-weight:700">${att.filter(a=>['present','late'].includes(a.status)).length}</td></tr>
-          <tr><td>⏰ มาสาย</td>${months.map((_,i)=>`<td class="mn" style="text-align:center;color:var(--amber)">${att.filter(a=>a.status==='late'&&new Date(a.att_date).getMonth()===i).length}</td>`).join('')}<td class="mn" style="color:var(--amber);text-align:center">${att.filter(a=>a.status==='late').length}</td></tr>
-          <tr><td>❌ ขาดงาน</td>${months.map((_,i)=>`<td class="mn" style="text-align:center;color:var(--red)">${att.filter(a=>a.status==='absent'&&new Date(a.att_date).getMonth()===i).length}</td>`).join('')}<td class="mn" style="color:var(--red);text-align:center">${att.filter(a=>a.status==='absent').length}</td></tr>
+          <tr><td>✅ Present / มา</td>${months.map((_,i)=>`<td class="mn" style="text-align:center">${att.filter(a=>['present','late'].includes(a.status)&&new Date(a.att_date).getMonth()===i).length}</td>`).join('')}<td class="mn" style="text-align:center;font-weight:700">${att.filter(a=>['present','late'].includes(a.status)).length}</td></tr>
+          <tr><td>⏰ Late / สาย</td>${months.map((_,i)=>`<td class="mn" style="text-align:center;color:var(--amber)">${att.filter(a=>a.status==='late'&&new Date(a.att_date).getMonth()===i).length}</td>`).join('')}<td class="mn" style="color:var(--amber);text-align:center">${att.filter(a=>a.status==='late').length}</td></tr>
+          <tr><td>❌ Absent / ขาด</td>${months.map((_,i)=>`<td class="mn" style="text-align:center;color:var(--red)">${att.filter(a=>a.status==='absent'&&new Date(a.att_date).getMonth()===i).length}</td>`).join('')}<td class="mn" style="color:var(--red);text-align:center">${att.filter(a=>a.status==='absent').length}</td></tr>
           <tr><td>🏖️ ลา</td>${months.map((_,i)=>`<td class="mn" style="text-align:center;color:var(--purple)">${att.filter(a=>a.status==='leave'&&new Date(a.att_date).getMonth()===i).length}</td>`).join('')}<td class="mn" style="color:var(--purple);text-align:center">${att.filter(a=>a.status==='leave').length}</td></tr>
         </tbody></table></div>
     </div>`;
@@ -8018,7 +8020,7 @@ function hrEmpForm(e={}){return`
     <div class="fgrp"><label class="flbl">ชื่อเล่น</label><input type="text" class="fc2" id="hef-nick" value="${e.nickname||''}"></div>
     <div class="fgrp"><label class="flbl">ชื่อ *</label><input type="text" class="fc2" id="hef-fn" value="${e.first_name||''}"></div>
     <div class="fgrp"><label class="flbl">นามสกุล *</label><input type="text" class="fc2" id="hef-ln" value="${e.last_name||''}"></div>
-    <div class="fgrp"><label class="flbl">แผนก</label><input type="text" class="fc2" id="hef-dept" value="${e.department||''}"></div>
+    <div class="fgrp"><label class="flbl">Dept. / แผนก</label><input type="text" class="fc2" id="hef-dept" value="${e.department||''}"></div>
     <div class="fgrp"><label class="flbl">ตำแหน่ง</label><input type="text" class="fc2" id="hef-pos" value="${e.position||''}"></div>
     <div class="fgrp"><label class="flbl">กะ</label>
       <select class="fc2" id="hef-shift"><option value="day" ${e.work_shift==='day'?'selected':''}>🌤️ เช้า</option><option value="night" ${e.work_shift==='night'?'selected':''}>🌙 ดึก</option><option value="split" ${e.work_shift==='split'?'selected':''}>🔄 กลาง</option></select>
@@ -8192,7 +8194,7 @@ async function hrLoadHolidays(){
   }catch(e){console.error(e);}
 }
 
-function showAddHRHoliday(){openMo('+ เพิ่มวันหยุด',hrHolForm());}
+function showAddHRHoliday(){openMo('+ Add Holiday / เพิ่มวันหยุด',hrHolForm());}
 function hrHolForm(h={}){
   const dayTypes=[
     {v:'tradition',   l:'🎌 วันหยุดประเพณี (ราชการ)'},
@@ -8204,7 +8206,7 @@ function hrHolForm(h={}){
   ];
   return`
   <div class="fgrp">
-    <label class="flbl">วันที่</label>
+    <label class="flbl">Date / วันที่</label>
     <input type="date" class="fc2" id="hhf-date" value="${h.holiday_date||''}">
   </div>
   <div class="fgrp">
@@ -8239,7 +8241,7 @@ function hrHolForm(h={}){
     </div>
   </div>
   <div class="fgrp">
-    <label class="flbl">หมายเหตุ</label>
+    <label class="flbl">Note / หมายเหตุ</label>
     <input type="text" class="fc2" id="hhf-note" value="${h.note||''}"
       placeholder="เพิ่มเติม...">
   </div>
@@ -8297,7 +8299,7 @@ ALTER TABLE holidays
   }
 }
 
-async function hrEditHoliday(id){const r=(await sbG('holidays',{f:[`id=eq.${id}`]}))[0];openMo('✏️ แก้ไขวันหยุด',hrHolForm(r));}
+async function hrEditHoliday(id){const r=(await sbG('holidays',{f:[`id=eq.${id}`]}))[0];openMo('✏️ Edit Holiday / แก้ไขวันหยุด',hrHolForm(r));}
 async function hrDelHoliday(id){if(!confirm('ลบวันหยุดนี้?'))return;await sbD('holidays',`id=eq.${id}`);hrLoadHolidays();}
 
 // ── init HR clock element ─────────────────────────────────
@@ -8595,7 +8597,7 @@ async function calcBOMScaledFromRows(rows, baseBatchKg, skuName){
     </div>
     <div class="tw"><table>
       <thead><tr>
-        <th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_name">ชื่อ</th>
+        <th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_name">Name / ชื่อ</th>
         <th style="text-align:right">%BOM</th>
         <th style="text-align:right">สูตร(kg)</th>
         <th style="text-align:right;background:rgba(27,122,62,.15)">ต้องใช้จริง(kg)</th>
@@ -8955,7 +8957,7 @@ function prodForm(p={}){
     <div class="fgrp"><label class="flbl">ราคาขาย (฿)</label><input type="number" class="fc2" id="pf-price" value="${p.price_sell||0}" step="0.01"></div>
     <div class="fgrp"><label class="flbl">เลขที่ อย. (FDA)</label><input type="text" class="fc2" id="pf-fda" value="${p.fda_number||''}"></div>
     <div class="fgrp"><label class="flbl">Yield %</label><input type="number" class="fc2" id="pf-yield" value="${p.yield_pct||95}" step="0.1"></div>
-    <div class="fgrp"><label class="flbl">สถานะ</label>
+    <div class="fgrp"><label class="flbl">Status / สถานะ</label>
       <select class="fc2" id="pf-status">
         <option value="Active" ${p.status!=='Inactive'?'selected':''}>Active</option>
         <option value="Inactive" ${p.status==='Inactive'?'selected':''}>Inactive</option>
@@ -9019,7 +9021,7 @@ function wipForm(w={}){
     <div class="fgrp"><label class="flbl">Yield %</label><input type="number" class="fc2" id="wf-yield" value="${w.yield_pct||95}" step="0.1"></div>
     <div class="fgrp"><label class="flbl">Shelf Life (วัน)</label><input type="number" class="fc2" id="wf-shelf" value="${w.shelf_life_days||0}"></div>
     <div class="fgrp"><label class="flbl">การเก็บรักษา</label><input type="text" class="fc2" id="wf-storage" value="${w.storage||''}" placeholder="อุณหภูมิห้อง"></div>
-    <div class="fgrp"><label class="flbl">สถานะ</label>
+    <div class="fgrp"><label class="flbl">Status / สถานะ</label>
       <select class="fc2" id="wf-status">
         <option value="Active" ${w.status!=='Inactive'?'selected':''}>Active</option>
         <option value="Inactive" ${w.status==='Inactive'?'selected':''}>Inactive</option>
@@ -9353,7 +9355,7 @@ function hrEditPayrollRow(empCode){
         <input type="number" class="fc2" id="pr-allow" value="${r.allowance||0}" step="100"></div>
       <div class="fgrp"><label class="flbl">หักอื่นๆ (฿)</label>
         <input type="number" class="fc2" id="pr-deduct" value="${r.other_deduct||0}" step="100"></div>
-      <div class="fgrp"><label class="flbl"><span data-i18n="lbl_note">หมายเหตุ</span></label>
+      <div class="fgrp"><label class="flbl"><span data-i18n="lbl_note">Note / หมายเหตุ</span></label>
         <input type="text" class="fc2" id="pr-note" value="${r.note||''}"></div>
     </div>
     <div style="background:var(--bg3);border-radius:8px;padding:12px;margin-top:8px;font-size:12px">
@@ -10190,7 +10192,7 @@ async function ppCalcAll(){
         <table>
           <thead><tr style="position:sticky;top:0;background:var(--bg2)">
             <th>#</th><th data-i18n="col_code">${pt('code')}</th><th>${pt('mat_name')}</th><th>${_lang==="en"?"Used In SKU":"ใช้ใน SKU"}</th>
-            <th>Type</th><th>${pt('needed')}</th><th>Stock</th><th data-i18n="col_status">สถานะ</th>
+            <th>Type</th><th>${pt('needed')}</th><th>Stock</th><th data-i18n="col_status">Status / สถานะ</th>
           </tr></thead>
           <tbody>
             ${rows.map((r,i)=>`<tr style="background:${r.ok?'':'rgba(239,68,68,.04)'}">
@@ -10557,7 +10559,7 @@ async function woReCalcSelected(){
         <div class="tw" style="max-height:250px;overflow-y:auto;margin-bottom:12px">
         <table>
           <thead><tr style="position:sticky;top:0;background:var(--bg2)">
-            <th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_name">ชื่อ</th>
+            <th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_name">Name / ชื่อ</th>
             <th>${_lang==="en"?"Used in WO":"ใช้ใน WO"}</th><th>Type</th>
             <th style="color:var(--amber)">${_lang==="en"?"Required":"ต้องการรวม"}</th>
             <th style="color:var(--green)">${_lang==="en"?"In Stock":"Stock คงเหลือ"}</th>
@@ -10597,8 +10599,8 @@ async function woReCalcSelected(){
         <div class="tw" style="max-height:300px;overflow-y:auto">
         <table>
           <thead><tr style="position:sticky;top:0;background:var(--bg2)">
-            <th>#</th><th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_name">ชื่อ</th><th>${_lang==="en"?"Used in WO":"ใช้ใน WO"}</th>
-            <th>Type</th><th>${_lang==="en"?"Required":"ต้องการรวม"}</th><th>Stock</th><th data-i18n="col_status">สถานะ</th>
+            <th>#</th><th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_name">Name / ชื่อ</th><th>${_lang==="en"?"Used in WO":"ใช้ใน WO"}</th>
+            <th>Type</th><th>${_lang==="en"?"Required":"ต้องการรวม"}</th><th>Stock</th><th data-i18n="col_status">Status / สถานะ</th>
           </tr></thead>
           <tbody>
             ${rows.map((r,i)=>`<tr style="background:${r.ok?'':'rgba(239,68,68,.04)'}">
@@ -10701,8 +10703,8 @@ function pt(k){return (_lang==='en'?PT_EN:PT_TH)[k]||k;}
   </table>`:'<div style="color:#059669;font-weight:700;margin-bottom:14px">✅ Stock พอสำหรับ WO ที่เลือกทั้งหมด</div>'}
   <b>${_lang==="en"?"All Materials":"รายการวัตถุดิบทั้งหมด"} (${rows.length})</b>
   <table style="margin-top:6px">
-    <thead><tr><th>#</th><th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_name">ชื่อ</th><th>Type</th>
-    <th>${_lang==="en"?"Required":"ต้องการรวม"}</th><th>Stock</th><th data-i18n="col_status">สถานะ</th></tr></thead>
+    <thead><tr><th>#</th><th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_name">Name / ชื่อ</th><th>Type</th>
+    <th>${_lang==="en"?"Required":"ต้องการรวม"}</th><th>Stock</th><th data-i18n="col_status">Status / สถานะ</th></tr></thead>
     <tbody>
       ${rows.map((r,i)=>`<tr style="${r.ok?'':'background:#FEF2F2'}">
         <td style="text-align:center">${i+1}</td>
@@ -10989,8 +10991,8 @@ function hrAddAttBackdate(){
       <div class="fgrp">
         <label class="flbl">📋 สถานะ</label>
         <select class="fc2" id="hrab-status">
-          <option value="present">✅ มาทำงาน</option>
-          <option value="late">⏰ มาสาย</option>
+          <option value="present">✅ Present / มา</option>
+          <option value="late">⏰ Late / สาย</option>
           <option value="absent">❌ ขาด</option>
           <option value="leave">🏖️ ลา</option>
           <option value="holiday">🎌 วันหยุด</option>
@@ -11382,7 +11384,7 @@ function hrEditDilRow(empCode){
       <div class="fgrp"><label class="flbl">เบี้ยขยัน (฿) — แก้ไขได้</label>
         <input type="number" class="fc2" id="dov-bonus" value="${r.bonusAmt}" step="100" min="0"></div>
     </div>
-    <div class="fgrp"><label class="flbl"><span data-i18n="lbl_note">หมายเหตุ</span></label>
+    <div class="fgrp"><label class="flbl"><span data-i18n="lbl_note">Note / หมายเหตุ</span></label>
       <input type="text" class="fc2" id="dov-note" value="${ov.note||r.note||''}"></div>
     <div style="display:flex;gap:8px;margin-top:8px">
       <button class="btn btnP" style="flex:1" onclick="hrSaveDilOverride('${empCode}')">💾 Save</button>
@@ -11496,7 +11498,7 @@ function newPO(){
       <div class="fgrp"><label class="flbl">วันที่สั่งซื้อ</label>
         <input type="date" class="fc2" id="po-date" value="${new Date().toISOString().slice(0,10)}">
       </div>
-      <div class="fgrp"><label class="flbl"><span data-i18n="lbl_due_date">กำหนดส่ง</span></label>
+      <div class="fgrp"><label class="flbl"><span data-i18n="lbl_due_date">Delivery Date / กำหนดส่ง</span></label>
         <input type="date" class="fc2" id="po-exp-date">
       </div>
       <div class="fgrp"><label class="flbl">อ้างอิง MRC/WO</label>
@@ -11510,7 +11512,7 @@ function newPO(){
     </div>
     <div id="po-grand-total" style="text-align:right;font-size:13px;font-weight:700;color:var(--navy);margin-bottom:6px;min-height:20px"></div>
     <button class="btn btnS sm" onclick="addPOItemRow()" style="margin-bottom:10px">+ เพิ่มรายการ</button>
-    <div class="fgrp"><label class="flbl"><span data-i18n="lbl_note">หมายเหตุ</span></label>
+    <div class="fgrp"><label class="flbl"><span data-i18n="lbl_note">Note / หมายเหตุ</span></label>
       <textarea class="fc2" id="po-note" rows="2" placeholder="..."></textarea>
     </div>
     <button class="btn btnP" style="width:100%" onclick="savePO('draft')">💾 บันทึก PO (Draft)</button>
@@ -11952,13 +11954,16 @@ function applyLang(){
   if(lbtn) lbtn.innerHTML=isEN?'🔑 Sign In':'🔑 เข้าสู่ระบบ';
   // page title/subtitle
   updatePageSubtitle();
+  // apply bilingual labels ถ้าเป็น EN
+  setTimeout(()=>{ if(_lang==='en') applyLabelTranslations(); }, 50);
 }
 
 function toggleLang(){
   _lang=_lang==='th'?'en':'th';
   localStorage.setItem('erp_lang',_lang);
+  if(_lang==='th') restoreLabels();
   applyLang();
-  // แปล page title ปัจจุบัน
+  if(_lang==='en') applyLabelTranslations();
   updatePageSubtitle();
 }
 
@@ -12796,7 +12801,7 @@ async function hrPrintAllAttSummary(){
     <div style="color:#555;margin-bottom:8px">เดือน: <b>${monthName}</b> | พนักงาน: <b>${Object.keys(byEmp).length} คน</b></div>
     <table>
       <thead><tr>
-        <th>รหัส</th><th>ชื่อ-สกุล</th><th>แผนก</th>
+        <th>Code / รหัส</th><th>ชื่อ-สกุล</th><th>Dept. / แผนก</th>
         <th>มาทำงาน</th><th>มาสาย</th><th>ขาดงาน</th><th>ลา</th>
         <th>OT (ชม.)</th><th>เวลารวม (ชม.)</th>
       </tr></thead>
@@ -12839,7 +12844,7 @@ async function hrLoadAdminOTReport(){
     </div>`;
     html+=`<div class="tw"><table>
       <thead><tr>
-        <th>รหัส</th><th>ชื่อ</th><th>แผนก</th>
+        <th>Code / รหัส</th><th>Name / ชื่อ</th><th>Dept. / แผนก</th>
         <th style="color:var(--orange)">ครั้ง</th>
         <th style="color:var(--orange)">OT รวม (ชม.)</th>
         <th style="color:var(--green)">อนุมัติ</th>
@@ -12875,7 +12880,7 @@ async function hrShowOTDetail(empCode, from, to){
   const emp=_hrEmps.find(e=>e.emp_code===empCode)||{};
   openMo(`OT: ${emp.first_name||''} ${emp.last_name||''} (${empCode})`,`
     <div class="tw"><table>
-      <thead><tr><th>วันที่</th><th>ประเภท</th><th>เวลา</th><th>ชม.</th><th>เหตุผล</th><th>สถานะ</th><th>Edit</th></tr></thead>
+      <thead><tr><th>Date / วันที่</th><th>Type / ประเภท</th><th>เวลา</th><th>ชม.</th><th>เหตุผล</th><th>Status / สถานะ</th><th>Edit</th></tr></thead>
       <tbody>${d.map(r=>`<tr>
         <td>${hrDate(r.ot_date)}</td>
         <td style="font-size:11px">${r.ot_type||''}</td>
@@ -12922,7 +12927,7 @@ async function hrPrintOTSummary(){
     <div class="np"><button onclick="window.print()" style="padding:8px 20px;background:#1B3A5C;color:white;border:none;border-radius:6px;cursor:pointer">🖨️ พิมพ์</button></div>
     ${logo?`<img src="${logo}" style="height:40px;margin-bottom:8px">`:``}
     <h2 style="color:#1B3A5C">รายงาน OT ประจำเดือน — ${monthName}</h2>
-    <table><thead><tr><th>รหัส</th><th>ชื่อ-สกุล</th><th>แผนก</th>
+    <table><thead><tr><th>Code / รหัส</th><th>ชื่อ-สกุล</th><th>Dept. / แผนก</th>
       <th>ครั้ง</th><th>OT รวม(ชม.)</th><th>อนุมัติ</th><th>รอ</th>
     </tr></thead><tbody>${rows}</tbody></table>
     <div style="margin-top:16px;font-size:9pt;color:#888">พิมพ์เมื่อ ${new Date().toLocaleString('th-TH')}</div>
@@ -13086,7 +13091,7 @@ function buildHolidayDoc(yr, hols, logo){
 ${tradition.length ? `
 <div class="sec-title" style="background:#1B3A5C">🎌 วันหยุดตามประเพณีและราชการ (${tradition.length} วัน)</div>
 <table>
-  <thead><tr><th>#</th><th>วันที่</th><th>วัน</th><th>ชื่อวันหยุด</th><th>ค่าจ้าง</th></tr></thead>
+  <thead><tr><th>#</th><th>Date / วันที่</th><th>วัน</th><th>ชื่อวันหยุด</th><th>ค่าจ้าง</th></tr></thead>
   <tbody>${makeRows(tradition,'#1B3A5C')}</tbody>
 </table>` : ''}
 
@@ -13094,7 +13099,7 @@ ${tradition.length ? `
 ${company.length ? `
 <div class="sec-title" style="background:#166534">🏭 วันหยุดบริษัท (${company.length} วัน)</div>
 <table>
-  <thead><tr><th>#</th><th>วันที่</th><th>วัน</th><th>ชื่อวันหยุด</th><th>ค่าจ้าง</th></tr></thead>
+  <thead><tr><th>#</th><th>Date / วันที่</th><th>วัน</th><th>ชื่อวันหยุด</th><th>ค่าจ้าง</th></tr></thead>
   <tbody>${makeRows(company,'#166534')}</tbody>
 </table>` : ''}
 
@@ -13102,7 +13107,7 @@ ${company.length ? `
 ${substit.length ? `
 <div class="sec-title" style="background:#92400E">🔄 วันหยุดชดเชย (${substit.length} วัน)</div>
 <table>
-  <thead><tr><th>#</th><th>วันที่</th><th>วัน</th><th>ชื่อวันหยุด</th><th>ค่าจ้าง</th></tr></thead>
+  <thead><tr><th>#</th><th>Date / วันที่</th><th>วัน</th><th>ชื่อวันหยุด</th><th>ค่าจ้าง</th></tr></thead>
   <tbody>${makeRows(substit,'#92400E')}</tbody>
 </table>` : ''}
 
@@ -13400,7 +13405,7 @@ function showCopyBOM(srcCode, srcType){
         <input type="text" class="fc2" id="cbom-dest-new" placeholder="เช่น FLCHOC006 หรือ WIP-NEW-01">
       </div>
       <div class="fgrp" style="width:90px">
-        <label class="flbl">ประเภท</label>
+        <label class="flbl">Type / ประเภท</label>
         <select class="fc2" id="cbom-dest-type"><option value="fg">FG</option><option value="wip">WIP</option></select>
       </div>
     </div>
@@ -13754,7 +13759,7 @@ async function loadRMMatrix(){
               <th style="position:sticky;left:0;z-index:3;background:var(--navy);color:white;
                 padding:6px 10px;min-width:100px">รหัสวัสดุ</th>
               <th style="position:sticky;left:100px;z-index:3;background:var(--navy);color:white;
-                padding:6px 10px;min-width:140px">ชื่อ</th>
+                padding:6px 10px;min-width:140px">Name / ชื่อ</th>
               <th style="background:var(--navy);color:white;padding:6px 8px;white-space:nowrap">Stock คงเหลือ</th>
               <th style="background:var(--navy);color:white;padding:6px 8px">รวมใช้ทั้งหมด</th>
               <th style="background:var(--navy);color:white;padding:6px 8px">คงเหลือ (หลังใช้)</th>
@@ -13891,7 +13896,7 @@ function printItemToOrder(){
     <table>
       <thead><tr>
         <th style="width:24px">#</th><th style="min-width:100px">รหัสวัสดุ</th><th>ชื่อวัตถุดิบ</th>
-        <th style="width:45px">หน่วย</th><th style="width:40px">ประเภท</th>
+        <th style="width:45px">Unit / หน่วย</th><th style="width:40px">Type / ประเภท</th>
         <th style="width:68px">ต้องการ</th><th style="width:68px">มีอยู่</th><th style="width:68px">ขาด</th>
         <th style="width:85px;background:#DC2626">Order Qty ✍️</th>
         <th style="width:78px">ราคา/หน่วย</th><th style="width:88px">ราคารวม</th>
@@ -14013,11 +14018,11 @@ async function _renderStockLots(code, type){
       <!-- Summary 3 boxes -->
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
         <div style="background:var(--bg3);border-radius:8px;padding:10px;text-align:center">
-          <div style="font-size:10px;color:var(--text3);margin-bottom:3px">รหัส</div>
+          <div style="font-size:10px;color:var(--text3);margin-bottom:3px">Code / รหัส</div>
           <div style="font-weight:800;font-family:monospace;font-size:12px;color:${type==='wip'?'var(--purple)':'var(--accent)'}">${code}</div>
         </div>
         <div style="background:var(--bg3);border-radius:8px;padding:10px;text-align:center">
-          <div style="font-size:10px;color:var(--text3);margin-bottom:3px">ชื่อ</div>
+          <div style="font-size:10px;color:var(--text3);margin-bottom:3px">Name / ชื่อ</div>
           <div style="font-weight:700;font-size:11px;line-height:1.3">${masterName}</div>
         </div>
         <div style="background:rgba(27,122,62,.1);border-radius:8px;padding:10px;text-align:center">
@@ -14055,9 +14060,9 @@ async function _renderStockLots(code, type){
             <th style="width:28px">#</th>
             <th>Lot No.</th>
             <th style="text-align:right">จำนวน (${stockUnit})</th>
-            <th>วันผลิต</th>
-            <th>วันหมดอายุ</th>
-            <th>สถานะ</th>
+            <th>Production Date / วันผลิต</th>
+            <th>Expiry / วันหมดอายุ</th>
+            <th>Status / สถานะ</th>
             <th style="width:40px"></th>
           </tr></thead>
           <tbody>${lotRows}</tbody>
@@ -14072,8 +14077,8 @@ async function _renderStockLots(code, type){
         <table>
           <thead><tr>
             <th style="width:100px">วันที่/เวลา</th>
-            <th style="width:80px">ผู้ทำรายการ</th>
-            <th style="width:70px">ประเภท</th>
+            <th style="width:80px">By / ผู้ทำ</th>
+            <th style="width:70px">Type / ประเภท</th>
             <th>รายละเอียด</th>
           </tr></thead>
           <tbody>${logRows}</tbody>
@@ -14109,7 +14114,7 @@ function addNewLot(code, type, stockUnit='kg'){
       </div>
     </div>
     <div class="fgrp">
-      <label class="flbl">สถานะ</label>
+      <label class="flbl">Status / สถานะ</label>
       <select class="fc2" id="nl-status">
         <option value="available">✅ available</option>
         <option value="quarantine">⚠️ quarantine</option>
@@ -14118,7 +14123,7 @@ function addNewLot(code, type, stockUnit='kg'){
       </select>
     </div>
     <div class="fgrp">
-      <label class="flbl">หมายเหตุ</label>
+      <label class="flbl">Note / หมายเหตุ</label>
       <input type="text" class="fc2" id="nl-note" placeholder="เช่น จาก WO-2026-001">
     </div>
     <button class="btn btnP" style="width:100%;margin-top:4px"
@@ -14225,7 +14230,7 @@ async function editLotRow(lotId, code, type){
       </div>
     </div>
     <div class="fgrp">
-      <label class="flbl">สถานะ</label>
+      <label class="flbl">Status / สถานะ</label>
       <select class="fc2" id="el-status">
         <option value="available"  ${r.status==='available'?'selected':''}>✅ available</option>
         <option value="quarantine" ${r.status==='quarantine'?'selected':''}>⚠️ quarantine</option>
@@ -14235,7 +14240,7 @@ async function editLotRow(lotId, code, type){
       </select>
     </div>
     <div class="fgrp">
-      <label class="flbl">หมายเหตุ</label>
+      <label class="flbl">Note / หมายเหตุ</label>
       <input type="text" class="fc2" id="el-note" value="${r.note||''}">
     </div>
     <div style="display:flex;gap:8px;margin-top:4px">
@@ -14354,9 +14359,9 @@ function renderMRCItemToOrder(shortage){
           <thead>
             <tr style="position:sticky;top:0;background:#FEE2E2">
               <th style="background:#DC2626;color:white">#</th>
-              <th style="background:#DC2626;color:white">รหัส</th>
+              <th style="background:#DC2626;color:white">Code / รหัส</th>
               <th style="background:#DC2626;color:white">ชื่อวัตถุดิบ</th>
-              <th style="background:#DC2626;color:white">ประเภท</th>
+              <th style="background:#DC2626;color:white">Type / ประเภท</th>
               <th style="background:#DC2626;color:white;text-align:right">ต้องการ</th>
               <th style="background:#DC2626;color:white;text-align:right">มีอยู่</th>
               <th style="background:#DC2626;color:white;text-align:right">ขาด</th>
@@ -14468,7 +14473,7 @@ function printWOItemToOrder(){
         <th style="width:24px">#</th>
         <th style="min-width:100px">รหัสวัสดุ</th>
         <th>ชื่อวัตถุดิบ</th>
-        <th style="width:40px">ประเภท</th>
+        <th style="width:40px">Type / ประเภท</th>
         <th style="width:70px">ต้องการ</th>
         <th style="width:70px">มีอยู่</th>
         <th style="width:70px">ขาด</th>
@@ -14608,12 +14613,12 @@ async function buildHolidayHTML(yr){
     <table>
       <thead><tr>
         <th style="width:28px">#</th>
-        <th style="min-width:110px">วันที่</th>
+        <th style="min-width:110px">Date / วันที่</th>
         <th style="width:60px">วัน</th>
         <th>ชื่อวันหยุด</th>
-        <th style="width:90px">ประเภท</th>
+        <th style="width:90px">Type / ประเภท</th>
         <th style="width:70px">ค่าจ้าง</th>
-        <th>หมายเหตุ</th>
+        <th>Note / หมายเหตุ</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
@@ -14723,7 +14728,7 @@ async function _renderProdSteps(skuCode, woId){
               placeholder="0" min="0" step="1">
           </div>
           <div class="fgrp" style="margin:0">
-            <label class="flbl">หมายเหตุ</label>
+            <label class="flbl">Note / หมายเหตุ</label>
             <input type="text" class="fc2" id="ns-note" placeholder="เพิ่มเติม">
           </div>
         </div>
@@ -14795,7 +14800,7 @@ async function editProdStep(stepId, skuCode, woId){
         <input type="number" class="fc2" id="es-min" value="${s.duration_min||0}" min="0">
       </div>
       <div class="fgrp" style="margin:0">
-        <label class="flbl">หมายเหตุ</label>
+        <label class="flbl">Note / หมายเหตุ</label>
         <input type="text" class="fc2" id="es-note" value="${s.note||''}">
       </div>
     </div>
@@ -14990,14 +14995,14 @@ async function hrLoadLeaveSummary(){
       <div class="tw" style="max-height:400px;overflow-y:auto">
         <table>
           <thead><tr>
-            <th>รหัส</th><th>ชื่อ-สกุล</th><th>แผนก</th><th>วันเริ่มงาน</th>
-            <th>สถานะ</th>
+            <th>Code / รหัส</th><th>ชื่อ-สกุล</th><th>Dept. / แผนก</th><th>วันเริ่มงาน</th>
+            <th>Status / สถานะ</th>
             <th style="text-align:right">สิทธิ์ได้</th>
             <th style="text-align:right;color:#fca5a5">ใช้ไป</th>
-            <th style="text-align:right;color:#86efac">คงเหลือ</th>
+            <th style="text-align:right;color:#86efac">Balance / คงเหลือ</th>
             <th style="text-align:right;color:#86efac">ป่วยเหลือ</th>
             <th style="text-align:right;color:#c4b5fd">กิจเหลือ</th>
-            <th>หมายเหตุ</th>
+            <th>Note / หมายเหตุ</th>
           </tr></thead>
           <tbody>${rows}</tbody>
         </table>
@@ -15125,11 +15130,11 @@ async function _renderRMLots(code, name, unit){
       <!-- Summary -->
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
         <div style="background:var(--bg3);border-radius:8px;padding:10px;text-align:center">
-          <div style="font-size:10px;color:var(--text3);margin-bottom:3px">รหัส</div>
+          <div style="font-size:10px;color:var(--text3);margin-bottom:3px">Code / รหัส</div>
           <div style="font-weight:800;font-family:monospace;font-size:12px;color:var(--accent)">${code}</div>
         </div>
         <div style="background:var(--bg3);border-radius:8px;padding:10px;text-align:center">
-          <div style="font-size:10px;color:var(--text3);margin-bottom:3px">ชื่อ</div>
+          <div style="font-size:10px;color:var(--text3);margin-bottom:3px">Name / ชื่อ</div>
           <div style="font-weight:700;font-size:11px;line-height:1.3">${name}</div>
         </div>
         <div style="background:rgba(27,122,62,.1);border-radius:8px;padding:10px;text-align:center">
@@ -15163,10 +15168,10 @@ async function _renderRMLots(code, name, unit){
             <th>Lot No.</th>
             <th style="text-align:right">จำนวน (${unit})</th>
             <th>วันรับเข้า</th>
-            <th>วันหมดอายุ</th>
+            <th>Expiry / วันหมดอายุ</th>
             <th>Supplier</th>
-            <th>สถานะ</th>
-            <th>หมายเหตุ</th>
+            <th>Status / สถานะ</th>
+            <th>Note / หมายเหตุ</th>
             <th style="width:60px"></th>
           </tr></thead>
           <tbody>${lotRows}</tbody>
@@ -15179,8 +15184,8 @@ async function _renderRMLots(code, name, unit){
         <table>
           <thead><tr>
             <th style="width:100px">วันที่/เวลา</th>
-            <th style="width:80px">ผู้ทำรายการ</th>
-            <th style="width:70px">ประเภท</th>
+            <th style="width:80px">By / ผู้ทำ</th>
+            <th style="width:70px">Type / ประเภท</th>
             <th>รายละเอียด</th>
           </tr></thead>
           <tbody>${logRows}</tbody>
@@ -15227,7 +15232,7 @@ function addRMLot(code, name, unit='kg'){
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="fgrp">
-          <label class="flbl">สถานะ</label>
+          <label class="flbl">Status / สถานะ</label>
           <select class="fc2" id="rl-status">
             <option value="available">✅ available</option>
             <option value="quarantine">⚠️ quarantine</option>
@@ -15236,7 +15241,7 @@ function addRMLot(code, name, unit='kg'){
           </select>
         </div>
         <div class="fgrp">
-          <label class="flbl">หมายเหตุ</label>
+          <label class="flbl">Note / หมายเหตุ</label>
           <input type="text" class="fc2" id="rl-note" placeholder="เช่น Invoice 2026-001">
         </div>
       </div>
@@ -15326,7 +15331,7 @@ async function editRMLot(lotId, code, unit){
         <input type="date" class="fc2" id="erl-exp" value="${r.exp_date||''}"></div>
       <div class="fgrp"><label class="flbl">🏭 Supplier</label>
         <input type="text" class="fc2" id="erl-supp" value="${r.supplier||''}"></div>
-      <div class="fgrp"><label class="flbl">สถานะ</label>
+      <div class="fgrp"><label class="flbl">Status / สถานะ</label>
         <select class="fc2" id="erl-status">
           <option value="available" ${r.status==='available'?'selected':''}>✅ available</option>
           <option value="quarantine" ${r.status==='quarantine'?'selected':''}>⚠️ quarantine</option>
@@ -15335,7 +15340,7 @@ async function editRMLot(lotId, code, unit){
           <option value="rejected" ${r.status==='rejected'?'selected':''}>🚫 rejected</option>
         </select></div>
     </div>
-    <div class="fgrp"><label class="flbl">หมายเหตุ</label>
+    <div class="fgrp"><label class="flbl">Note / หมายเหตุ</label>
       <input type="text" class="fc2" id="erl-note" value="${r.note||''}"></div>
     <div style="display:flex;gap:8px;margin-top:6px">
       <button class="btn btnP" style="flex:1" onclick="updateRMLot(${lotId},'${code}','${name}','${unit}')">💾 Save</button>
@@ -15531,17 +15536,17 @@ function oeeAddStation(){
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-bottom:6px">
       <div class="fgrp" style="margin:0">
-        <label class="flbl">Run Time (นาที)</label>
+        <label class="flbl">Run Time / เวลาเดิน (นาที)</label>
         <input type="number" class="fc2 oee-st-runtime" data-idx="${idx}"
           value="0" min="0" oninput="oeeCalcStationSummary()">
       </div>
       <div class="fgrp" style="margin:0">
-        <label class="flbl">Downtime (นาที)</label>
+        <label class="flbl">Downtime / หยุด (นาที)</label>
         <input type="number" class="fc2 oee-st-downtime" data-idx="${idx}"
           value="0" min="0" oninput="oeeCalcStationSummary()">
       </div>
       <div class="fgrp" style="margin:0">
-        <label class="flbl">Planned (นาที)</label>
+        <label class="flbl">Planned Time / แผน (นาที)</label>
         <input type="number" class="fc2 oee-st-planned" data-idx="${idx}"
           value="480" min="1" oninput="oeeCalcStationSummary()">
       </div>
@@ -15781,10 +15786,10 @@ async function pmLoadSchedule(){
       </div>
       <div class="tw" style="margin-bottom:12px"><table>
         <thead><tr>
-          <th>รหัส</th><th>ชื่ออุปกรณ์</th>
+          <th>Code / รหัส</th><th>ชื่ออุปกรณ์</th>
           <th style="text-align:center">กำหนด</th>
           <th>Tasks</th>
-          <th style="text-align:center">สถานะ</th>
+          <th style="text-align:center">Status / สถานะ</th>
           <th style="width:80px"></th>
         </tr></thead><tbody>`;
       catTasks.forEach(t=>{
@@ -15991,7 +15996,7 @@ async function pmLoadAssets(){
     </div>
     <div class="tw"><table>
       <thead><tr>
-        <th>รหัส</th><th>ชื่ออุปกรณ์</th><th>หมวดหมู่</th>
+        <th>Code / รหัส</th><th>ชื่ออุปกรณ์</th><th>หมวดหมู่</th>
         <th>ความถี่ PM</th><th>งานหลัก</th><th style="width:60px"></th>
       </tr></thead>
       <tbody>${rows}</tbody>
@@ -16025,7 +16030,7 @@ function pmOpenNewAsset(){
     </div>
     <div class="fgrp"><label class="flbl">Tasks (PM Tasks)</label>
       <textarea class="fc2" id="pma-tasks" rows="3" placeholder="เช่น ทำความสะอาด, ตรวจสอบ, เปลี่ยนอะไหล่..."></textarea></div>
-    <div class="fgrp"><label class="flbl">หมายเหตุ</label>
+    <div class="fgrp"><label class="flbl">Note / หมายเหตุ</label>
       <input type="text" class="fc2" id="pma-note" placeholder="เช่น ดูคู่มือ Page 12"></div>
     <button class="btn btnP" style="width:100%;margin-top:4px" onclick="pmSaveAsset()">💾 Save</button>
     <div id="pma-msg" style="margin-top:8px"></div>`);
@@ -16197,7 +16202,7 @@ function pmPrintForm(){
         <th>รายการตรวจสอบ</th>
         <th style="width:80px">ผลการตรวจ</th>
         <th style="width:100px">ค่าที่วัดได้</th>
-        <th>หมายเหตุ</th>
+        <th>Note / หมายเหตุ</th>
       </tr>
       <tr><td style="text-align:center">1</td><td>ทำความสะอาด / Cleaning</td><td></td><td></td><td></td></tr>
       <tr><td style="text-align:center">2</td><td>ตรวจสภาพทั่วไป / Visual Inspection</td><td></td><td></td><td></td></tr>
@@ -16608,11 +16613,11 @@ function wtAllDone(){
   </tr>`).join('');
   document.getElementById('wt4-table').innerHTML=`
     <div class="tw"><table>
-      <thead><tr><th>#</th><th>รหัส</th><th>ชื่อ</th>
+      <thead><tr><th>#</th><th>Code / รหัส</th><th>Name / ชื่อ</th>
         <th style="text-align:right">เป้าหมาย</th>
         <th style="text-align:right">ชั่งได้</th>
         <th style="text-align:right">ต่าง</th>
-        <th>สถานะ</th></tr></thead>
+        <th>Status / สถานะ</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>`;
 }
@@ -16679,8 +16684,8 @@ function wtPrintSummary(){
           <td style="background:#EBF3FA;font-weight:700">ผู้ชั่ง</td><td>${CU?.full_name||CU?.username}</td></tr>
     </table>
     <table>
-      <thead><tr><th>#</th><th>รหัส</th><th>ชื่อวัตถุดิบ</th><th>Section</th>
-        <th>เป้าหมาย(kg)</th><th>ชั่งได้(kg)</th><th>ต่าง(kg)</th><th>สถานะ</th>
+      <thead><tr><th>#</th><th>Code / รหัส</th><th>ชื่อวัตถุดิบ</th><th>Section</th>
+        <th>เป้าหมาย(kg)</th><th>ชั่งได้(kg)</th><th>ต่าง(kg)</th><th>Status / สถานะ</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
@@ -16953,9 +16958,9 @@ async function fcLoadDemand(){
         <th>SKU</th><th>ชื่อสินค้า</th>
         <th style="text-align:right">Forecast Qty</th>
         <th style="text-align:center">วันส่ง</th>
-        <th style="text-align:center">วันผลิต</th>
+        <th style="text-align:center">Production Date / วันผลิต</th>
         <th style="text-align:center">วันสั่ง RM</th>
-        <th>สถานะ</th><th>หมายเหตุ</th><th></th>
+        <th>Status / สถานะ</th><th>Note / หมายเหตุ</th><th></th>
       </tr></thead><tbody>
       ${_fcForecasts.map(f=>{
         const today=new Date();
@@ -17366,18 +17371,18 @@ async function fcEditForecast(id){
         <input type="number" class="fc2" id="fce-qty" value="${f.forecast_qty||0}"></div>
       <div class="fgrp"><label class="flbl">วันส่ง</label>
         <input type="date" class="fc2" id="fce-del" value="${f.delivery_date||''}"></div>
-      <div class="fgrp"><label class="flbl">วันผลิต</label>
+      <div class="fgrp"><label class="flbl">Production Date / วันผลิต</label>
         <input type="date" class="fc2" id="fce-prod" value="${f.prod_date||''}"></div>
       <div class="fgrp"><label class="flbl">วันสั่ง RM</label>
         <input type="date" class="fc2" id="fce-ord" value="${f.order_date||''}"></div>
-      <div class="fgrp"><label class="flbl">สถานะ</label>
+      <div class="fgrp"><label class="flbl">Status / สถานะ</label>
         <select class="fc2" id="fce-status">
           <option value="planned"  ${f.status==='planned'?'selected':''}>planned</option>
           <option value="confirmed"${f.status==='confirmed'?'selected':''}>confirmed</option>
           <option value="produced" ${f.status==='produced'?'selected':''}>produced</option>
           <option value="cancelled"${f.status==='cancelled'?'selected':''}>cancelled</option>
         </select></div>
-      <div class="fgrp"><label class="flbl">หมายเหตุ</label>
+      <div class="fgrp"><label class="flbl">Note / หมายเหตุ</label>
         <input type="text" class="fc2" id="fce-note" value="${f.note||''}"></div>
     </div>
     <button class="btn btnP" style="width:100%;margin-top:4px" onclick="fcUpdateForecast(${id})">💾 Save</button>
@@ -17965,7 +17970,7 @@ function wtPrintSummaryLabel(){
     </div>
     <table>
       <thead><tr>
-        <th>รหัสวัตถุดิบ</th><th>ชื่อ</th>
+        <th>รหัสวัตถุดิบ</th><th>Name / ชื่อ</th>
         <th style="text-align:right">เป้าหมาย (kg)</th>
         <th style="text-align:right">ชั่งได้ (kg)</th>
         <th style="text-align:center">ผล</th>
@@ -19005,7 +19010,7 @@ async function hrLoadDaily(){
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
         ${isHoliday ? `
           <div class="kpi" style="border-left:4px solid #2563EB">
-            <div class="kl">💰 OT / มาทำงาน</div>
+            <div class="kl">💰 OT / Worked</div>
             <div class="kv" style="color:#2563EB">${cntOT}</div>
             <div class="kd">${total?Math.round(cntOT/total*100):0}%</div>
           </div>
@@ -19015,33 +19020,33 @@ async function hrLoadDaily(){
             <div class="kd">ไม่ขาด</div>
           </div>
           <div class="kpi kg">
-            <div class="kl">⭐ ได้เบี้ยขยัน</div>
+            <div class="kl">⭐ Diligence Bonus</div>
             <div class="kv" style="color:#16a34a">${cntDiligent}</div>
             <div class="kd">${total?Math.round(cntDiligent/total*100):0}%</div>
           </div>
           <div class="kpi kb">
-            <div class="kl">📋 ลางาน</div>
+            <div class="kl">📋 On Leave / ลา</div>
             <div class="kv" style="color:#2563EB">${cntLeave}</div>
             <div class="kd">ไม่ขาด</div>
           </div>
         ` : `
           <div class="kpi kg">
-            <div class="kl">✅ มาทำงาน</div>
+            <div class="kl">✅ Present / มา</div>
             <div class="kv" style="color:#16a34a">${cntPresent}</div>
             <div class="kd">${presentPct}%</div>
           </div>
           <div class="kpi ka">
-            <div class="kl">⏰ มาสาย</div>
+            <div class="kl">⏰ Late / สาย</div>
             <div class="kv" style="color:#D97706">${cntLate}</div>
             <div class="kd">${total?Math.round(cntLate/total*100):0}%</div>
           </div>
           <div class="kpi kr">
-            <div class="kl">❌ ขาดงาน</div>
+            <div class="kl">❌ Absent / ขาด</div>
             <div class="kv" style="color:#DC2626">${cntAbsent}</div>
             <div class="kd">${absentPct}%</div>
           </div>
           <div class="kpi kb">
-            <div class="kl">📋 ลางาน</div>
+            <div class="kl">📋 On Leave / ลา</div>
             <div class="kv" style="color:#2563EB">${cntLeave}</div>
             <div class="kd">${total?Math.round(cntLeave/total*100):0}%</div>
           </div>
@@ -19060,15 +19065,15 @@ async function hrLoadDaily(){
       <div class="tw">
         <table>
           <thead><tr style="background:#1B3A5C">
-            <th style="color:white">รหัส</th>
-            <th style="color:white">ชื่อ</th>
-            <th style="color:white">แผนก</th>
-            <th style="color:white;text-align:center">สถานะ</th>
+            <th style="color:white">Code / รหัส</th>
+            <th style="color:white">Name / ชื่อ</th>
+            <th style="color:white">Dept. / แผนก</th>
+            <th style="color:white;text-align:center">Status / สถานะ</th>
             <th style="color:white;text-align:center">เข้า</th>
             <th style="color:white;text-align:center">ออก</th>
             <th style="color:white;text-align:right">ชม.</th>
             <th style="color:white;text-align:right">สาย(นาที)</th>
-            <th style="color:white">หมายเหตุ</th>
+            <th style="color:white">Note / หมายเหตุ</th>
           </tr></thead>
           <tbody>${rows}</tbody>
         </table>
@@ -19180,8 +19185,8 @@ async function hrLoadWeekly(){
       <div class="tw">
         <table>
           <thead><tr style="background:var(--navy)">
-            <th style="color:white">รหัส</th><th style="color:white">ชื่อ</th>
-            <th style="color:white">แผนก</th>
+            <th style="color:white">Code / รหัส</th><th style="color:white">Name / ชื่อ</th>
+            <th style="color:white">Dept. / แผนก</th>
             <th style="color:white;text-align:right">มา(วัน)</th>
             <th style="color:white;text-align:right">สาย</th>
             <th style="color:white;text-align:right">ขาด</th>
@@ -19293,8 +19298,8 @@ async function hrLoadMonthlyNew(){
       <div class="tw">
         <table>
           <thead><tr style="background:var(--navy)">
-            <th style="color:white">รหัส</th><th style="color:white">ชื่อ</th>
-            <th style="color:white">แผนก</th>
+            <th style="color:white">Code / รหัส</th><th style="color:white">Name / ชื่อ</th>
+            <th style="color:white">Dept. / แผนก</th>
             <th style="color:white;text-align:right">วันงาน</th>
             <th style="color:white;text-align:right">✅ มา</th>
             <th style="color:white;text-align:right">⏰ สาย</th>
@@ -19414,7 +19419,7 @@ async function hrLoadYearlyNew(){
             <th style="color:white;text-align:right">❌ ขาด</th>
             <th style="color:white;text-align:right">📋 ลา</th>
             <th style="color:white;text-align:right">%มา</th>
-            <th style="color:white">กราฟ</th>
+            <th style="color:white">Chart</th>
           </tr></thead>
           <tbody>
           ${monthSums.map(m=>`<tr>
@@ -19442,8 +19447,8 @@ async function hrLoadYearlyNew(){
       <div class="tw">
         <table>
           <thead><tr style="background:var(--navy)">
-            <th style="color:white">รหัส</th><th style="color:white">ชื่อ</th>
-            <th style="color:white">แผนก</th>
+            <th style="color:white">Code / รหัส</th><th style="color:white">Name / ชื่อ</th>
+            <th style="color:white">Dept. / แผนก</th>
             <th style="color:white;text-align:right">✅ มา</th>
             <th style="color:white;text-align:right">⏰ สาย</th>
             <th style="color:white;text-align:right">❌ ขาด</th>
@@ -20011,17 +20016,17 @@ function srBuildTable(txns){
     <div class="tw">
       <table>
         <thead><tr style="background:#1B3A5C">
-          <th style="color:white;width:90px">วันที่</th>
+          <th style="color:white;width:90px">Date / วันที่</th>
           <th style="color:white;width:50px">เวลา</th>
-          <th style="color:white;width:50px">ประเภท</th>
+          <th style="color:white;width:50px">Type / ประเภท</th>
           <th style="color:white">Transaction</th>
-          <th style="color:white">รหัส</th>
+          <th style="color:white">Code / รหัส</th>
           <th style="color:white">ชื่อ/รายละเอียด</th>
           <th style="color:white;text-align:right">จำนวน</th>
-          <th style="color:white;width:40px">หน่วย</th>
+          <th style="color:white;width:40px">Unit / หน่วย</th>
           <th style="color:white">Lot</th>
           <th style="color:white">Supplier/หมายเหตุ</th>
-          <th style="color:white">ผู้ทำรายการ</th>
+          <th style="color:white">By / ผู้ทำ</th>
         </tr></thead>
         <tbody>
         ${txns.map(t=>`<tr style="background:${typeColors[t.type]||'white'}20">
@@ -20180,12 +20185,12 @@ async function srLoadBalance(){
       <div class="tw">
         <table>
           <thead><tr style="background:#1B3A5C">
-            <th style="color:white">รหัส</th>
-            <th style="color:white">ชื่อ</th>
+            <th style="color:white">Code / รหัส</th>
+            <th style="color:white">Name / ชื่อ</th>
             <th style="color:white;text-align:right">Stock Min</th>
-            <th style="color:white;text-align:right">คงเหลือ</th>
-            <th style="color:white;text-align:right">หน่วย</th>
-            <th style="color:white;text-align:center">สถานะ</th>
+            <th style="color:white;text-align:right">Balance / คงเหลือ</th>
+            <th style="color:white;text-align:right">Unit / หน่วย</th>
+            <th style="color:white;text-align:center">Status / สถานะ</th>
           </tr></thead>
           <tbody>
           ${rows.map(r=>`<tr style="background:${r.balance<=0?'#FEF2F2':r.balance<=r.stockMin?'#FFFBEB':'white'}">
@@ -20278,6 +20283,177 @@ async function cleanupDupLotsRM(code, name, unit){
     window._cachedRM=null;
     showRMLots(code, name, unit);
   }catch(e){ alert('❌ '+e.message); }
+}
+
+
+// ════════════════════════════════════════════════════════════
+//  COMPREHENSIVE BILINGUAL LABELS
+// ════════════════════════════════════════════════════════════
+const LABELS_EN = {
+  'รหัสวัสดุ': 'Material Code',
+  'ชื่อวัสดุ': 'Material Name',
+  'รหัสสินค้า': 'Product Code',
+  'ชื่อสินค้า': 'Product Name',
+  'จำนวนที่รับ': 'Qty Received',
+  'จำนวน': 'Quantity',
+  'หน่วย': 'Unit',
+  'วันที่รับเข้า': 'Receive Date',
+  'วันที่ผลิต': 'Production Date',
+  'วันหมดอายุ': 'Expiry',
+  'วันที่': 'Date',
+  'หมายเหตุ': 'Note',
+  'ราคา/หน่วย': 'Price/Unit',
+  'ราคาต่อหน่วย': 'Price/Unit',
+  'Stock คงเหลือ': 'Stock Balance',
+  'Balance เปิด': 'Opening Balance',
+  'จำนวนรับ': 'Qty In',
+  'จำนวนเบิก': 'Qty Out',
+  'การเก็บรักษา': 'Storage',
+  'ขนาด': 'Size',
+  'ประเภท': 'Type',
+  'หมวดหมู่': 'Category',
+  'สถานะ': 'Status',
+  'แผนก': 'Department',
+  'ตำแหน่ง': 'Position',
+  'รหัสพนักงาน': 'Employee ID',
+  'ชื่อ-นามสกุล': 'Full Name',
+  'วันเข้างาน': 'Start Date',
+  'เงินเดือน': 'Salary',
+  'เวลาเข้างาน': 'Check-in',
+  'เวลาออกงาน': 'Check-out',
+  'ชั่วโมงทำงาน': 'Work Hours',
+  'นาทีสาย': 'Late (min)',
+  'ประเภทลา': 'Leave Type',
+  'วันลา': 'Leave Days',
+  'เหตุผล': 'Reason',
+  'เบี้ยเลี้ยง': 'Meal Allow.',
+  'รวมรายรับ': 'Gross Income',
+  'รวมรายหัก': 'Deductions',
+  'เงินสุทธิ': 'Net Pay',
+  'ประกันสังคม': 'Social Sec.',
+  'ภาษีหัก ณ ที่จ่าย': 'W/H Tax',
+  'เครื่องจักร': 'Machine',
+  'กะ': 'Shift',
+  'ชื่องาน': 'Task Name',
+  'ความถี่': 'Frequency',
+  'วันกำหนด': 'Sched. Date',
+  'วันทำจริง': 'Actual Date',
+  'ลูกค้า': 'Customer',
+  'เลขที่ใบสั่ง': 'Order No.',
+  'ราคารวม': 'Total Price',
+  'ส่วนลด': 'Discount',
+  'ตำแหน่งที่เก็บ': 'Location',
+  'จำนวนนับ': 'Count Qty',
+  'ผู้นับ': 'Counter',
+  'ผลต่าง': 'Variance',
+  'จำนวน Batch': 'No. of Batches',
+  'น้ำหนัก Batch (kg)': 'Batch Weight (kg)',
+  'Lot No. / รุ่นผลิต': 'Lot No. / Batch',
+  'วันที่วางแผน': 'Planned Date',
+  'กำหนดส่ง': 'Due Date',
+  'ผู้รับผิดชอบ': 'Responsible',
+  'น้ำหนักรวม (kg)': 'Total Weight (kg)',
+  'SKU สินค้า': 'Product SKU',
+  'Section / ส่วนผสม': 'Section / Ingredient',
+  '% ของ Batch': '% of Batch',
+  'กำลังการผลิต/ชม.': 'Capacity/hr',
+  'วันที่เริ่ม': 'Start Date',
+  'วันที่สิ้นสุด': 'End Date',
+  'ผู้ทำรายการ': 'Processed By',
+  'วันที่บันทึก': 'Record Date',
+  'ค้นหา': 'Search',
+  'กรองข้อมูล': 'Filter',
+  'รีเซ็ต': 'Reset',
+  'รหัส': 'Code',
+  'ชื่อ': 'Name',
+  'เลือก Work Order': 'Select Work Order',
+  'เป้าหมาย': 'Target',
+  'ชั่งได้': 'Weighed',
+  'น้ำหนักต่อชิ้น': 'Weight/Piece',
+  'จำนวนชิ้น (pcs)': 'Qty (pcs)',
+  'ราคาขาย/ชิ้น': 'Sale Price/Piece',
+  'รหัสวัตถุดิบ': 'Material Code',
+  'ชื่อวัตถุดิบ': 'Material Name',
+  'รหัส Lot': 'Lot No.',
+  'วันรับเข้า': 'Receive Date',
+  'วันผลิต': 'Prod. Date',
+  'จำนวน (kg)': 'Qty (kg)',
+  'จำนวน (pcs)': 'Qty (pcs)',
+  'คงเหลือ': 'Balance',
+  'Stock Min': 'Min Stock',
+  'ราคา/หน่วย (฿)': 'Price/Unit (฿)',
+  'EXP Date': 'EXP Date',
+  'PO No.': 'PO No.',
+  'กราฟ': 'Chart',
+  '%มา': 'Attend%',
+  '%มาทั้งปี': 'Annual Attend%',
+  'มา(วัน)': 'Attend (days)',
+  'สาย': 'Late',
+  'ขาด': 'Absent',
+  'ลา': 'Leave',
+  'ชม.รวม': 'Total Hrs',
+  'สายรวม(นาที)': 'Late Total (min)',
+  'ตรวจสอบ': 'Inspect',
+  'พิมพ์สติกเกอร์': 'Print Sticker',
+  'เลือกทั้งหมด': 'Select All',
+  'กรอก Lot No. เอง (ถ้าไม่มีในรายการ)': 'Enter Lot No. Manually',
+};
+
+const LABELS_TH_ORIG = {}; // cache ค่าเดิม
+
+function applyLabelTranslations(){
+  if(_lang!=='en') return;
+  const sel='.flbl,.ct,.kl,.ch2 .ct,.card > .ct,th[class],th:not([class]),.ftab,label.flbl';
+  document.querySelectorAll(sel).forEach(el=>{
+    if(el.hasAttribute('data-th-done')) return;
+    const txt=(el.textContent||'').trim();
+    if(!txt||txt.length<2) return;
+    // direct match
+    const en=LABELS_EN[txt];
+    if(en){
+      LABELS_TH_ORIG[el] = txt;
+      el.setAttribute('data-th-done','1');
+      el.setAttribute('data-th-orig', txt);
+      el.textContent = en;
+      return;
+    }
+    // partial match (label ที่มี * หรือ () ต่อท้าย)
+    for(const [th,en2] of Object.entries(LABELS_EN)){
+      if(th.length<3) continue;
+      if(txt.startsWith(th) && txt.length <= th.length+5){
+        el.setAttribute('data-th-done','1');
+        el.setAttribute('data-th-orig', txt);
+        el.textContent = txt.replace(th, en2);
+        return;
+      }
+    }
+  });
+  // แปล placeholder ด้วย
+  document.querySelectorAll('input[placeholder],textarea[placeholder]').forEach(el=>{
+    const ph=el.getAttribute('placeholder')||'';
+    if(el.hasAttribute('data-ph-done')) return;
+    for(const [th,en3] of Object.entries(LABELS_EN)){
+      if(ph.includes(th)){
+        el.setAttribute('data-ph-done','1');
+        el.setAttribute('data-ph-orig',ph);
+        el.setAttribute('placeholder', ph.replace(th,en3));
+        return;
+      }
+    }
+  });
+}
+
+function restoreLabels(){
+  document.querySelectorAll('[data-th-done]').forEach(el=>{
+    el.textContent = el.getAttribute('data-th-orig')||el.textContent;
+    el.removeAttribute('data-th-done');
+    el.removeAttribute('data-th-orig');
+  });
+  document.querySelectorAll('[data-ph-done]').forEach(el=>{
+    el.setAttribute('placeholder', el.getAttribute('data-ph-orig')||'');
+    el.removeAttribute('data-ph-done');
+    el.removeAttribute('data-ph-orig');
+  });
 }
 
 // ════════════════════════════════════════════════════════════
