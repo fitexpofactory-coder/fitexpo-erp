@@ -6566,12 +6566,16 @@ async function finalizeProduction(woId, ppNo){
           + เพิ่ม SKU
         </button>
         <div style="background:var(--bg3);border-radius:6px;padding:8px;font-size:12px">
+          <div id="fp-total-pcs-label"
+            style="display:none;font-weight:700;color:#1B5EC7;font-size:13px;margin-bottom:6px;
+              padding:6px;background:#dbeafe;border-radius:4px">
+          </div>
           <div style="display:flex;justify-content:space-between">
-            <span>น้ำหนักใช้ไปรวม:</span>
+            <span>⚖️ น้ำหนักรวมใช้ไป:</span>
             <b id="fp-used-kg" style="color:var(--accent)">0 kg</b>
           </div>
           <div style="display:flex;justify-content:space-between">
-            <span>คงเหลือ (เศษ/Loss):</span>
+            <span>🗑️ เศษ/Loss:</span>
             <b id="fp-remain-kg" style="color:var(--text3)">— kg</b>
           </div>
         </div>
@@ -6605,10 +6609,13 @@ function fpTogglePackMode(){
   document.getElementById('fp-jar-mode').style.display=(mode==='jars'||mode==='pcs')?'':'none';
   const title=document.getElementById('fp-jar-title');
   if(title) title.textContent=mode==='pcs'?'🔢 บรรจุเป็นชิ้น (pcs)':'🫙 แบ่งบรรจุ (kg)';
-  // เปลี่ยน label จำนวนกระปุก
-  document.querySelectorAll('.fp-jars-label').forEach(el=>{
-    el.textContent=mode==='pcs'?'จำนวนชิ้น *':'จำนวนกระปุก *';
-  });
+  // เมื่อ switch mode → ล้าง rows แล้วเพิ่มใหม่ (weight options ต้องตรงกับ mode)
+  const rows=document.getElementById('fp-sku-rows');
+  if(rows && rows.children.length>0){
+    rows.innerHTML='';
+    _fpRowIdx=0;
+    fpAddSKURow();
+  }
   fpCalcTotal();
 }
 
@@ -6625,9 +6632,33 @@ let _fpRowIdx=0;
 window._fpSaving=false;
 function fpAddSKURow(){
   const c=document.getElementById('fp-sku-rows');
-  if(!c)return;
+  if(!c) return;
   const idx=++_fpRowIdx;
   const prods=window._fpProds||[];
+  const mode=document.getElementById('fp-pack-mode')?.value||'jars';
+  const isPcs = mode==='pcs';
+
+  // weight options ตาม mode
+  const kgOpts=`
+    <option value="500">500g</option>
+    <option value="1000">1,000g (1kg)</option>
+    <option value="1500">1,500g (1.5kg)</option>
+    <option value="2000">2,000g (2kg)</option>
+    <option value="3000">3,000g (3kg)</option>
+    <option value="5000">5,000g (5kg)</option>
+    <option value="custom">กำหนดเอง...</option>`;
+
+  const pcsOpts=`
+    <option value="20">20g/ชิ้น</option>
+    <option value="25">25g/ชิ้น</option>
+    <option value="30">30g/ชิ้น</option>
+    <option value="40">40g/ชิ้น</option>
+    <option value="50">50g/ชิ้น</option>
+    <option value="60">60g/ชิ้น</option>
+    <option value="180">180g/ชิ้น</option>
+    <option value="907">907g/ชิ้น</option>
+    <option value="custom">กำหนดเอง (g)...</option>`;
+
   const row=document.createElement('div');
   row.dataset.idx=idx;
   row.style.cssText='border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;background:white';
@@ -6646,54 +6677,68 @@ function fpAddSKURow(){
         </select>
       </div>
       <div class="fgrp" style="margin:0">
-        <label class="flbl">น้ำหนักต่อกระปุก (g)</label>
+        <label class="flbl">${isPcs?'⚖️ น้ำหนักต่อชิ้น':'น้ำหนักต่อกระปุก (g)'}</label>
         <select class="fc2 fp-weight-sel" data-idx="${idx}" style="font-size:12px"
-          onchange="fpCalcJarTotal()">
-          <option value="500">500g</option>
-          <option value="1000">1,000g (1kg)</option>
-          <option value="1500">1,500g (1.5kg)</option>
-          <option value="2000">2,000g (2kg)</option>
-          <option value="3000">3,000g (3kg)</option>
-          <option value="5000">5,000g (5kg)</option>
-          <option value="custom">กำหนดเอง...</option>
+          onchange="fpOnWeightChange(${idx})">
+          ${isPcs?pcsOpts:kgOpts}
         </select>
       </div>
     </div>
+
+    <!-- custom weight input -->
     <div id="fp-custom-weight-${idx}" style="display:none;margin-bottom:8px">
       <div class="fgrp" style="margin:0">
-        <label class="flbl">น้ำหนักต่อกระปุก กำหนดเอง (g)</label>
+        <label class="flbl">น้ำหนัก กำหนดเอง (g)</label>
         <input type="number" class="fc2 fp-custom-g" data-idx="${idx}"
-          placeholder="เช่น 750" min="1" step="1" oninput="fpCalcJarTotal()">
+          placeholder="เช่น ${isPcs?'35':'750'}" min="1" step="${isPcs?'1':'10'}"
+          oninput="fpCalcJarTotal()">
       </div>
     </div>
+
+    <!-- qty + calc -->
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
       <div class="fgrp" style="margin:0">
-        <label class="flbl fp-jars-label">จำนวนกระปุก *</label>
+        <label class="flbl fp-jars-label">${isPcs?'จำนวนชิ้น (pcs) *':'จำนวนกระปุก *'}</label>
         <input type="number" class="fc2 fp-jars" data-idx="${idx}"
-          placeholder="0" min="0" step="1" oninput="fpCalcJarTotal()">
+          placeholder="0" min="0" step="${isPcs?'1':'1'}"
+          oninput="fpCalcJarTotal()">
       </div>
       <div class="fgrp" style="margin:0">
-        <label class="flbl">น้ำหนักรวม (kg)</label>
+        <label class="flbl">⚖️ น้ำหนักรวม (kg)</label>
         <input type="number" class="fc2 fp-kg-used" data-idx="${idx}"
           placeholder="คำนวณอัตโนมัติ" readonly
           style="background:var(--bg3);color:var(--navy);font-weight:700">
       </div>
       <div class="fgrp" style="margin:0">
-        <label class="flbl">ราคาขาย/กระปุก (฿)</label>
+        <label class="flbl">ราคาขาย/${isPcs?'ชิ้น':'กระปุก'} (฿)</label>
         <input type="number" class="fc2 fp-price" data-idx="${idx}"
           placeholder="0" min="0" step="1">
       </div>
-    </div>`;
+    </div>
+
+    ${isPcs?`
+    <div style="margin-top:6px;padding:6px 8px;background:#dbeafe;border-radius:6px;
+      font-size:11px;color:#1e40af;display:flex;gap:12px;flex-wrap:wrap" id="fp-pcs-info-${idx}">
+      <span>📦 จำนวน: <b id="fp-pcs-qty-${idx}">0</b> ชิ้น</span>
+      <span>⚖️ น้ำหนัก/ชิ้น: <b id="fp-pcs-wg-${idx}">—</b></span>
+      <span>🏋️ น้ำหนักรวม: <b id="fp-pcs-total-${idx}" style="color:#16a34a">0 kg</b></span>
+    </div>`:''}
+  `;
   c.appendChild(row);
 
-  // bind weight select
   const wSel=row.querySelector('.fp-weight-sel');
   if(wSel) wSel.addEventListener('change',function(){
-    const customDiv=document.getElementById(`fp-custom-weight-${idx}`);
-    if(customDiv) customDiv.style.display=this.value==='custom'?'':'none';
-    fpCalcJarTotal();
+    fpOnWeightChange(idx);
   });
 }
+
+function fpOnWeightChange(idx){
+  const sel=document.querySelector(`.fp-weight-sel[data-idx="${idx}"]`)?.value;
+  const customDiv=document.getElementById(`fp-custom-weight-${idx}`);
+  if(customDiv) customDiv.style.display=sel==='custom'?'':'none';
+  fpCalcJarTotal();
+}
+
 
 function fpGetWeightG(idx){
   const sel=document.querySelector(`.fp-weight-sel[data-idx="${idx}"]`)?.value;
@@ -6704,27 +6749,50 @@ function fpGetWeightG(idx){
 }
 
 function fpCalcJarTotal(){
-  const actualKg=parseFloat(document.getElementById('fp-actual-kg')?.value)||0;
-  let usedKg=0;
-  document.querySelectorAll('[data-idx]').forEach(row=>{
-    const idx=row.dataset.idx;
-    if(!idx)return;
-    const jars=parseFloat(document.querySelector(`.fp-jars[data-idx="${idx}"]`)?.value)||0;
-    const weightG=fpGetWeightG(idx);
-    const kgUsed=jars*weightG/1000;
-    const kgEl=document.querySelector(`.fp-kg-used[data-idx="${idx}"]`);
-    if(kgEl) kgEl.value=fmt(kgUsed,3);
-    usedKg+=kgUsed;
+  const mode=document.getElementById('fp-pack-mode')?.value||'jars';
+  const isPcs=mode==='pcs';
+  const rows=document.querySelectorAll('#fp-sku-rows [data-idx]');
+  let totalKg=0;
+  rows.forEach(row=>{
+    const i=row.dataset.idx;
+    const jars=parseInt(document.querySelector(`.fp-jars[data-idx="${i}"]`)?.value)||0;
+    const weightG=fpGetWeightG(i);
+    const kgUsed=parseFloat((jars*weightG/1000).toFixed(4));
+    // update fp-kg-used
+    const kgEl=document.querySelector(`.fp-kg-used[data-idx="${i}"]`);
+    if(kgEl) kgEl.value=kgUsed||'';
+    totalKg+=kgUsed;
+    // update pcs info panel (pcs mode)
+    if(isPcs){
+      const qtyEl=document.getElementById(`fp-pcs-qty-${i}`);
+      const wgEl=document.getElementById(`fp-pcs-wg-${i}`);
+      const totalEl=document.getElementById(`fp-pcs-total-${i}`);
+      if(qtyEl) qtyEl.textContent=jars.toLocaleString();
+      if(wgEl)  wgEl.textContent=weightG?weightG+'g':'—';
+      if(totalEl) totalEl.textContent=fmt(kgUsed,3)+' kg';
+    }
   });
+  // อัปเดต summary
+  const actualKg=parseFloat(document.getElementById('fp-actual-kg')?.value)||0;
   const usedEl=document.getElementById('fp-used-kg');
   const remEl=document.getElementById('fp-remain-kg');
-  if(usedEl) usedEl.textContent=fmt(usedKg,3)+' kg';
+  if(usedEl) usedEl.textContent=fmt(totalKg,3)+' kg';
   if(remEl){
-    const rem=actualKg-usedKg;
+    const rem=parseFloat((actualKg-totalKg).toFixed(4));
     remEl.textContent=fmt(rem,3)+' kg';
-    remEl.style.color=rem<-0.01?'var(--red)':rem<0.5?'var(--green)':'var(--text3)';
+    remEl.style.color=rem<-0.01?'var(--red)':rem<0.01?'var(--green)':'var(--text3)';
   }
+  // update label
+  const lbl=document.getElementById('fp-total-pcs-label');
+  if(lbl&&isPcs){
+    const totalPcs=[...rows].reduce((s,r)=>{
+      return s+(parseInt(document.querySelector(`.fp-jars[data-idx="${r.dataset.idx}"]`)?.value)||0);
+    },0);
+    lbl.textContent=`รวม ${totalPcs.toLocaleString()} ชิ้น = ${fmt(totalKg,3)} kg`;
+    lbl.style.display='block';
+  }else if(lbl){ lbl.style.display='none'; }
 }
+
 
 function fpAutoFillWeight(idx){
   // auto fill น้ำหนักจาก SKU ถ้ามี size_g
@@ -6874,7 +6942,14 @@ async function doFinalizeProduction(woId, ppNo, woSku, defaultKg){
       });
       const uniqueEntries=Object.values(skuMap);
 
-      if(!uniqueEntries.length){
+      // merge entries ที่ SKU เดียวกัน
+      const pcsSkuMap={};
+      entries.forEach(e=>{
+        if(!pcsSkuMap[e.sku]) pcsSkuMap[e.sku]={...e};
+        else{ pcsSkuMap[e.sku].pcs+=e.pcs; pcsSkuMap[e.sku].kgUsed=parseFloat((pcsSkuMap[e.sku].kgUsed+e.kgUsed).toFixed(4)); }
+      });
+      const uniquePcsEntries=Object.values(pcsSkuMap);
+      if(!uniquePcsEntries.length){
         msgEl('fp-msg','กรุณาเพิ่มรายการบรรจุก่อนครับ','e');
         restoreBtn(); return;
       }
@@ -6913,10 +6988,10 @@ async function doFinalizeProduction(woId, ppNo, woSku, defaultKg){
         msgEl('fp-msg','กรุณาเพิ่มรายการก่อนครับ','e');
         restoreBtn(); return;
       }
-      const totalPcs=entries.reduce((s,e)=>s+e.pcs,0);
-      const totalKgUsed=parseFloat(entries.reduce((s,e)=>s+e.kgUsed,0).toFixed(4));
+      const totalPcs=uniquePcsEntries.reduce((s,e)=>s+e.pcs,0);
+      const totalKgUsed=parseFloat(uniquePcsEntries.reduce((s,e)=>s+e.kgUsed,0).toFixed(4));
 
-      for(const e of entries){
+      for(const e of uniquePcsEntries){
         // บันทึกเป็น pcs ลงใน stock_product.qty_in (นับเป็นชิ้น)
         const existing=await sbG('stock_product',{f:[`sku=eq.${e.sku}`]}).catch(()=>[]);
         if(existing.length>0){
@@ -6929,9 +7004,14 @@ async function doFinalizeProduction(woId, ppNo, woSku, defaultKg){
         }
         // บันทึก lot
         await sbP('stock_product_lots',{
-          sku:e.sku, lot_no:lotNo, qty_kg:e.pcs,
-          prod_date:prodDate, exp_date:expDate||null, status:'available',
-          note:`${e.pcs} pcs × ${e.weightG}g`
+          sku:        e.sku,
+          lot_no:     lotNo,
+          qty_kg:     e.pcs,          // เก็บเป็น pcs
+          prod_date:  prodDate,
+          exp_date:   expDate||null,
+          status:     'available',
+          weight_per_pcs_g: e.weightG,
+          note: `${e.pcs.toLocaleString()} pcs × ${e.weightG}g = ${e.kgUsed.toFixed(3)} kg`
         }).catch(()=>{});
         await logA('UPDATE','stock_fg',
           `บรรจุ ${e.sku}: ${e.pcs} ชิ้น × ${e.weightG}g = ${fmt(e.kgUsed,3)} kg`,ppNo);
