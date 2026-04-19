@@ -15229,6 +15229,7 @@ async function _renderRMLots(code, name, unit){
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
         <div style="font-weight:700;font-size:13px;color:var(--navy)">📋 รายการ Lot (${lots.length} Lot)</div>
         <button class="btn btnP sm" onclick="addRMLot('${code}','${name}','${unit}')">+ เพิ่ม Lot ใหม่</button>
+        <button class="btn btnD sm" onclick="cleanupDupLotsRM('${code}','${name}','${unit}')" title="ลบ Lot ที่ซ้ำกัน">🧹 ล้าง Lot ซ้ำ</button>
       </div>
       <div class="tw" style="max-height:220px;overflow-y:auto;margin-bottom:12px">
         <table>
@@ -20272,6 +20273,41 @@ function srPrint(areaId, title){
     <div style="color:#666;font-size:8.5pt;margin-bottom:8px">พิมพ์วันที่ ${today}</div>
     ${content}
     </body></html>`, title);
+}
+
+
+async function cleanupDupLotsRM(code, name, unit){
+  if(!confirm(`ลบ Lot ที่ซ้ำกันใน ${code}?\n(เก็บไว้เฉพาะ Lot แรกของแต่ละ Lot No.)`)) return;
+  try{
+    // ลบจาก lot_entries (ตารางใหม่)
+    const le = await sbG('lot_entries',{
+      f:[`material_code=eq.${code}`], ord:'id.asc'
+    }).catch(()=>[]);
+    const seen=new Map(); let del1=0;
+    for(const l of le){
+      const k=(l.lot_no||'').trim()||String(l.id);
+      if(seen.has(k)){
+        await sbD('lot_entries',`id=eq.${l.id}`).catch(()=>{});
+        del1++;
+      }else seen.set(k,l);
+    }
+    // ลบจาก material_lots (ตารางเก่า)
+    const ml = await sbG('material_lots',{
+      f:[`mat_code=eq.${code}`], ord:'id.asc'
+    }).catch(()=>[]);
+    const seen2=new Map(); let del2=0;
+    for(const l of ml){
+      const k=(l.lot_no||'').trim()||String(l.id);
+      if(seen2.has(k)){
+        await sbD('material_lots',`id=eq.${l.id}`).catch(()=>{});
+        del2++;
+      }else seen2.set(k,l);
+    }
+    const total=del1+del2;
+    alert(total>0?`✅ ลบ Lot ซ้ำ ${total} รายการแล้ว`:`✅ ไม่มี Lot ซ้ำใน ${code}`);
+    await logA('DELETE','rm',`ล้าง Lot ซ้ำ ${code}: ลบ ${total} รายการ`);
+    showRMLots(code, name, unit);
+  }catch(e){ alert('❌ '+e.message); }
 }
 
 // ════════════════════════════════════════════════════════════
