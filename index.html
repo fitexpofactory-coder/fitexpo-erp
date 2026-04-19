@@ -519,7 +519,6 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
 })(window);
 
   </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 
@@ -571,83 +570,83 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
   <div id="ribbon-bar">
     <button id="rbn-dash" onclick="nav('dashboard')">📊 Dashboard</button>
     <div class="rg">
-      <button class="rgb" onclick="ribbonToggle(this)">📦 คลัง <span class="rga">▾</span></button>
+      <button class="rgb" onclick="ribbonToggle(this)">📦 Inventory <span class="rga">▾</span></button>
       <div class="rdd">
         <div class="rni" onclick="nav('rm')" data-page="rm">🧱 Stock RM & PK</div>
         <div class="rni" onclick="nav('wip-stock')" data-page="wip-stock">🏭 Stock WIP</div>
         <div class="rni" onclick="nav('fg')" data-page="fg">📦 Stock FG</div>
-        <div class="rni" onclick="nav('stock-report')" data-page="stock-report">📊 รายงาน Stock</div>
-        <div class="rns">ทะเบียน</div>
-        <div class="rni" onclick="nav('mat-mgr')" data-page="mat-mgr">🗂️ วัตถุดิบ & PK</div>
-        <div class="rni" onclick="nav('prod-mgr')" data-page="prod-mgr">🏷️ สินค้า</div>
+        <div class="rni" onclick="nav('stock-report')" data-page="stock-report">📊 Stock Report</div>
+        <div class="rns">Master Data</div>
+        <div class="rni" onclick="nav('mat-mgr')" data-page="mat-mgr">🗂️ Raw Material & PK</div>
+        <div class="rni" onclick="nav('prod-mgr')" data-page="prod-mgr">🏷️ Products</div>
         <div class="rni" onclick="nav('wip-mgr')" data-page="wip-mgr">🏗️ WIP Master</div>
         <div class="rni" onclick="nav('supp-mgr')" data-page="supp-mgr">🏢 Supplier</div>
-        <div class="rni" onclick="nav('cust-mgr')" data-page="cust-mgr">👥 ลูกค้า</div>
+        <div class="rni" onclick="nav('cust-mgr')" data-page="cust-mgr">👥 Customers</div>
       </div>
     </div>
     <div class="rg">
-      <button class="rgb" onclick="ribbonToggle(this)">🔧 ผลิต <span class="rga">▾</span></button>
+      <button class="rgb" onclick="ribbonToggle(this)">🔧 Production <span class="rga">▾</span></button>
       <div class="rdd">
-        <div class="rni" onclick="nav('production')" data-page="production">🔧 ผลิตสินค้า</div>
-        <div class="rni" onclick="nav('prod-plan')" data-page="prod-plan">📅 วางแผนผลิต</div>
+        <div class="rni" onclick="nav('production')" data-page="production">🔧 Production Order</div>
+        <div class="rni" onclick="nav('prod-plan')" data-page="prod-plan">📅 Production Plan</div>
         <div class="rni" onclick="nav('bom-mgr')" data-page="bom-mgr">📋 BOM Manager</div>
-        <div class="rni" onclick="nav('wip-prod')" data-page="wip-prod">🔄 ผลิต WIP</div>
+        <div class="rni" onclick="nav('wip-prod')" data-page="wip-prod">🔄 WIP Production</div>
         <div class="rni" onclick="nav('print-docs')" data-page="print-docs">🖨️ Batch Record</div>
         <div class="rni" onclick="nav('rm-matrix')" data-page="rm-matrix">📊 Matrix RM</div>
-        <div class="rni" onclick="nav('weigh')" data-page="weigh">⚖️ ชั่งน้ำหนัก</div>
+        <div class="rni" onclick="nav('weigh')" data-page="weigh">⚖️ Weighing</div>
         <div class="rni" onclick="nav('forecast')" data-page="forecast">📈 Forecast & Plan</div>
       </div>
     </div>
     <div class="rg">
       <button class="rgb" onclick="ribbonToggle(this)">📊 OEE & PM <span class="rga">▾</span></button>
       <div class="rdd">
-        <div class="rni" onclick="nav('oee-log')" data-page="oee-log">⏱️ บันทึก OEE</div>
+        <div class="rni" onclick="nav('oee-log')" data-page="oee-log">⏱️ OEE Log</div>
         <div class="rni" onclick="nav('oee-dashboard')" data-page="oee-dashboard">📊 OEE Dashboard</div>
-        <div class="rni" onclick="nav('machines')" data-page="machines">⚙️ เครื่องจักร</div>
-        <div class="rni" onclick="nav('pm')" data-page="pm">🔧 แผน PM</div>
+        <div class="rni" onclick="nav('machines')" data-page="machines">⚙️ Machines</div>
+        <div class="rni" onclick="nav('pm')" data-page="pm">🔧 PM Plan</div>
       </div>
     </div>
     <div class="rg">
-      <button class="rgb" onclick="ribbonToggle(this)">🛒 ขาย <span class="rga">▾</span></button>
+      <button class="rgb" onclick="ribbonToggle(this)">🛒 Sales <span class="rga">▾</span></button>
       <div class="rdd">
         <div class="rni" onclick="nav('so')" data-page="so">🛒 Sales Order</div>
         <div class="rni" onclick="nav('po')" data-page="po">📋 Purchase Order</div>
       </div>
     </div>
     <div class="rg">
-      <button class="rgb" onclick="ribbonToggle(this)">📋 นับสต็อก <span class="rga">▾</span></button>
+      <button class="rgb" onclick="ribbonToggle(this)">📋 Stock Count <span class="rga">▾</span></button>
       <div class="rdd">
         <div class="rni" onclick="nav('inv-locations')" data-page="inv-locations">📍 Location</div>
-        <div class="rni" onclick="nav('inv-assign')" data-page="inv-assign">🏷️ กำหนด Loc</div>
-        <div class="rni" onclick="nav('inv-count')" data-page="inv-count">📋 สร้างรอบนับ</div>
-        <div class="rni" onclick="nav('inv-sessions')" data-page="inv-sessions">📊 รอบทั้งหมด</div>
-        <div class="rni" onclick="nav('inv-sheet')" data-page="inv-sheet">✍️ กรอกผลนับ</div>
+        <div class="rni" onclick="nav('inv-assign')" data-page="inv-assign">🏷️ Assign Location</div>
+        <div class="rni" onclick="nav('inv-count')" data-page="inv-count">📋 New Count Session</div>
+        <div class="rni" onclick="nav('inv-sessions')" data-page="inv-sessions">📊 All Sessions</div>
+        <div class="rni" onclick="nav('inv-sheet')" data-page="inv-sheet">✍️ Enter Count</div>
       </div>
     </div>
     <div class="rg">
       <button class="rgb" onclick="ribbonToggle(this)">👥 HR <span class="rga">▾</span></button>
       <div class="rdd">
-        <div class="rni" onclick="nav('hr-checkin')" data-page="hr-checkin">⏰ เช็คอิน/ออก</div>
-        <div class="rni" onclick="nav('hr-attendance')" data-page="hr-attendance">📅 เวลางาน</div>
-        <div class="rni" onclick="nav('hr-leave')" data-page="hr-leave">🏖️ ขอลางาน</div>
-        <div class="rni" onclick="nav('hr-ot')" data-page="hr-ot">⏱️ ขอ OT</div>
-        <div class="rni" onclick="nav('hr-approve')" data-page="hr-approve">✅ อนุมัติ</div>
-        <div class="rni" onclick="nav('hr-report')" data-page="hr-report">📋 รายงาน HR</div>
-        <div class="rni" onclick="nav('hr-employees')" data-page="hr-employees">👥 พนักงาน</div>
-        <div class="rni" onclick="nav('hr-holidays')" data-page="hr-holidays">🎌 วันหยุด</div>
-        <div class="rni" onclick="nav('hr-payroll')" data-page="hr-payroll">💰 เงินเดือน</div>
-        <div class="rni" onclick="nav('hr-payslip')" data-page="hr-payslip">🧾 สลิป</div>
-        <div class="rni" onclick="nav('hr-diligence')" data-page="hr-diligence">🏅 เบี้ยขยัน</div>
+        <div class="rni" onclick="nav('hr-checkin')" data-page="hr-checkin">⏰ Check In/Out</div>
+        <div class="rni" onclick="nav('hr-attendance')" data-page="hr-attendance">📅 Attendance</div>
+        <div class="rni" onclick="nav('hr-leave')" data-page="hr-leave">🏖️ Leave Request</div>
+        <div class="rni" onclick="nav('hr-ot')" data-page="hr-ot">⏱️ OT Request</div>
+        <div class="rni" onclick="nav('hr-approve')" data-page="hr-approve">✅ Approve</div>
+        <div class="rni" onclick="nav('hr-report')" data-page="hr-report">📋 HR Report</div>
+        <div class="rni" onclick="nav('hr-employees')" data-page="hr-employees">👥 Employees</div>
+        <div class="rni" onclick="nav('hr-holidays')" data-page="hr-holidays">🎌 Holidays</div>
+        <div class="rni" onclick="nav('hr-payroll')" data-page="hr-payroll">💰 Payroll</div>
+        <div class="rni" onclick="nav('hr-payslip')" data-page="hr-payslip">🧾 Pay Slip</div>
+        <div class="rni" onclick="nav('hr-diligence')" data-page="hr-diligence">🏅 Diligence Bonus</div>
       </div>
     </div>
     <div class="rg">
-      <button class="rgb" onclick="ribbonToggle(this)">⚙️ ระบบ <span class="rga">▾</span></button>
+      <button class="rgb" onclick="ribbonToggle(this)">⚙️ System <span class="rga">▾</span></button>
       <div class="rdd">
         <div class="rni" onclick="nav('import')" data-page="import">📥 Import</div>
         <div class="rni" onclick="showSQLSetup()">🗄️ SQL Setup Guide</div>
-        <div class="rni" onclick="nav('permissions')" data-page="permissions">🔐 สิทธิ์</div>
+        <div class="rni" onclick="nav('permissions')" data-page="permissions">🔐 Permissions</div>
         <div class="rni" onclick="nav('actlog')" data-page="actlog">📋 Activity Log</div>
-        <div class="rni" onclick="nav('users')" data-page="users">👤 ผู้ใช้</div>
+        <div class="rni" onclick="nav('users')" data-page="users">👤 Users</div>
       </div>
     </div>
   </div>
@@ -1826,88 +1825,29 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
 
 <!-- HR REPORT -->
 <div id="pg-hr-report" class="pg">
-  <!-- Tabs -->
-  <div class="ftabs mb3" id="hr-rpt-tabs">
-    <div class="ftab on" onclick="hrTab('daily')">📋 รายวัน</div>
-    <div class="ftab" onclick="hrTab('weekly')">📅 รายสัปดาห์</div>
-    <div class="ftab" onclick="hrTab('monthly')">📆 รายเดือน</div>
-    <div class="ftab" onclick="hrTab('yearly')">📊 รายปี</div>
+  <div class="ftabs mb4" style="display:flex;gap:4px;background:var(--bg3);border-radius:6px;padding:3px;width:fit-content">
+    <div onclick="hrSwitchReport('monthly',this)" style="padding:6px 14px;border-radius:4px;font-size:12px;font-weight:700;cursor:pointer;background:white;color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.1)">📋 รายเดือน</div>
+    <div onclick="hrSwitchReport('yearly',this)" style="padding:6px 14px;border-radius:4px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text3)">📆 รายปี</div>
   </div>
-
-  <!-- ── รายวัน ── -->
-  <div id="hr-tab-daily">
-    <div class="card">
-      <div class="ch">
-        <div class="ct">📋 สรุปการเข้างานรายวัน</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <input type="date" class="fc2 sm" id="hr-day-date"
-            style="width:150px">
-          <button class="btn btnP sm" onclick="hrLoadDaily()">📊 สร้างรายงาน</button>
-          <button class="btn btnT sm" onclick="hrPrintSection('hr-daily-area','รายงานรายวัน')">🖨️</button>
-        </div>
-      </div>
-      <div id="hr-daily-area">
-        <div class="al ali">เลือกวันที่แล้วกด 📊 สร้างรายงาน</div>
-      </div>
+  <div id="hr-rpt-monthly">
+    <div class="ch2 mb3">
+      <select class="fc2" id="hr-rm-emp" style="width:220px"><option value="all">ทุกคน</option></select>
+      <input type="month" class="fc2" id="hr-rm-month" style="width:160px">
+      <button class="btn btnP sm" onclick="hrLoadMonthly()">📊 สร้าง</button>
+      <button class="btn btnT sm" onclick="hrPrintReport('monthly')">🖨️ พิมพ์</button>
+      <button class="btn btnN sm" onclick="hrPdfReport('monthly')">📄 PDF</button>
     </div>
+    <div id="hr-monthly-area"></div>
   </div>
-
-  <!-- ── รายสัปดาห์ ── -->
-  <div id="hr-tab-weekly" style="display:none">
-    <div class="card">
-      <div class="ch">
-        <div class="ct">📅 สรุปการเข้างานรายสัปดาห์</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <input type="date" class="fc2 sm" id="hr-week-start" style="width:150px">
-          <button class="btn btnP sm" onclick="hrLoadWeekly()">📊 สร้างรายงาน</button>
-          <button class="btn btnT sm" onclick="hrPrintSection('hr-weekly-area','รายงานรายสัปดาห์')">🖨️</button>
-        </div>
-      </div>
-      <div id="hr-weekly-area">
-        <div class="al ali">เลือกวันเริ่มต้นสัปดาห์</div>
-      </div>
+  <div id="hr-rpt-yearly" style="display:none">
+    <div class="ch2 mb3">
+      <select class="fc2" id="hr-ry-emp" style="width:220px"><option value="all">ทุกคน</option></select>
+      <select class="fc2" id="hr-ry-year" style="width:120px"></select>
+      <button class="btn btnP sm" onclick="hrLoadYearly()">📊 สร้าง</button>
+      <button class="btn btnT sm" onclick="hrPrintReport('yearly')">🖨️ พิมพ์</button>
+      <button class="btn btnN sm" onclick="hrPdfReport('yearly')">📄 PDF</button>
     </div>
-  </div>
-
-  <!-- ── รายเดือน ── -->
-  <div id="hr-tab-monthly" style="display:none">
-    <div class="card">
-      <div class="ch">
-        <div class="ct">📆 สรุปการเข้างานรายเดือน</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <select class="fc2 sm" id="hr-mon-emp" style="width:160px">
-            <option value="all">👥 ทุกคน</option>
-          </select>
-          <input type="month" class="fc2 sm" id="hr-mon-month" style="width:140px">
-          <button class="btn btnP sm" onclick="hrLoadMonthlyNew()">📊 สร้าง</button>
-          <button class="btn btnN sm" onclick="(()=>{const m=document.getElementById('hr-mon-month')?.value||new Date().toISOString().slice(0,7);const[y,mn]=m.split('-');hrShowCalendar(parseInt(y),parseInt(mn));})()">📅 ปฏิทิน</button>
-          <button class="btn btnT sm" onclick="hrPrintSection('hr-monthly-area','รายงานรายเดือน')">🖨️</button>
-        </div>
-      </div>
-      <div id="hr-monthly-area">
-        <div class="al ali">เลือกเดือนแล้วกด 📊 สร้าง</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── รายปี ── -->
-  <div id="hr-tab-yearly" style="display:none">
-    <div class="card">
-      <div class="ch">
-        <div class="ct">📊 สรุปการเข้างานรายปี</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <select class="fc2 sm" id="hr-yr-emp" style="width:160px">
-            <option value="all">👥 ทุกคน</option>
-          </select>
-          <select class="fc2 sm" id="hr-yr-year" style="width:100px"></select>
-          <button class="btn btnP sm" onclick="hrLoadYearlyNew()">📊 สร้าง</button>
-          <button class="btn btnT sm" onclick="hrPrintSection('hr-yearly-area','รายงานรายปี')">🖨️</button>
-        </div>
-      </div>
-      <div id="hr-yearly-area">
-        <div class="al ali">เลือกปีแล้วกด 📊 สร้าง</div>
-      </div>
-    </div>
+    <div id="hr-yearly-area"></div>
   </div>
 </div>
 
@@ -2265,7 +2205,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
         <div class="fgrp">
           <label class="flbl">QR Code / Batch ID</label>
           <div style="display:flex;gap:8px">
-            <input type="text" class="fc2" id="wt-qr-input-legacy"
+            <input type="text" class="fc2" id="wt-qr-input"
               placeholder="สแกนหรือพิมพ์ QR Code..."
               oninput="wtCheckQR(this.value)"
               style="font-family:monospace;font-size:14px">
@@ -2299,7 +2239,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
             </div>
           </div>
         </div>
-        <div id="wt-progress-bar-legacy" style="height:6px;background:var(--border);border-radius:3px;margin-bottom:16px;overflow:hidden">
+        <div id="wt-progress-bar" style="height:6px;background:var(--border);border-radius:3px;margin-bottom:16px;overflow:hidden">
           <div id="wt-progress-fill" style="height:100%;width:0%;background:var(--green);border-radius:3px;transition:width .3s"></div>
         </div>
 
@@ -2354,7 +2294,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
         <!-- Items list -->
         <div style="margin-top:16px">
           <div style="font-weight:700;font-size:12px;color:var(--navy);margin-bottom:8px">รายการ BOM ทั้งหมด</div>
-          <div id="wt-items-list-legacy"></div>
+          <div id="wt-items-list"></div>
         </div>
         <div style="margin-top:12px;display:flex;gap:8px">
           <button class="btn btnS sm" onclick="wtGoStep(2)">← ย้อนกลับ</button>
@@ -2696,100 +2636,6 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
     </div>
   </div>
 </div>
-
-<!-- ═══════════════════════════════════════════════════════════
-     STOCK TRANSACTION REPORT
-     ═══════════════════════════════════════════════════════════ -->
-<div id="pg-stock-report" class="pg">
-  <div class="ftabs mb3" id="sr-tabs">
-    <div class="ftab on"  onclick="srTab('daily')">📋 รายวัน</div>
-    <div class="ftab"     onclick="srTab('weekly')">📅 รายสัปดาห์</div>
-    <div class="ftab"     onclick="srTab('monthly')">📆 รายเดือน</div>
-    <div class="ftab"     onclick="srTab('balance')">⚖️ เปรียบเทียบ Stock</div>
-  </div>
-
-  <!-- รายวัน -->
-  <div id="sr-tab-daily">
-    <div class="card">
-      <div class="ch">
-        <div class="ct">📋 Transaction รายวัน</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <input type="date" class="fc2 sm" id="sr-day-date" style="width:150px">
-          <select class="fc2 sm" id="sr-day-type" style="width:130px">
-            <option value="all">ทุกประเภท</option>
-            <option value="rm">🧱 วัตถุดิบ</option>
-            <option value="wip">🏭 WIP</option>
-            <option value="fg">📦 สินค้า FG</option>
-          </select>
-          <button class="btn btnP sm" onclick="srLoadDaily()">📊 ดูรายงาน</button>
-          <button class="btn btnT sm" onclick="srPrint('sr-daily-area','รายงาน Transaction รายวัน')">🖨️</button>
-        </div>
-      </div>
-      <div id="sr-daily-area"><div class="al ali">เลือกวันที่แล้วกด 📊</div></div>
-    </div>
-  </div>
-
-  <!-- รายสัปดาห์ -->
-  <div id="sr-tab-weekly" style="display:none">
-    <div class="card">
-      <div class="ch">
-        <div class="ct">📅 Transaction รายสัปดาห์</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <input type="date" class="fc2 sm" id="sr-week-start" style="width:150px">
-          <select class="fc2 sm" id="sr-week-type" style="width:130px">
-            <option value="all">ทุกประเภท</option>
-            <option value="rm">🧱 วัตถุดิบ</option>
-            <option value="wip">🏭 WIP</option>
-            <option value="fg">📦 สินค้า FG</option>
-          </select>
-          <button class="btn btnP sm" onclick="srLoadWeekly()">📊 ดูรายงาน</button>
-          <button class="btn btnT sm" onclick="srPrint('sr-weekly-area','รายงาน Transaction รายสัปดาห์')">🖨️</button>
-        </div>
-      </div>
-      <div id="sr-weekly-area"><div class="al ali">เลือกวันเริ่มสัปดาห์</div></div>
-    </div>
-  </div>
-
-  <!-- รายเดือน -->
-  <div id="sr-tab-monthly" style="display:none">
-    <div class="card">
-      <div class="ch">
-        <div class="ct">📆 Transaction รายเดือน</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <input type="month" class="fc2 sm" id="sr-month" style="width:150px">
-          <select class="fc2 sm" id="sr-month-type" style="width:130px">
-            <option value="all">ทุกประเภท</option>
-            <option value="rm">🧱 วัตถุดิบ</option>
-            <option value="wip">🏭 WIP</option>
-            <option value="fg">📦 สินค้า FG</option>
-          </select>
-          <button class="btn btnP sm" onclick="srLoadMonthly()">📊 ดูรายงาน</button>
-          <button class="btn btnT sm" onclick="srPrint('sr-monthly-area','รายงาน Transaction รายเดือน')">🖨️</button>
-        </div>
-      </div>
-      <div id="sr-monthly-area"><div class="al ali">เลือกเดือนแล้วกด 📊</div></div>
-    </div>
-  </div>
-
-  <!-- เปรียบเทียบ Stock -->
-  <div id="sr-tab-balance" style="display:none">
-    <div class="card">
-      <div class="ch">
-        <div class="ct">⚖️ เปรียบเทียบ Stock คงเหลือ</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <select class="fc2 sm" id="sr-bal-type" style="width:130px">
-            <option value="rm">🧱 วัตถุดิบ (RM)</option>
-            <option value="wip">🏭 WIP</option>
-            <option value="fg">📦 สินค้า FG</option>
-          </select>
-          <button class="btn btnP sm" onclick="srLoadBalance()">📊 ดูรายงาน</button>
-          <button class="btn btnT sm" onclick="srPrint('sr-balance-area','รายงานเปรียบเทียบ Stock')">🖨️</button>
-        </div>
-      </div>
-      <div id="sr-balance-area"><div class="al ali">เลือกประเภทแล้วกด 📊</div></div>
-    </div>
-  </div>
-</div>
 </main>
 </div>
   </div><!-- /wrap -->
@@ -2873,8 +2719,8 @@ async function doLogin(){
   err.style.display='none';btn.textContent='⏳...';btn.disabled=true;
   try{
     const us=await sbG('users',{f:[`username=eq.${u}`,`is_active=eq.true`]});
-    if(!us.length){showLE('ไม่พบชื่อผู้ใช้นี้ในระบบ');return;}
-    if(!chkp(p,us[0].password_hash)){showLE('รหัสผ่านไม่ถูกต้อง');return;}
+    if(!us.length){showLE('ไม่พบUsernameนี้ในระบบ');return;}
+    if(!chkp(p,us[0].password_hash)){showLE('Passwordไม่ถูกต้อง');return;}
     CU=us[0];
     // ถ้า CU ไม่มี emp_code → ใช้ username แทน (backward compat)
     if(!CU.emp_code) CU.emp_code = CU.username;
@@ -2933,7 +2779,7 @@ async function logA(action,module,detail,ref=''){
 // ════════════════════════════════════════════════════════════
 //  HELPERS
 // ════════════════════════════════════════════════════════════
-const META={dashboard:['Dashboard','ภาพรวมระบบ'],rm:['Stock RM & PK',''],
+const META={dashboard:['Dashboard','System Overview'],rm:['Stock RM & PK',''],
   'wip-stock':['Stock WIP',''],'fg':['Stock FG',''],
   'bom-mgr':['จัดการ BOM','เพิ่ม/แก้ไข/ลบ BOM ต่อ SKU + WIP'],
   production:['ผลิตสินค้า','MRC ตรวจวัตถุดิบ + สั่งผลิต + ตัด Stock'],
@@ -2946,26 +2792,26 @@ const META={dashboard:['Dashboard','ภาพรวมระบบ'],rm:['Stock 
   'supp-mgr':['Supplier','เพิ่ม/แก้ไข/ลบ'],
   'cust-mgr':['ลูกค้า','เพิ่ม/แก้ไข/ลบ'],
   import:['Import ข้อมูล','Excel / CSV → Supabase'],
-  'oee-log':['⏱️ บันทึก OEE','เวลา/กำลังคน/Run Time/Downtime/Yield'],
+  'oee-log':['⏱️ OEE Log','เวลา/กำลังคน/Run Time/Downtime/Yield'],
   'oee-dashboard':['📊 OEE Dashboard','Availability / Performance / Quality'],
   machines:['⚙️ ทะเบียนเครื่องจักร','เพิ่ม/แก้ไข เครื่องจักร'],
   permissions:['🔐 Custom Permission','กำหนดสิทธิ์ละเอียดต่อ Role'],
   'hr-checkin':['⏰ เช็คอิน/ออก','ลงเวลาเข้า-ออกงาน'],
   'hr-attendance':['📅 ประวัติเวลางาน','ตรวจสอบการเข้างาน + แก้ไข'],
-  'hr-leave':['🏖️ ขอลางาน','ยื่นคำขอลางานทุกประเภท'],
+  'hr-leave':['🏖️ Leave Request','ยื่นคำขอลางานทุกประเภท'],
   'hr-ot':['⏱️ ขอ OT','ขออนุมัติทำงานล่วงเวลา'],
   'hr-approve':['✅ อนุมัติ HR','อนุมัติลา + OT'],
   'hr-report':['📋 รายงาน HR','สรุปรายเดือน/ปี'],
   'hr-employees':['👥 พนักงาน + Login','ทะเบียนพนักงาน + กำหนด username/password'],
   'hr-holidays':['🎌 วันหยุด','วันหยุดประเพณี + บริษัท'],
   'hr-payroll':['💰 คำนวณเงินเดือน','เงินเดือน + OT + หักประกันสังคม + ภาษี'],
-  'hr-diligence':['🏅 เบี้ยขยัน & ค่าอาหาร','คำนวณเบี้ยขยัน + ค่าอาหารกลางวัน'],
+  'hr-diligence':['🏅 Diligence Bonus & ค่าอาหาร','คำนวณเบี้ยขยัน + ค่าอาหารกลางวัน'],
   'hr-payslip':['🧾 สลิปเงินเดือน','พิมพ์สลิปรายบุคคล'],
   'inv-locations':['📍 Location Master','กำหนดห้อง > ชั้นวาง > ช่อง'],
-  'inv-assign':['🏷️ กำหนด Location','กำหนด Location ให้ RM/WIP/FG'],
-  'inv-count':['📋 สร้างรอบนับ','ประจำเดือน / สุ่มนับ / ประจำปี'],
-  'inv-sessions':['📊 รอบนับทั้งหมด','ประวัติและสถานะรอบนับ'],
-  'inv-sheet':['✍️ กรอกผลนับ','บันทึกผลนับ + FIFO 2 ครั้ง'],
+  'inv-assign':['🏷️ Assign Location','กำหนด Location ให้ RM/WIP/FG'],
+  'inv-count':['📋 New Count Session','ประจำเดือน / สุ่มนับ / ประจำปี'],
+  'inv-sessions':['📊 Count Sessions','ประวัติและสถานะรอบนับ'],
+  'inv-sheet':['✍️ Enter Count Results','บันทึกผลนับ + FIFO 2 ครั้ง'],
   actlog:['Activity Log','บันทึกการใช้งาน'],
   users:['จัดการผู้ใช้',''],
 };
@@ -3059,7 +2905,7 @@ async function loadDash(){
   const spin='<span class="spin"></span>';
   ['kv-rm','kv-wip','kv-so','kv-al'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='...'});
   const alEl=document.getElementById('dash-al');
-  if(alEl)alEl.innerHTML=`<div class="al ali">${spin} กำลังโหลด...</div>`;
+  if(alEl)alEl.innerHTML=`<div class="al ali">${spin} Loading...</div>`;
 
   try{
     // โหลด RM
@@ -3210,7 +3056,7 @@ async function loadFG(){
 async function loadBOMMgr(){
   const listEl=document.getElementById('bom-sku-list');
   if(!listEl)return;
-  listEl.innerHTML='<div style="text-align:center;padding:20px"><span class="spin"></span> กำลังโหลด SKU...</div>';
+  listEl.innerHTML='<div style="text-align:center;padding:20px"><span class="spin"></span> Loading SKU...</div>';
   _bomProds=[];_bomWIPs=[];_bomSearchCache=[];
   try{
     // ใช้ cache ก่อน ถ้าไม่มีค่อย fetch
@@ -3477,7 +3323,7 @@ function showAddBOMRow(code,table,codeField,batchKg){
       </div>
       <div class="fgrp" style="flex:1"><label class="flbl">หมายเหตุเพิ่มเติม</label><input type="text" class="fc2" id="nbr-note" placeholder="เช่น Layer 2..."></div>
     </div>
-    <button class="btn btnP" style="width:100%" onclick="submitAddBOMRow('${code}','${table}','${codeField}')">💾 บันทึก</button>
+    <button class="btn btnP" style="width:100%" onclick="submitAddBOMRow('${code}','${table}','${codeField}')">💾 Save</button>
     <div id="nbr-msg" style="margin-top:8px"></div>`);
 }
 
@@ -4099,7 +3945,7 @@ function showMRCSummary(){
     </div>
     <div style="display:flex;gap:8px;margin-top:12px">
       <button class="btn btnP sm" onclick="printMRCReport();closeMo()">🖨️ พิมพ์</button>
-      <button class="btn btnN sm" onclick="closeMo()">ปิด</button>
+      <button class="btn btnN sm" onclick="closeMo()">Close</button>
     </div>`);
 }
 
@@ -4256,7 +4102,7 @@ async function submitWIPLog(){
     await sbP('wip_prod_log',{log_no:logNo,wip_code:code,batch_kg:batch,actual_qty:actual,qc_pass:qcPass,operator:machine||CU?.full_name,note:[method,note].filter(Boolean).join(' | ')});
     if(qcPass){const cur=await sbG('wip_stock',{f:[`code=eq.${code}`]});if(cur[0])await sbU('wip_stock',{qty_produced:Number(cur[0].qty_produced||0)+actual},`code=eq.${code}`);}
     await logA('RECEIVE','wip_stock',`ผลิต ${code} ได้ ${actual}kg QC:${qcPass?'ผ่าน':'ไม่ผ่าน'}`,code);
-    msgEl('wl-msg','✅ บันทึกสำเร็จ','s');
+    msgEl('wl-msg','✅ Saved','s');
     document.getElementById('wl-actual').value='';document.getElementById('wl-note').value='';document.getElementById('wl-method').value='';
     loadWIPProd();
   }catch(e){msgEl('wl-msg','❌ '+e.message,'e');}
@@ -4268,7 +4114,7 @@ async function submitWIPLog(){
 async function loadPrintDocs(){
   const sel=document.getElementById('prt-code');
   if(!sel)return;
-  sel.innerHTML='<option value="">⏳ กำลังโหลด...</option>';
+  sel.innerHTML='<option value="">⏳ Loading...</option>';
   try{
     if(!window._cachedProds?.length) window._cachedProds=await sbG('master_product',{s:'sku,name_en,batch_kg,min_batch_kg,max_batch_kg,yield_pct,size_g'});
     if(!window._cachedWIPs?.length) window._cachedWIPs=await sbG('wip_master',{s:'code,name,category,batch_kg,yield_pct,price_per_kg'});
@@ -4879,7 +4725,7 @@ function matForm(m={}){
       </div>
     </div>
   </div>
-  <button class="btn btnP" style="width:100%" onclick="saveMat(${m.id||0})">💾 บันทึก</button>
+  <button class="btn btnP" style="width:100%" onclick="saveMat(${m.id||0})">💾 Save</button>
   <div id="mf-msg" style="margin-top:8px"></div>`;}
 
 
@@ -4897,7 +4743,7 @@ async function fileToBase64(inputId){
 
 async function saveMat(id){
   const msgId='mf-msg';
-  msgEl(msgId,'<span class="spin"></span> กำลังบันทึก...','i');
+  msgEl(msgId,'<span class="spin"></span> Saving...','i');
   try{
     // โหลดรูปภาพ (ถ้ามีการเลือกใหม่)
     const existMat=id?(_matData.find(m=>m.id===id)||{}):{}; 
@@ -4933,7 +4779,7 @@ async function saveMat(id){
     }
     // invalidate cache
     window._cachedRM=null;
-    msgEl(msgId,'✅ บันทึกสำเร็จ','s');
+    msgEl(msgId,'✅ Saved','s');
     setTimeout(()=>{closeMo();loadMatMgr();},800);
   }catch(e){
     msgEl(msgId,'❌ '+e.message,'e');
@@ -4964,7 +4810,7 @@ async function delMat(id,code){
           <button class="btn btnD" onclick="doDelMat(${id},'${code}');closeMo()">
             🗑 ลบออกจากทะเบียน (BOM ยังเก็บรหัสไว้)
           </button>
-          <button class="btn btnS" onclick="closeMo()">ยกเลิก</button>
+          <button class="btn btnS" onclick="closeMo()">Cancel</button>
         </div>`);
     } else {
       if(!confirm(`ลบ ${code} "${(_matData.find(m=>m.id===id)?.name||'')}"?
@@ -5109,7 +4955,7 @@ function previewImport(){
       const wb=XLSX.read(e.target.result,{type:'array'});
       const ws=wb.Sheets[wb.SheetNames[0]];
       const json=XLSX.utils.sheet_to_json(ws,{defval:''});
-      if(!json.length){msgEl('imp-msg','ไม่พบข้อมูลในไฟล์ครับ','e');return;}
+      if(!json.length){msgEl('imp-msg','No data foundในไฟล์ครับ','e');return;}
       const type=document.getElementById('imp-type').value;
       const mapper=IMPORT_MAPS[type];
       _impRows=json.map(mapper.map).filter(r=>Object.values(r).some(v=>v));
@@ -5187,7 +5033,7 @@ function userForm(u={}){return`
     <div class="fgrp"><label class="flbl">Username</label><input type="text" class="fc2" id="uf-user" value="${u.username||''}" placeholder="เช่น production2" ${u.id?'readonly':''}></div>
     <div class="fgrp"><label class="flbl">ชื่อ-นามสกุล</label><input type="text" class="fc2" id="uf-name" value="${u.full_name||''}"></div>
     <div class="fgrp"><label class="flbl">Email</label><input type="email" class="fc2" id="uf-email" value="${u.email||''}"></div>
-    <div class="fgrp"><label class="flbl">รหัสผ่าน ${u.id?'(เว้นว่างถ้าไม่เปลี่ยน)':''}</label><input type="password" class="fc2" id="uf-pass" placeholder="${u.id?'ใส่เฉพาะเมื่อเปลี่ยน':'อย่างน้อย 6 ตัว'}"></div>
+    <div class="fgrp"><label class="flbl">Password ${u.id?'(เว้นว่างถ้าไม่เปลี่ยน)':''}</label><input type="password" class="fc2" id="uf-pass" placeholder="${u.id?'ใส่เฉพาะเมื่อเปลี่ยน':'อย่างน้อย 6 ตัว'}"></div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
     <div class="fgrp">
@@ -5208,7 +5054,7 @@ function userForm(u={}){return`
       </div>
     </div>
   </div>
-  <button class="btn btnP" style="width:100%" onclick="saveUser(${u.id||0})">💾 บันทึก</button>
+  <button class="btn btnP" style="width:100%" onclick="saveUser(${u.id||0})">💾 Save</button>
   <div id="uf-msg" style="margin-top:8px"></div>`;}
 async function saveUser(id){
   const username=document.getElementById('uf-user').value.trim();
@@ -5217,7 +5063,7 @@ async function saveUser(id){
   const pass=document.getElementById('uf-pass').value;
   const role=document.getElementById('uf-role').value;
   if(!username||!fullName){msgEl('uf-msg','กรุณากรอกข้อมูลให้ครบ','e');return;}
-  if(!id&&pass.length<6){msgEl('uf-msg','รหัสผ่านต้องมีอย่างน้อย 6 ตัว','e');return;}
+  if(!id&&pass.length<6){msgEl('uf-msg','Passwordต้องมีอย่างน้อย 6 ตัว','e');return;}
   const empCode=document.getElementById('uf-empcode')?.value.trim()||'';
   const d={username,full_name:fullName,email,role,emp_code:empCode||username};
   if(pass)d.password_hash=btoa(pass);
@@ -5283,7 +5129,7 @@ async function submitReceiveRM(){
   const note=document.getElementById('rcv-note').value;
   if(!code||!qty){msgEl('rcv-msg','กรุณากรอกรหัสและจำนวน','e');return;}
   if(!rcvDate){msgEl('rcv-msg','กรุณาเลือกวันที่รับเข้า','e');return;}
-  msgEl('rcv-msg','<span class="spin"></span> กำลังบันทึก...','i');
+  msgEl('rcv-msg','<span class="spin"></span> Saving...','i');
   try{
     // 1. อัพเดต stock_material summary
     const cur=await sbG('stock_material',{f:[`code=eq.${code}`]});
@@ -5335,7 +5181,7 @@ async function submitReceiveRM(){
 
     await logA('RECEIVE','stock_rm',`รับ ${code} ${qty} ${unit} LOT:${lot||'—'} วันที่:${rcvDate}`,code);
     window._cachedRM=null;window._cachedWIPStock=null;
-    msgEl('rcv-msg',`✅ บันทึกสำเร็จ!<br>รหัส: ${code} | จำนวน: ${qty} ${unit} | Lot: ${lot||'—'} | วันที่: ${rcvDate}`,'s');
+    msgEl('rcv-msg',`✅ Saved!<br>รหัส: ${code} | จำนวน: ${qty} ${unit} | Lot: ${lot||'—'} | วันที่: ${rcvDate}`,'s');
     setTimeout(()=>{closeMo();loadRM();},1200);
   }catch(e){
     const msg=e.message||'Unknown error';
@@ -5485,7 +5331,7 @@ async function submitIssueFG(){
 function editRMStock(id){openMo('✏️ แก้ไข Stock RM',`กรุณาแก้ไขใน Master Material หรือ Import ใหม่ครับ`);}
 
 async function showLotHistory(code,name){
-  openMo(`📦 ประวัติ Lot: ${code} — ${name}`,`<div style="text-align:center;padding:20px"><span class="spin"></span> กำลังโหลด...</div>`);
+  openMo(`📦 ประวัติ Lot: ${code} — ${name}`,`<div style="text-align:center;padding:20px"><span class="spin"></span> Loading...</div>`);
   try{
     const lots=await sbG('lot_entries',{f:[`material_code=eq.${code}`],ord:'receive_date.desc,id.desc',lim:50});
     if(!lots.length){document.getElementById('mo-b').innerHTML='<div class="al ali">ยังไม่มีประวัติ Lot ครับ — กรุณารับเข้า Stock ก่อน</div>';return;}
@@ -5768,7 +5614,7 @@ async function saveOEELog(){
   const yieldPct=planQty>0?(actualQty/planQty)*100:0;
   const wo=ppNo?(await sbG('production_plan',{f:[`pp_no=eq.${ppNo}`]}))[0]:null;
   const batchNo='BATCH-'+Date.now().toString().slice(-6);
-  msgEl('oee-msg','<span class="spin"></span> กำลังบันทึก...','i');
+  msgEl('oee-msg','<span class="spin"></span> Saving...','i');
   try{
     await sbP('production_log',{
       pp_no:ppNo,sku_code:wo?.sku_code||'',product_name:wo?.product_name||'',
@@ -5988,7 +5834,7 @@ function machineForm(m={}){return`
     <div class="fgrp"><label class="flbl">เวลาผลิตแผน/วัน (ชม.)</label><input type="number" class="fc2" id="mf2-uptime" value="${m.planned_uptime_hr||8}"></div>
   </div>
   <div class="fgrp"><label class="flbl"><span data-i18n="lbl_note">หมายเหตุ</span></label><input type="text" class="fc2" id="mf2-note" value="${m.note||''}"></div>
-  <button class="btn btnP" style="width:100%" onclick="saveMachine('${m.code||''}')">💾 บันทึก</button>
+  <button class="btn btnP" style="width:100%" onclick="saveMachine('${m.code||''}')">💾 Save</button>
   <div id="mf2-msg" style="margin-top:8px"></div>`;}
 async function saveMachine(oldCode){
   const code=document.getElementById('mf2-code').value.trim();
@@ -6008,7 +5854,7 @@ async function delMachine(code){if(!confirm(`ลบ ${code}?`))return;await sbU(
 // ════════════════════════════════════════════════════════════
 const MODULE_NAMES={
   dashboard:'📊 Dashboard',stock_rm:'🧱 Stock RM & PK',stock_wip:'🏭 Stock WIP',stock_fg:'📦 Stock FG',
-  bom:'📋 BOM & สูตรผลิต',production:'🔧 ผลิตสินค้า',oee:'⏱️ OEE',
+  bom:'📋 BOM & สูตรผลิต',production:'🔧 Production Order',oee:'⏱️ OEE',
   sales:'🛒 Sales Order',master_mat:'🗂️ วัตถุดิบ',master_prod:'🏷️ สินค้า',
   inventory_count:'📊 นับสต็อก',import:'📥 Import',
   reports:'📈 รายงาน',users:'👤 ผู้ใช้งาน',permissions:'🔐 สิทธิ์'
@@ -6039,7 +5885,7 @@ async function loadPerms(role){
 
 async function savePerms(){
   if(CU?.role!=='admin'){alert('เฉพาะ Admin เท่านั้นครับ');return;}
-  msgEl('perms-msg','<span class="spin"></span> กำลังบันทึก...','i');
+  msgEl('perms-msg','<span class="spin"></span> Saving...','i');
   try{
     for(const mod of Object.keys(MODULE_NAMES)){
       const data={
@@ -6115,7 +5961,7 @@ function locForm(l={}){return`
     <div class="fgrp"><label class="flbl">ความจุ (kg)</label><input type="number" class="fc2" id="lf-cap" value="${l.capacity_kg||0}"></div>
     <div class="fgrp"><label class="flbl"><span data-i18n="lbl_note">หมายเหตุ</span></label><input type="text" class="fc2" id="lf-note" value="${l.note||''}"></div>
   </div>
-  <button class="btn btnP" style="width:100%" onclick="saveLoc(${l.id||0})">💾 บันทึก</button>
+  <button class="btn btnP" style="width:100%" onclick="saveLoc(${l.id||0})">💾 Save</button>
   <div id="lf-msg" style="margin-top:8px"></div>`;}
 async function saveLoc(id){
   const rc=document.getElementById('lf-room').value.trim(),rn=document.getElementById('lf-rname').value.trim();
@@ -6319,7 +6165,7 @@ async function saveInvResults(){
     const diff=_invLines.filter(l=>l.diff_qty!=null&&Math.abs(l.diff_qty)>0.001).length,matched=lines.length-diff;
     await sbU('count_sessions',{matched_items:matched,diff_items:diff},`session_no=eq.${_invCurSession}`);
     await logA('UPDATE','inventory',`บันทึกผลนับ ${_invCurSession} ${lines.length} รายการ ส่วนต่าง:${diff}`,_invCurSession);
-    alert(`✅ บันทึกสำเร็จ!
+    alert(`✅ Saved!
 นับแล้ว: ${lines.length} | ตรงกัน: ${matched} | ส่วนต่าง: ${diff}`);
     loadInvSessions();
   }catch(e){alert('❌ '+e.message);}
@@ -6887,7 +6733,7 @@ async function doFinalizeProduction(woId, ppNo, woSku, defaultKg){
   }
   window._fpSaving = true;
   const btn=document.getElementById('fp-confirm-btn');
-  if(btn){ btn.disabled=true; btn.textContent='⏳ กำลังบันทึก...'; }
+  if(btn){ btn.disabled=true; btn.textContent='⏳ Saving...'; }
 
   const mode      = document.getElementById('fp-pack-mode')?.value||'kg';
   const actualKg  = parseFloat(document.getElementById('fp-actual-kg')?.value)||defaultKg;
@@ -6895,7 +6741,7 @@ async function doFinalizeProduction(woId, ppNo, woSku, defaultKg){
   const lotNo     = document.getElementById('fp-lot-no')?.value||`LOT-${new Date().toISOString().slice(0,10).replace(/-/g,'')}`;
   const prodDate  = document.getElementById('fp-prod-date')?.value||new Date().toISOString().slice(0,10);
   const expDate   = document.getElementById('fp-exp-date')?.value||null;
-  msgEl('fp-msg','<span class="spin"></span> กำลังบันทึก...','i');
+  msgEl('fp-msg','<span class="spin"></span> Saving...','i');
 
   const restoreBtn=()=>{
     window._fpSaving=false;
@@ -6917,7 +6763,7 @@ async function doFinalizeProduction(woId, ppNo, woSku, defaultKg){
       });
       await logA('UPDATE','production',
         `เสร็จสิ้น ${ppNo} รับ ${fmt(actualKg,2)}kg LOT:${lotNo} → ${woSku}`,ppNo);
-      msgEl('fp-msg',`✅ บันทึกสำเร็จ! ${fmt(actualKg,2)} kg → ${isWIPsku?'WIP':'FG'} Stock (${woSku})`,'s');
+      msgEl('fp-msg',`✅ Saved! ${fmt(actualKg,2)} kg → ${isWIPsku?'WIP':'FG'} Stock (${woSku})`,'s');
 
     }else if(mode==='jars'){
       // ── บรรจุกระปุก → หน่วย kg ──
@@ -6970,7 +6816,7 @@ async function doFinalizeProduction(woId, ppNo, woSku, defaultKg){
       await logA('UPDATE','production',
         `เสร็จสิ้น ${ppNo} บรรจุรวม ${fmt(totalKgUsed,2)}kg → ${entries.length} SKU`,ppNo);
       msgEl('fp-msg',
-        `✅ บันทึกสำเร็จ! บรรจุ ${entries.length} SKU รวม ${fmt(totalKgUsed,2)} kg`,'s');
+        `✅ Saved! บรรจุ ${entries.length} SKU รวม ${fmt(totalKgUsed,2)} kg`,'s');
 
     }else if(mode==='pcs'){
       // ── บรรจุเป็นชิ้น/กระปุก → หน่วย pcs ──
@@ -7025,7 +6871,7 @@ async function doFinalizeProduction(woId, ppNo, woSku, defaultKg){
       await logA('UPDATE','production',
         `เสร็จสิ้น ${ppNo} ${totalPcs}ชิ้น/${fmt(totalKgUsed,2)}kg → ${entries.length} SKU`,ppNo);
       msgEl('fp-msg',
-        `✅ บันทึกสำเร็จ! ${totalPcs} ชิ้น (${entries.length} SKU รวม ${fmt(totalKgUsed,2)} kg)`,'s');
+        `✅ Saved! ${totalPcs} ชิ้น (${entries.length} SKU รวม ${fmt(totalKgUsed,2)} kg)`,'s');
     }
 
     window._fpSaving=false;
@@ -7095,7 +6941,7 @@ const hrDay=d=>{if(!d)return'';const days=['อา','จ','อ','พ','พฤ','
 const hrTime=d=>d?new Date(d).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Bangkok'}):'—';
 const hrIsHol=d=>_hrHols.some(h=>h.holiday_date===d);
 function hrLeaveTypeName(t){return{annual:'📅 พักร้อน',sick:'🤒 ป่วย',personal:'👤 กิจ',maternity:'🤱 คลอด',ordain:'🙏 บวช',other:'📝 อื่นๆ'}[t]||t;}
-function hrStBadge(s){return{pending:'<span class="badge ba">⏳ รอ</span>',approved:'<span class="badge bg">✅ อนุมัติ</span>',rejected:'<span class="badge br">❌ ปฏิเสธ</span>',cancelled:'<span class="badge bx">ยกเลิก</span>',present:'<span class="badge bg">✅</span>',late:'<span class="badge ba">⏰ สาย</span>',absent:'<span class="badge br">❌ ขาด</span>',leave:'<span class="badge bp">🏖️ ลา</span>',holiday:'<span class="badge bt">🎌</span>'}[s]||`<span class="badge bx">${s}</span>`;}
+function hrStBadge(s){return{pending:'<span class="badge ba">⏳ รอ</span>',approved:'<span class="badge bg">✅ อนุมัติ</span>',rejected:'<span class="badge br">❌ ปฏิเสธ</span>',cancelled:'<span class="badge bx">Cancel</span>',present:'<span class="badge bg">✅</span>',late:'<span class="badge ba">⏰ สาย</span>',absent:'<span class="badge br">❌ ขาด</span>',leave:'<span class="badge bp">🏖️ ลา</span>',holiday:'<span class="badge bt">🎌</span>'}[s]||`<span class="badge bx">${s}</span>`;}
 
 // ── CHECK IN/OUT ──────────────────────────────────────────
 async function hrLoadCheckIn(){
@@ -7210,7 +7056,7 @@ async function hrDoCheckIn(){
     || CU?.username || '';
 
   if(!empCode){
-    msgBox('ไม่พบข้อมูลพนักงาน — กรุณาเลือกชื่อพนักงานของคุณก่อนครับ','w');
+    msgBox('No data foundพนักงาน — กรุณาเลือกชื่อพนักงานของคุณก่อนครับ','w');
     hrShowEmpSelectUI();
     return;
   }
@@ -7433,7 +7279,7 @@ async function hrLoadAttendance(){
             <th>รหัส</th><th>ชื่อ-สกุล</th><th>แผนก</th>
             <th style="color:var(--green)">มา</th><th style="color:var(--amber)">สาย</th>
             <th style="color:var(--red)">ขาด</th><th style="color:var(--orange)">OT(ชม.)</th>
-            <th>เวลารวม(ชม.)</th><th>แก้ไข</th>
+            <th>เวลารวม(ชม.)</th><th>Edit</th>
           </tr></thead>
           <tbody>${summaryRows}</tbody>
         </table></div>
@@ -7580,7 +7426,7 @@ async function hrSaveAttEdit(id){
   const status=document.getElementById('hrea-status')?.value||'present';
   const lateMin=parseInt(document.getElementById('hrea-late')?.value)||0;
   const otMin=parseInt(document.getElementById('hrea-ot')?.value)||0;
-  msgEl('hrea-msg','<span class="spin"></span> กำลังบันทึก...','i');
+  msgEl('hrea-msg','<span class="spin"></span> Saving...','i');
   try{
     const updateData={
       check_in: cin?new Date(cin).toISOString():null,
@@ -7862,7 +7708,7 @@ async function hrLoadLeaveHistory(){
       <div><span class="badge ${['annual','sick','personal'].includes(l.leave_type)?'bb':'bp'}">${hrLeaveTypeName(l.leave_type)}</span></div>
       <div style="margin-top:5px;color:var(--text2)">${hrDate(l.start_date)} — ${hrDate(l.end_date)} (${l.leave_days} วัน)</div>
       <div style="color:var(--text3);font-size:11px">${l.reason}</div>
-      ${l.status==='pending'?`<button class="btn btnD sm" style="margin-top:6px" onclick="hrCancelLeave('${l.req_no}')">ยกเลิก</button>`:''}
+      ${l.status==='pending'?`<button class="btn btnD sm" style="margin-top:6px" onclick="hrCancelLeave('${l.req_no}')">Cancel</button>`:''}
     </div>`).join(''):'<div style="color:var(--text3);text-align:center;padding:15px">ยังไม่มีประวัติ</div>';
   }catch(e){}
 }
@@ -8198,7 +8044,7 @@ function hrEmpForm(e={}){return`
     <div style="font-size:12px;font-weight:700;margin-bottom:10px">🔑 กำหนด Login เข้าระบบ ERP</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="fgrp"><label class="flbl">Username (แนะนำ: รหัสพนักงาน)</label><input type="text" class="fc2" id="hef-user" value="${e.emp_code||''}" placeholder="เช่น EMP-001 หรือชื่อย่อ"></div>
-      <div class="fgrp"><label class="flbl">รหัสผ่าน${e.id?' (เว้นว่าง=ไม่เปลี่ยน)':' *'}</label><input type="password" class="fc2" id="hef-pass" placeholder="${e.id?'ใส่เฉพาะเมื่อต้องการเปลี่ยน':'อย่างน้อย 6 ตัวอักษร'}"></div>
+      <div class="fgrp"><label class="flbl">Password${e.id?' (เว้นว่าง=ไม่เปลี่ยน)':' *'}</label><input type="password" class="fc2" id="hef-pass" placeholder="${e.id?'ใส่เฉพาะเมื่อต้องการเปลี่ยน':'อย่างน้อย 6 ตัวอักษร'}"></div>
     </div>
     <div class="fgrp"><label class="flbl">ERP Role (สิทธิ์ในโรงงาน)</label>
       <select class="fc2" id="hef-role">
@@ -8250,7 +8096,7 @@ async function hrSaveEmp(oldCode){
   const pass=document.getElementById('hef-pass').value;
   const role=document.getElementById('hef-role').value;
   if(!code||!fn){msgEl('hef-msg','กรุณากรอกรหัสและชื่อ','e');return;}
-  msgEl('hef-msg','<span class="spin"></span> กำลังบันทึก...','i');
+  msgEl('hef-msg','<span class="spin"></span> Saving...','i');
   try{
     // 1. บันทึกพนักงาน
     const empData={emp_code:code,first_name:fn,last_name:ln,base_salary:parseFloat(document.getElementById('hef-salary')?.value)||0,allowance:parseFloat(document.getElementById('hef-allow')?.value)||0,other_deduct:parseFloat(document.getElementById('hef-deduct')?.value)||0,nickname:document.getElementById('hef-nick').value,department:document.getElementById('hef-dept').value,position:document.getElementById('hef-pos').value,work_shift:document.getElementById('hef-shift').value,work_start:document.getElementById('hef-start').value,work_end:document.getElementById('hef-end').value,phone:document.getElementById('hef-tel').value,email:document.getElementById('hef-email').value,start_date:document.getElementById('hef-sdate').value||null,annual_leave_days:parseInt(document.getElementById('hef-annual').value)||10,
@@ -8270,7 +8116,7 @@ diligence_bonus:parseFloat(document.getElementById('hef-diligence')?.value)||0,h
       }else if(pass&&pass.length>=6){
         await sbP('users',{...userData,is_active:true});
       }else if(!pass){
-        msgEl('hef-msg','⚠️ บันทึกพนักงานแล้ว แต่ยังไม่มี Login — ใส่รหัสผ่านเพื่อสร้าง Login ครับ','w');
+        msgEl('hef-msg','⚠️ บันทึกพนักงานแล้ว แต่ยังไม่มี Login — ใส่Passwordเพื่อสร้าง Login ครับ','w');
         _hrEmps=await sbG('employees',{f:['is_active=eq.true'],ord:'emp_code.asc'});
         setTimeout(()=>{closeMo();hrLoadEmployees();},1000);return;
       }
@@ -8282,7 +8128,7 @@ diligence_bonus:parseFloat(document.getElementById('hef-diligence')?.value)||0,h
     if(!bal.length)await sbP('leave_balances',{emp_code:code,emp_name:`${fn} ${ln}`,year:yr,annual_entitled:parseInt(document.getElementById('hef-annual').value)||6,annual_used:0,sick_entitled:30,sick_used:0,personal_entitled:3,personal_used:0});
 
     await logA('CREATE','hr',`เพิ่มพนักงาน ${code} / Login: ${username}`);
-    msgEl('hef-msg',`✅ บันทึกสำเร็จ! พนักงาน: ${code} | Login: ${username||'—'}${pass?` | รหัสผ่านตั้งแล้ว`:''}`, 's');
+    msgEl('hef-msg',`✅ Saved! พนักงาน: ${code} | Login: ${username||'—'}${pass?` | Passwordตั้งแล้ว`:''}`, 's');
     _hrEmps=await sbG('employees',{f:['is_active=eq.true'],ord:'emp_code.asc'});
     hrPopulateSelects();
     setTimeout(()=>{closeMo();hrLoadEmployees();},1200);
@@ -8297,7 +8143,7 @@ function hrSetLogin(empCode){
   openMo(`🔑 กำหนด/เปลี่ยน Login: ${empCode}`,`
     <div class="al ali mb3">${emp?.first_name} ${emp?.last_name} (${empCode})</div>
     <div class="fgrp"><label class="flbl">Username</label><input type="text" class="fc2" id="hsl-user" value="${empCode}" placeholder="${empCode}"></div>
-    <div class="fgrp"><label class="flbl">รหัสผ่านใหม่ (อย่างน้อย 6 ตัว)</label><input type="password" class="fc2" id="hsl-pass" placeholder="••••••••"></div>
+    <div class="fgrp"><label class="flbl">Passwordใหม่ (อย่างน้อย 6 ตัว)</label><input type="password" class="fc2" id="hsl-pass" placeholder="••••••••"></div>
     <div class="fgrp"><label class="flbl">ERP Role</label>
       <select class="fc2" id="hsl-role">
         <option value="production">🔧 Production</option>
@@ -8315,7 +8161,7 @@ async function hrSaveLogin(empCode){
   const pass=document.getElementById('hsl-pass').value;
   const role=document.getElementById('hsl-role').value;
   const emp=_hrEmps.find(e=>e.emp_code===empCode);
-  if(!username||pass.length<6){msgEl('hsl-msg','Username และรหัสผ่านอย่างน้อย 6 ตัวครับ','e');return;}
+  if(!username||pass.length<6){msgEl('hsl-msg','Username และPasswordอย่างน้อย 6 ตัวครับ','e');return;}
   msgEl('hsl-msg','<span class="spin"></span>...','i');
   try{
     const existing=await sbG('users',{f:[`username=eq.${username}`]});
@@ -8401,7 +8247,7 @@ function hrHolForm(h={}){
     💡 <b>swap_work</b> = วันนั้นมาทำงาน → คนที่มา = OT | คนที่ไม่มา = ไม่ขาด + ยังได้เบี้ยขยัน<br>
     💡 <b>swap_off</b> = วันนั้นหยุด → ไม่มีใครขาด ทุกคนได้เบี้ยขยัน
   </div>
-  <button class="btn btnP" style="width:100%" onclick="hrSaveHoliday(${h.id||0})">💾 บันทึก</button>
+  <button class="btn btnP" style="width:100%" onclick="hrSaveHoliday(${h.id||0})">💾 Save</button>
   <div id="hhf-msg" style="margin-top:8px"></div>`;
 }
 
@@ -8796,7 +8642,7 @@ function getName(r){
 // ── Stock RM & PK ────────────────────────────────────────────
 async function loadRM(){
   const tb=document.getElementById('rm-tb');
-  if(tb)tb.innerHTML='<tr><td colspan="15" style="text-align:center;padding:20px"><span class="spin"></span> กำลังโหลด...</td></tr>';
+  if(tb)tb.innerHTML='<tr><td colspan="15" style="text-align:center;padding:20px"><span class="spin"></span> Loading...</td></tr>';
   _rmFilterType='all'; _rmFilterQ='';
   try{
     // โหลด master + stock พร้อมกัน
@@ -9116,7 +8962,7 @@ function prodForm(p={}){
       </select>
     </div>
   </div>
-  <button class="btn btnP" style="width:100%;margin-top:8px" onclick="saveProd('${p.sku||''}')">💾 บันทึก</button>
+  <button class="btn btnP" style="width:100%;margin-top:8px" onclick="saveProd('${p.sku||''}')">💾 Save</button>
   <div id="pf-msg" style="margin-top:8px"></div>`;}
 
 async function saveProd(oldSku){
@@ -9144,7 +8990,7 @@ async function saveProd(oldSku){
     if(oldSku){await sbU('master_product',d,`sku=eq.${oldSku}`);}
     else{await sbP('master_product',d);}
     await logA(oldSku?'UPDATE':'CREATE','products',`${oldSku?'แก้ไข':'เพิ่ม'}สินค้า ${sku}`);
-    msgEl('pf-msg','✅ บันทึกสำเร็จ','s');
+    msgEl('pf-msg','✅ Saved','s');
     window._cachedProds=null;
     setTimeout(()=>{closeMo();loadProdMgr();},800);
   }catch(e){msgEl('pf-msg','❌ '+e.message,'e');}
@@ -9181,7 +9027,7 @@ function wipForm(w={}){
     </div>
   </div>
   <div class="fgrp"><label class="flbl">หมายเหตุ / วิธีผลิต</label><textarea class="fc2" id="wf-note" rows="2">${w.note||''}</textarea></div>
-  <button class="btn btnP" style="width:100%;margin-top:8px" onclick="saveWIP('${w.code||''}')">💾 บันทึก</button>
+  <button class="btn btnP" style="width:100%;margin-top:8px" onclick="saveWIP('${w.code||''}')">💾 Save</button>
   <div id="wf-msg" style="margin-top:8px"></div>`;}
 
 async function saveWIP(oldCode){
@@ -9201,7 +9047,7 @@ async function saveWIP(oldCode){
     if(oldCode){await sbU('wip_master',d,`code=eq.${oldCode}`);}
     else{await sbP('wip_master',d);}
     await logA(oldCode?'UPDATE':'CREATE','wip',`${oldCode?'แก้ไข':'เพิ่ม'}WIP ${code}`);
-    msgEl('wf-msg','✅ บันทึกสำเร็จ','s');
+    msgEl('wf-msg','✅ Saved','s');
     window._cachedWIPs=null;
     setTimeout(()=>{closeMo();loadWIPMgr();},800);
   }catch(e){msgEl('wf-msg','❌ '+e.message,'e');}
@@ -9332,7 +9178,7 @@ async function hrLoadPayroll(){
   await hrInit();
   hrPayrollInitSelects();
   const tb=document.getElementById('payroll-tb');
-  if(tb)tb.innerHTML='<tr><td colspan="11" style="text-align:center;padding:20px"><span class="spin"></span> กำลังโหลด...</td></tr>';
+  if(tb)tb.innerHTML='<tr><td colspan="11" style="text-align:center;padding:20px"><span class="spin"></span> Loading...</td></tr>';
 }
 
 async function hrLoadPayslip(){
@@ -9563,7 +9409,7 @@ async function hrPreviewPayslip(){
   if(!row){
     // คำนวณเฉพาะคนนี้
     const emp=_hrEmps.find(e=>e.emp_code===empCode);
-    if(!emp){document.getElementById('payslip-preview').innerHTML='<div class="al ale">ไม่พบข้อมูลพนักงาน</div>';return;}
+    if(!emp){document.getElementById('payslip-preview').innerHTML='<div class="al ale">No data foundพนักงาน</div>';return;}
     const from=`${yr}-${String(mn).padStart(2,'0')}-01`;
     const daysInMonth=new Date(yr,mn,0).getDate();
     const to=`${yr}-${String(mn).padStart(2,'0')}-${daysInMonth}`;
@@ -10996,7 +10842,7 @@ async function fixDupByCode(targetCode){
   const code = targetCode || prompt('กรอกรหัสวัตถุดิบที่ซ้ำ เช่น RM-SWT-GLY-LIQ:','RE-SWT-GLY-LIQ');
   if(!code) return;
 
-  openMo(`🔧 แก้ไขรหัสซ้ำ: ${code}`, `<div class="al ali"><span class="spin"></span> กำลังโหลดข้อมูล...</div>`);
+  openMo(`🔧 แก้ไขรหัสซ้ำ: ${code}`, `<div class="al ali"><span class="spin"></span> Loadingข้อมูล...</div>`);
 
   try{
     // ดึงทุก record ที่มี code นี้
@@ -11195,7 +11041,7 @@ async function hrSaveAttBackdate(){
   const remark=document.getElementById('hrab-rem')?.value||'';
   if(!empCode){msgEl('hrab-msg','กรุณาเลือกพนักงานก่อนครับ','e');return;}
   if(!date){msgEl('hrab-msg','กรุณาเลือกวันที่ครับ','e');return;}
-  msgEl('hrab-msg','<span class="spin"></span> กำลังบันทึก...','i');
+  msgEl('hrab-msg','<span class="spin"></span> Saving...','i');
   try{
     // ตรวจว่ามี record วันนั้นอยู่แล้วไหม
     const existing=await sbG('attendance',{f:[`emp_code=eq.${empCode}`,`att_date=eq.${date}`]});
@@ -11346,7 +11192,7 @@ function esbPreviewFG(){
 async function saveStockBalance(type, code){
   const reason=document.getElementById('esb-reason')?.value?.trim();
   if(!reason){msgEl('esb-msg','กรุณาระบุเหตุผลครับ','e');return;}
-  msgEl('esb-msg','<span class="spin"></span> กำลังบันทึก...','i');
+  msgEl('esb-msg','<span class="spin"></span> Saving...','i');
   try{
     let updateData={};
     let table='';
@@ -11539,7 +11385,7 @@ function hrEditDilRow(empCode){
     <div class="fgrp"><label class="flbl"><span data-i18n="lbl_note">หมายเหตุ</span></label>
       <input type="text" class="fc2" id="dov-note" value="${ov.note||r.note||''}"></div>
     <div style="display:flex;gap:8px;margin-top:8px">
-      <button class="btn btnP" style="flex:1" onclick="hrSaveDilOverride('${empCode}')">💾 บันทึก</button>
+      <button class="btn btnP" style="flex:1" onclick="hrSaveDilOverride('${empCode}')">💾 Save</button>
       <button class="btn btnD sm" onclick="delete _dilOverrides['${empCode}'];closeMo();hrCalcDiligence()">↩ รีเซ็ต</button>
     </div>
     <div id="dov-msg" style="margin-top:6px"></div>`);
@@ -11897,7 +11743,7 @@ async function viewPO(id){
     ${po.note?`<div style="margin-top:8px;font-size:12px;color:var(--text3)">หมายเหตุ: ${po.note}</div>`:''}
     <div style="display:flex;gap:8px;margin-top:12px">
       <button class="btn btnP sm" onclick="printPO(${id})">🖨️ พิมพ์ PO</button>
-      <button class="btn btnS sm" onclick="closeMo()">ปิด</button>
+      <button class="btn btnS sm" onclick="closeMo()">Close</button>
     </div>`);
 }
 
@@ -11995,7 +11841,7 @@ const I18N = {
     save:'บันทึก', cancel:'ยกเลิก', delete:'ลบ', edit:'แก้ไข', add:'เพิ่ม',
     confirm:'ยืนยัน', search:'ค้นหา', refresh:'รีเฟรช', print:'พิมพ์',
     close:'ปิด', back:'กลับ', next:'ถัดไป', submit:'ส่ง',
-    loading:'กำลังโหลด...', success:'สำเร็จ', error:'ข้อผิดพลาด',
+    loading:'Loading...', success:'สำเร็จ', error:'ข้อผิดพลาด',
     // Stock
     stock_rm:'Stock RM & PK', stock_wip:'Stock WIP', stock_fg:'Stock FG',
     balance:'ยอดคงเหลือ', receive:'รับเข้า', issue:'เบิกออก',
@@ -12019,7 +11865,7 @@ const I18N = {
     lbl_prod_date:'วันที่ผลิต', lbl_batches:'จำนวน Batch', lbl_loss:'Loss % (สูญเสีย)',
     lbl_target:'ต้องการผลิต', lbl_weight_g:'น้ำหนักต่อชิ้น (g)',
     lbl_batch_cnt:'จำนวน BATCH', lbl_sku_search:'ค้นหาสินค้า SKU',
-    lbl_password:'รหัสผ่าน', lbl_username:'ชื่อผู้ใช้',
+    lbl_password:'Password', lbl_username:'Username',
     lbl_order_date:'วันที่สั่ง', lbl_due_date:'กำหนดส่ง', lbl_note:'หมายเหตุ',
     sec_all_mat:`${_lang==='en'?'Total Materials':'วัตถุดิบทั้งหมด'}`, sec_shortage:'รายการที่ต้องสั่งซื้อ',
     sec_prod_list:'รายการสินค้าที่ต้องการผลิต', sec_prod_cfg:'ตั้งค่าการผลิต',
@@ -12100,8 +11946,8 @@ function applyLang(){
   const ltitle=document.querySelector('.ltitle');
   if(ltitle) ltitle.innerHTML=isEN?'🔐 Login':'🔐 เข้าสู่ระบบ';
   const lfl=document.querySelectorAll('.fl');
-  if(lfl[0]) lfl[0].textContent=isEN?'Username':'ชื่อผู้ใช้';
-  if(lfl[1]) lfl[1].textContent=isEN?'Password':'รหัสผ่าน';
+  if(lfl[0]) lfl[0].textContent=isEN?'Username':'Username';
+  if(lfl[1]) lfl[1].textContent=isEN?'Password':'Password';
   const lbtn=document.querySelector('.btnL');
   if(lbtn) lbtn.innerHTML=isEN?'🔑 Sign In':'🔑 เข้าสู่ระบบ';
   // page title/subtitle
@@ -12457,7 +12303,7 @@ async function saveWOBatches(woId, ppNo, batchKg, isFG){
   if(newBatches<1){ msgEl('ewo-msg','จำนวน Batch ต้องมากกว่า 0','e'); return; }
   if(newBatchKg<=0){ msgEl('ewo-msg','น้ำหนัก/Batch ต้องมากกว่า 0','e'); return; }
   const newTotal = newBatches*newBatchKg;
-  msgEl('ewo-msg','<span class="spin"></span> กำลังบันทึก...','i');
+  msgEl('ewo-msg','<span class="spin"></span> Saving...','i');
   try{
     await sbU('production_plan',{
       num_batches: newBatches,
@@ -12465,7 +12311,7 @@ async function saveWOBatches(woId, ppNo, batchKg, isFG){
     },`id=eq.${woId}`);
     await logA('UPDATE','production',
       `แก้ไข WO ${ppNo}: ${newBatches} Batch × ${newBatchKg}kg = ${newTotal}kg | ${reason}`,ppNo);
-    msgEl('ewo-msg',`✅ บันทึกสำเร็จ — ${newBatches} Batch × ${newBatchKg}kg = ${newTotal}kg`,'s');
+    msgEl('ewo-msg',`✅ Saved — ${newBatches} Batch × ${newBatchKg}kg = ${newTotal}kg`,'s');
     // reload WO list
     setTimeout(async ()=>{
       closeMo();
@@ -12707,7 +12553,7 @@ async function viewBatchRecord(woId, ppNo){
   openMo(`📋 Batch Record — ${ppNo||woId}`,
     `<div style="text-align:center;padding:40px">
        <span class="spin"></span>
-       <div style="margin-top:12px;color:var(--text3)">กำลังโหลด Batch Record...</div>
+       <div style="margin-top:12px;color:var(--text3)">Loading Batch Record...</div>
      </div>`);
   try{
     // โหลด WO
@@ -13029,7 +12875,7 @@ async function hrShowOTDetail(empCode, from, to){
   const emp=_hrEmps.find(e=>e.emp_code===empCode)||{};
   openMo(`OT: ${emp.first_name||''} ${emp.last_name||''} (${empCode})`,`
     <div class="tw"><table>
-      <thead><tr><th>วันที่</th><th>ประเภท</th><th>เวลา</th><th>ชม.</th><th>เหตุผล</th><th>สถานะ</th><th>แก้ไข</th></tr></thead>
+      <thead><tr><th>วันที่</th><th>ประเภท</th><th>เวลา</th><th>ชม.</th><th>เหตุผล</th><th>สถานะ</th><th>Edit</th></tr></thead>
       <tbody>${d.map(r=>`<tr>
         <td>${hrDate(r.ot_date)}</td>
         <td style="font-size:11px">${r.ot_type||''}</td>
@@ -13727,7 +13573,7 @@ async function loadRMMatrix(){
   const area   = document.getElementById('rmx-area');
   const sumEl  = document.getElementById('rmx-summary');
   const status = document.getElementById('rmx-status')?.value||'active';
-  area.innerHTML='<div style="text-align:center;padding:30px"><span class="spin"></span> กำลังโหลด...</div>';
+  area.innerHTML='<div style="text-align:center;padding:30px"><span class="spin"></span> Loading...</div>';
 
   try{
     // โหลด WO ที่ยังค้างอยู่
@@ -14072,7 +13918,7 @@ function printItemToOrder(){
 
 async function showStockLots(code, type){
   openMo(`📦 Lot Detail — ${code}`,
-    `<div style="text-align:center;padding:20px"><span class="spin"></span> กำลังโหลด...</div>`);
+    `<div style="text-align:center;padding:20px"><span class="spin"></span> Loading...</div>`);
   await _renderStockLots(code, type);
 }
 
@@ -15187,7 +15033,7 @@ function hrPrintLeaveSummary(){
 // ════════════════════════════════════════════════════════════
 async function showRMLots(code, name, unit='kg'){
   openMo(`📋 Lot Detail — ${code}`,
-    `<div style="text-align:center;padding:20px"><span class="spin"></span> กำลังโหลด...</div>`);
+    `<div style="text-align:center;padding:20px"><span class="spin"></span> Loading...</div>`);
   await _renderRMLots(code, name, unit);
 }
 
@@ -15492,7 +15338,7 @@ async function editRMLot(lotId, code, unit){
     <div class="fgrp"><label class="flbl">หมายเหตุ</label>
       <input type="text" class="fc2" id="erl-note" value="${r.note||''}"></div>
     <div style="display:flex;gap:8px;margin-top:6px">
-      <button class="btn btnP" style="flex:1" onclick="updateRMLot(${lotId},'${code}','${name}','${unit}')">💾 บันทึก</button>
+      <button class="btn btnP" style="flex:1" onclick="updateRMLot(${lotId},'${code}','${name}','${unit}')">💾 Save</button>
       <button class="btn btnD sm" onclick="deleteRMLot(${lotId},'${code}','${name}','${unit}')">🗑 ลบ</button>
     </div>
     <div id="erl-msg" style="margin-top:8px"></div>`);
@@ -15907,7 +15753,7 @@ async function pmLoadSchedule(){
           <div style="font-weight:800;font-size:20px;color:var(--green)">${done}</div>
         </div>
         <div style="background:rgba(245,158,11,.1);border-radius:8px;padding:10px;text-align:center">
-          <div style="font-size:10px;color:var(--text3)">รอดำเนินการ</div>
+          <div style="font-size:10px;color:var(--text3)">Pending</div>
           <div style="font-weight:800;font-size:20px;color:var(--amber)">${total-done-overdue}</div>
         </div>
         <div style="background:rgba(239,68,68,.1);border-radius:8px;padding:10px;text-align:center">
@@ -15937,7 +15783,7 @@ async function pmLoadSchedule(){
         <thead><tr>
           <th>รหัส</th><th>ชื่ออุปกรณ์</th>
           <th style="text-align:center">กำหนด</th>
-          <th>งานที่ต้องทำ</th>
+          <th>Tasks</th>
           <th style="text-align:center">สถานะ</th>
           <th style="width:80px"></th>
         </tr></thead><tbody>`;
@@ -16177,11 +16023,11 @@ function pmOpenNewAsset(){
           <option value="annual">ปีละครั้ง</option>
         </select></div>
     </div>
-    <div class="fgrp"><label class="flbl">งานที่ต้องทำ (PM Tasks)</label>
+    <div class="fgrp"><label class="flbl">Tasks (PM Tasks)</label>
       <textarea class="fc2" id="pma-tasks" rows="3" placeholder="เช่น ทำความสะอาด, ตรวจสอบ, เปลี่ยนอะไหล่..."></textarea></div>
     <div class="fgrp"><label class="flbl">หมายเหตุ</label>
       <input type="text" class="fc2" id="pma-note" placeholder="เช่น ดูคู่มือ Page 12"></div>
-    <button class="btn btnP" style="width:100%;margin-top:4px" onclick="pmSaveAsset()">💾 บันทึก</button>
+    <button class="btn btnP" style="width:100%;margin-top:4px" onclick="pmSaveAsset()">💾 Save</button>
     <div id="pma-msg" style="margin-top:8px"></div>`);
 }
 
@@ -16452,7 +16298,7 @@ async function wtInit(){
   wtSetStep(1);
   const dbg=document.getElementById('wt-wo-debug');
   const sel=document.getElementById('wt-wo-select')||document.getElementById('wt-wo-sel');
-  if(sel) sel.innerHTML='<option value="">⏳ กำลังโหลด WO...</option>';
+  if(sel) sel.innerHTML='<option value="">⏳ Loading WO...</option>';
   if(dbg) dbg.textContent='กำลังดึงข้อมูล...';
   try{
     // ดึง WO ทั้งหมด ไม่กรอง status
@@ -16975,7 +16821,7 @@ function fcSkuSearch(){
   // ใช้ _fcSkuList ที่โหลดใน fcInitSelects
   const list=window._fcSkuList||window._cachedFG||[];
   if(!list.length){
-    drop.innerHTML='<div style="padding:8px 12px;color:var(--text3);font-size:12px">⏳ กำลังโหลด SKU... รอสักครู่</div>';
+    drop.innerHTML='<div style="padding:8px 12px;color:var(--text3);font-size:12px">⏳ Loading SKU... รอสักครู่</div>';
     drop.style.display='block';
     // โหลด SKU ถ้ายังไม่มี
     fcInitSelects();
@@ -17165,7 +17011,7 @@ async function fcLoadSchedule(){
   const yr =parseInt(document.getElementById('fc-sched-year')?.value)||new Date().getFullYear();
   const mn =parseInt(document.getElementById('fc-sched-month')?.value)||new Date().getMonth()+1;
   const area=document.getElementById('fc-schedule-area');
-  area.innerHTML='<span class="spin"></span> กำลังโหลด...';
+  area.innerHTML='<span class="spin"></span> Loading...';
   try{
     const forecasts=await sbG('forecast_orders',{
       f:[`year=eq.${yr}`,`month=eq.${mn}`],ord:'prod_date.asc'
@@ -17534,7 +17380,7 @@ async function fcEditForecast(id){
       <div class="fgrp"><label class="flbl">หมายเหตุ</label>
         <input type="text" class="fc2" id="fce-note" value="${f.note||''}"></div>
     </div>
-    <button class="btn btnP" style="width:100%;margin-top:4px" onclick="fcUpdateForecast(${id})">💾 บันทึก</button>
+    <button class="btn btnP" style="width:100%;margin-top:4px" onclick="fcUpdateForecast(${id})">💾 Save</button>
     <div id="fce-msg" style="margin-top:8px"></div>`);
 }
 
@@ -17797,7 +17643,7 @@ function wtRenderBOM(){
       </div>
       <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
         <button class="btn btnT sm" onclick="wtPrintBatchQR()">🖨️ Print QR Batch</button>
-        <button class="btn btnS sm" onclick="wtSetStep(1);wtInit()">⬅ เลือก WO ใหม่</button>
+        <button class="btn btnS sm" onclick="wtSetStep(1);wtInit()">⬅ Select New WO</button>
       </div>
     </div>`;
 
@@ -18580,7 +18426,7 @@ async function printAllRMQR(type='rm'){
 }
 
 async function doBulkPrintQR(){
-  msgEl('bulk-msg','<span class="spin"></span> กำลังโหลดข้อมูล...','i');
+  msgEl('bulk-msg','<span class="spin"></span> Loadingข้อมูล...','i');
   const cat=document.getElementById('bulk-cat')?.value||'all';
   const size=document.getElementById('bulk-size')?.value||'60x40';
 
@@ -18787,7 +18633,7 @@ async function printAllWIPQR(){
 }
 
 async function doBulkPrintWIPQR(){
-  msgEl('wbulk-msg','<span class="spin"></span> กำลังโหลด...','i');
+  msgEl('wbulk-msg','<span class="spin"></span> Loading...','i');
   const cat   = document.getElementById('wbulk-cat')?.value||'all';
   const size  = document.getElementById('wbulk-size')?.value||'60x40';
   const prodDate = document.getElementById('wbulk-date')?.value||
@@ -19032,7 +18878,7 @@ async function hrLoadDaily(){
   const date=document.getElementById('hr-day-date')?.value;
   if(!date){alert('กรุณาเลือกวันที่');return;}
   const area=document.getElementById('hr-daily-area');
-  area.innerHTML='<span class="spin"></span> กำลังโหลด...';
+  area.innerHTML='<span class="spin"></span> Loading...';
   try{
     // ── โหลดข้อมูลพร้อมกัน ─────────────────────────────────
     _hrHolidayCache=null; // reset cache ทุกครั้ง
@@ -19239,7 +19085,7 @@ async function hrLoadWeekly(){
   const startStr=document.getElementById('hr-week-start')?.value;
   if(!startStr){alert('กรุณาเลือกวันเริ่มต้น');return;}
   const area=document.getElementById('hr-weekly-area');
-  area.innerHTML='<span class="spin"></span> กำลังโหลด...';
+  area.innerHTML='<span class="spin"></span> Loading...';
   try{
     const start=new Date(startStr);
     const end=new Date(start); end.setDate(end.getDate()+6);
@@ -19375,7 +19221,7 @@ async function hrLoadMonthlyNew(){
   const daysInMonth=new Date(yr,mn,0).getDate();
   const from=`${yr}-${mn}-01`, to=`${yr}-${mn}-${String(daysInMonth).padStart(2,'0')}`;
   const area=document.getElementById('hr-monthly-area');
-  area.innerHTML='<span class="spin"></span> กำลังโหลด...';
+  area.innerHTML='<span class="spin"></span> Loading...';
   try{
     const filters=['att_date=gte.'+from,'att_date=lte.'+to];
     if(empCode!=='all') filters.push(`emp_code=eq.${empCode}`);
@@ -19496,7 +19342,7 @@ async function hrLoadYearlyNew(){
   const empCode=document.getElementById('hr-yr-emp')?.value||'all';
   const yr=parseInt(document.getElementById('hr-yr-year')?.value)||new Date().getFullYear();
   const area=document.getElementById('hr-yearly-area');
-  area.innerHTML='<span class="spin"></span> กำลังโหลด...';
+  area.innerHTML='<span class="spin"></span> Loading...';
   try{
     const from=`${yr}-01-01`, to=`${yr}-12-31`;
     const filters=['att_date=gte.'+from,'att_date=lte.'+to];
@@ -19795,7 +19641,7 @@ async function hrShowCalendar(yr, mn){
     <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:12px">
       📅 ปฏิทินวันทำงาน — กดวันเพื่อแก้ไขประเภท
     </div>
-    <div id="hr-cal-body"><span class="spin"></span> กำลังโหลด...</div>`;
+    <div id="hr-cal-body"><span class="spin"></span> Loading...</div>`;
   openMo(`📅 จัดการวันทำงาน ${mn}/${yr}`, modal_body);
   await hrRenderCalendar(yr, mn);
 }
@@ -20217,7 +20063,7 @@ async function srLoadDaily(){
   if(!date){alert('เลือกวันที่');return;}
   const type=document.getElementById('sr-day-type')?.value||'all';
   const area=document.getElementById('sr-daily-area');
-  area.innerHTML='<span class="spin"></span> กำลังโหลด...';
+  area.innerHTML='<span class="spin"></span> Loading...';
   try{
     const txns=await srFetchTransactions(date,date,type);
     const thDate=new Date(date).toLocaleDateString('th-TH',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
@@ -20234,7 +20080,7 @@ async function srLoadWeekly(){
   const end=new Date(startStr); end.setDate(end.getDate()+6);
   const endStr=end.toISOString().slice(0,10);
   const area=document.getElementById('sr-weekly-area');
-  area.innerHTML='<span class="spin"></span> กำลังโหลด...';
+  area.innerHTML='<span class="spin"></span> Loading...';
   try{
     const txns=await srFetchTransactions(startStr,endStr,type);
     const thStart=new Date(startStr).toLocaleDateString('th-TH',{month:'short',day:'numeric'});
@@ -20253,7 +20099,7 @@ async function srLoadMonthly(){
   const to=`${yr}-${mn}-${new Date(yr,mn,0).getDate()}`;
   const type=document.getElementById('sr-month-type')?.value||'all';
   const area=document.getElementById('sr-monthly-area');
-  area.innerHTML='<span class="spin"></span> กำลังโหลด...';
+  area.innerHTML='<span class="spin"></span> Loading...';
   try{
     const txns=await srFetchTransactions(from,to,type);
     const mnNames=['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.',
@@ -20267,7 +20113,7 @@ async function srLoadMonthly(){
 async function srLoadBalance(){
   const type=document.getElementById('sr-bal-type')?.value||'rm';
   const area=document.getElementById('sr-balance-area');
-  area.innerHTML='<span class="spin"></span> กำลังโหลด...';
+  area.innerHTML='<span class="spin"></span> Loading...';
   try{
     let rows=[];
     if(type==='rm'){
