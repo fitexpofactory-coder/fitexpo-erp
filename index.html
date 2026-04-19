@@ -576,6 +576,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
         <div class="rni" onclick="nav('rm')" data-page="rm">🧱 Stock RM & PK</div>
         <div class="rni" onclick="nav('wip-stock')" data-page="wip-stock">🏭 Stock WIP</div>
         <div class="rni" onclick="nav('fg')" data-page="fg">📦 Stock FG</div>
+        <div class="rni" onclick="nav('stock-report')" data-page="stock-report">📊 รายงาน Stock</div>
         <div class="rns">ทะเบียน</div>
         <div class="rni" onclick="nav('mat-mgr')" data-page="mat-mgr">🗂️ วัตถุดิบ & PK</div>
         <div class="rni" onclick="nav('prod-mgr')" data-page="prod-mgr">🏷️ สินค้า</div>
@@ -646,7 +647,6 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
         <div class="rni" onclick="showSQLSetup()">🗄️ SQL Setup Guide</div>
         <div class="rni" onclick="nav('permissions')" data-page="permissions">🔐 สิทธิ์</div>
         <div class="rni" onclick="nav('actlog')" data-page="actlog">📋 Activity Log</div>
-        <div class="rni" onclick="nav('stock-report')" data-page="stock-report">📊 รายงาน Stock</div>
         <div class="rni" onclick="nav('users')" data-page="users">👤 ผู้ใช้</div>
       </div>
     </div>
@@ -2836,10 +2836,9 @@ const RM={
   sales:['dashboard','fg','so','hr-checkin','hr-leave','hr-ot','forecast'],
   qc:['dashboard','rm','wip-stock','fg','print-docs','oee-log','oee-dashboard',
     'inv-locations','inv-assign','inv-count','inv-sessions','inv-sheet',
-    'hr-checkin','hr-leave','hr-ot','pm','forecast']
+    'hr-checkin','hr-leave','hr-ot','pm','forecast','stock-report']
 };
-
-// ════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════
 //  SUPABASE HELPERS
 // ════════════════════════════════════════════════════════════
 const H=()=>({'apikey':KEY,'Authorization':`Bearer ${KEY}`,'Content-Type':'application/json'});
