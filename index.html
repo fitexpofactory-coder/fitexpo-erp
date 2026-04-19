@@ -646,6 +646,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
         <div class="rni" onclick="showSQLSetup()">🗄️ SQL Setup Guide</div>
         <div class="rni" onclick="nav('permissions')" data-page="permissions">🔐 สิทธิ์</div>
         <div class="rni" onclick="nav('actlog')" data-page="actlog">📋 Activity Log</div>
+        <div class="rni" onclick="nav('stock-report')" data-page="stock-report">📊 รายงาน Stock</div>
         <div class="rni" onclick="nav('users')" data-page="users">👤 ผู้ใช้</div>
       </div>
     </div>
@@ -2695,6 +2696,100 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
     </div>
   </div>
 </div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     STOCK TRANSACTION REPORT
+     ═══════════════════════════════════════════════════════════ -->
+<div id="pg-stock-report" class="pg">
+  <div class="ftabs mb3" id="sr-tabs">
+    <div class="ftab on"  onclick="srTab('daily')">📋 รายวัน</div>
+    <div class="ftab"     onclick="srTab('weekly')">📅 รายสัปดาห์</div>
+    <div class="ftab"     onclick="srTab('monthly')">📆 รายเดือน</div>
+    <div class="ftab"     onclick="srTab('balance')">⚖️ เปรียบเทียบ Stock</div>
+  </div>
+
+  <!-- รายวัน -->
+  <div id="sr-tab-daily">
+    <div class="card">
+      <div class="ch">
+        <div class="ct">📋 Transaction รายวัน</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <input type="date" class="fc2 sm" id="sr-day-date" style="width:150px">
+          <select class="fc2 sm" id="sr-day-type" style="width:130px">
+            <option value="all">ทุกประเภท</option>
+            <option value="rm">🧱 วัตถุดิบ</option>
+            <option value="wip">🏭 WIP</option>
+            <option value="fg">📦 สินค้า FG</option>
+          </select>
+          <button class="btn btnP sm" onclick="srLoadDaily()">📊 ดูรายงาน</button>
+          <button class="btn btnT sm" onclick="srPrint('sr-daily-area','รายงาน Transaction รายวัน')">🖨️</button>
+        </div>
+      </div>
+      <div id="sr-daily-area"><div class="al ali">เลือกวันที่แล้วกด 📊</div></div>
+    </div>
+  </div>
+
+  <!-- รายสัปดาห์ -->
+  <div id="sr-tab-weekly" style="display:none">
+    <div class="card">
+      <div class="ch">
+        <div class="ct">📅 Transaction รายสัปดาห์</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <input type="date" class="fc2 sm" id="sr-week-start" style="width:150px">
+          <select class="fc2 sm" id="sr-week-type" style="width:130px">
+            <option value="all">ทุกประเภท</option>
+            <option value="rm">🧱 วัตถุดิบ</option>
+            <option value="wip">🏭 WIP</option>
+            <option value="fg">📦 สินค้า FG</option>
+          </select>
+          <button class="btn btnP sm" onclick="srLoadWeekly()">📊 ดูรายงาน</button>
+          <button class="btn btnT sm" onclick="srPrint('sr-weekly-area','รายงาน Transaction รายสัปดาห์')">🖨️</button>
+        </div>
+      </div>
+      <div id="sr-weekly-area"><div class="al ali">เลือกวันเริ่มสัปดาห์</div></div>
+    </div>
+  </div>
+
+  <!-- รายเดือน -->
+  <div id="sr-tab-monthly" style="display:none">
+    <div class="card">
+      <div class="ch">
+        <div class="ct">📆 Transaction รายเดือน</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <input type="month" class="fc2 sm" id="sr-month" style="width:150px">
+          <select class="fc2 sm" id="sr-month-type" style="width:130px">
+            <option value="all">ทุกประเภท</option>
+            <option value="rm">🧱 วัตถุดิบ</option>
+            <option value="wip">🏭 WIP</option>
+            <option value="fg">📦 สินค้า FG</option>
+          </select>
+          <button class="btn btnP sm" onclick="srLoadMonthly()">📊 ดูรายงาน</button>
+          <button class="btn btnT sm" onclick="srPrint('sr-monthly-area','รายงาน Transaction รายเดือน')">🖨️</button>
+        </div>
+      </div>
+      <div id="sr-monthly-area"><div class="al ali">เลือกเดือนแล้วกด 📊</div></div>
+    </div>
+  </div>
+
+  <!-- เปรียบเทียบ Stock -->
+  <div id="sr-tab-balance" style="display:none">
+    <div class="card">
+      <div class="ch">
+        <div class="ct">⚖️ เปรียบเทียบ Stock คงเหลือ</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <select class="fc2 sm" id="sr-bal-type" style="width:130px">
+            <option value="rm">🧱 วัตถุดิบ (RM)</option>
+            <option value="wip">🏭 WIP</option>
+            <option value="fg">📦 สินค้า FG</option>
+          </select>
+          <button class="btn btnP sm" onclick="srLoadBalance()">📊 ดูรายงาน</button>
+          <button class="btn btnT sm" onclick="srPrint('sr-balance-area','รายงานเปรียบเทียบ Stock')">🖨️</button>
+        </div>
+      </div>
+      <div id="sr-balance-area"><div class="al ali">เลือกประเภทแล้วกด 📊</div></div>
+    </div>
+  </div>
+</div>
 </main>
 </div>
   </div><!-- /wrap -->
@@ -2733,11 +2828,11 @@ const RM={
     'inv-locations','inv-assign','inv-count','inv-sessions','inv-sheet',
     'hr-checkin','hr-attendance','hr-leave','hr-ot','hr-approve','hr-report',
     'hr-employees','hr-holidays','hr-payroll','hr-payslip','hr-diligence',
-    'import','permissions','actlog','users','pm','weigh','forecast'],
+    'import','permissions','actlog','users','pm','weigh','forecast','stock-report'],
   production:['dashboard','rm','wip-stock','fg','bom-mgr','production','prod-plan',
     'wip-prod','print-docs','oee-log','oee-dashboard','machines',
     'inv-locations','inv-assign','inv-count','inv-sessions','inv-sheet',
-    'hr-checkin','hr-leave','hr-ot','pm','weigh','forecast'],
+    'hr-checkin','hr-leave','hr-ot','pm','weigh','forecast','stock-report'],
   sales:['dashboard','fg','so','hr-checkin','hr-leave','hr-ot','forecast'],
   qc:['dashboard','rm','wip-stock','fg','print-docs','oee-log','oee-dashboard',
     'inv-locations','inv-assign','inv-count','inv-sessions','inv-sheet',
@@ -19738,6 +19833,445 @@ async function cleanupDupLots(sku, type='fg'){
   }catch(e){
     alert('❌ Error: '+e.message);
   }
+}
+
+
+// ════════════════════════════════════════════════════════════
+//  STOCK TRANSACTION REPORT
+// ════════════════════════════════════════════════════════════
+
+function srTab(tab){
+  ['daily','weekly','monthly','balance'].forEach(t=>{
+    const el=document.getElementById('sr-tab-'+t);
+    if(el) el.style.display=t===tab?'':'none';
+  });
+  document.querySelectorAll('#sr-tabs .ftab').forEach((el,i)=>{
+    el.classList.toggle('on',['daily','weekly','monthly','balance'][i]===tab);
+  });
+}
+
+function srInit(){
+  const today=new Date().toISOString().slice(0,10);
+  const el=document.getElementById('sr-day-date');
+  if(el&&!el.value) el.value=today;
+  const mel=document.getElementById('sr-month');
+  if(mel&&!mel.value) mel.value=today.slice(0,7);
+  // week start = monday
+  const d=new Date(); const dow=d.getDay()||7;
+  const mon=new Date(d); mon.setDate(d.getDate()-(dow-1));
+  const wel=document.getElementById('sr-week-start');
+  if(wel&&!wel.value) wel.value=mon.toISOString().slice(0,10);
+}
+
+// ── ดึง transactions จาก activity_log + lot_entries ──────────
+async function srFetchTransactions(from, to, typeFilter='all'){
+  // 1. Activity log — ทุก transaction
+  const logFilter=[`created_at=gte.${from}T00:00:00`,`created_at=lte.${to}T23:59:59`];
+  const modules=typeFilter==='rm'?['rm','stock_rm','stock_material','weigh']:
+                typeFilter==='wip'?['wip','wip_prod','wip_stock']:
+                typeFilter==='fg'?['fg','stock_fg','production']:
+                ['rm','stock_rm','stock_material','weigh','wip','wip_prod',
+                 'wip_stock','fg','stock_fg','production'];
+  logFilter.push(`module=in.(${modules.join(',')})`);
+
+  const [logs, rmReceived, wipLots, fgLots] = await Promise.all([
+    sbG('activity_log',{f:logFilter,ord:'created_at.desc',lim:500}).catch(()=>[]),
+    // lot_entries = RM received
+    (typeFilter==='all'||typeFilter==='rm')
+      ? sbG('lot_entries',{
+          f:[`receive_date=gte.${from}`,`receive_date=lte.${to}`],
+          ord:'receive_date.desc',lim:500
+        }).catch(()=>[]) : Promise.resolve([]),
+    // wip lots produced
+    (typeFilter==='all'||typeFilter==='wip')
+      ? sbG('wip_stock_lots',{
+          f:[`prod_date=gte.${from}`,`prod_date=lte.${to}`],
+          ord:'prod_date.desc',lim:200
+        }).catch(()=>[]) : Promise.resolve([]),
+    // fg lots produced
+    (typeFilter==='all'||typeFilter==='fg')
+      ? sbG('stock_product_lots',{
+          f:[`prod_date=gte.${from}`,`prod_date=lte.${to}`],
+          ord:'prod_date.desc',lim:200
+        }).catch(()=>[]) : Promise.resolve([]),
+  ]);
+
+  // รวมเป็น unified transaction list
+  const txns=[];
+
+  // จาก lot_entries (รับ RM)
+  rmReceived.forEach(l=>{
+    txns.push({
+      date:  l.receive_date,
+      time:  '',
+      type:  'rm',
+      txnType:'รับเข้า',
+      txnIcon:'📥',
+      txnColor:'#16a34a',
+      code:  l.material_code,
+      name:  l.material_name||l.material_code,
+      qty:   +l.qty_received||0,
+      unit:  l.unit||'kg',
+      lotNo: l.lot_no||'',
+      expDate: l.exp_date||'',
+      supplier: l.supplier||'',
+      poNo:  l.po_no||'',
+      by:    l.created_by||'',
+      note:  l.note||'',
+      src:   'lot_entries'
+    });
+  });
+
+  // จาก wip_stock_lots (ผลิต WIP)
+  wipLots.forEach(w=>{
+    txns.push({
+      date:  w.prod_date,
+      time:  '',
+      type:  'wip',
+      txnType:'ผลิต WIP',
+      txnIcon:'🏭',
+      txnColor:'#7C3AED',
+      code:  w.wip_code,
+      name:  w.wip_name||w.wip_code,
+      qty:   +w.qty_kg||0,
+      unit:  'kg',
+      lotNo: w.lot_no||'',
+      expDate: w.exp_date||'',
+      supplier:'',
+      poNo:  '',
+      by:    '',
+      note:  w.note||'',
+      src:   'wip_stock_lots'
+    });
+  });
+
+  // จาก stock_product_lots (ผลิต FG)
+  fgLots.forEach(f=>{
+    txns.push({
+      date:  f.prod_date,
+      time:  '',
+      type:  'fg',
+      txnType:'ผลิต FG',
+      txnIcon:'📦',
+      txnColor:'#2563EB',
+      code:  f.sku,
+      name:  f.sku,
+      qty:   +f.qty_kg||0,
+      unit:  'pcs',
+      lotNo: f.lot_no||'',
+      expDate: f.exp_date||'',
+      supplier:'',
+      poNo:  '',
+      by:    '',
+      note:  f.note||'',
+      src:   'stock_product_lots'
+    });
+  });
+
+  // จาก activity_log (เบิก/ตัก/ใช้)
+  const actMap={
+    'RECEIVE': {label:'รับเข้า', icon:'📥', color:'#16a34a'},
+    'CREATE':  {label:'สร้าง',  icon:'➕', color:'#2563EB'},
+    'UPDATE':  {label:'อัปเดต', icon:'🔄', color:'#D97706'},
+    'DELETE':  {label:'ลบ',     icon:'🗑️', color:'#DC2626'},
+    'WEIGH':   {label:'ชั่ง',   icon:'⚖️', color:'#7C3AED'},
+    'ISSUE':   {label:'เบิก',   icon:'📤', color:'#DC2626'},
+    'DEDUCT':  {label:'ตัด Stock',icon:'➖', color:'#EA580C'},
+  };
+  logs.forEach(l=>{
+    const act=actMap[l.action?.toUpperCase()]||{label:l.action,icon:'📝',color:'#6B7280'};
+    // ตรวจ detail มี qty ไหม
+    const qtyMatch=l.detail?.match(/([\d.]+)\s*(kg|pcs|g|liter|pack|roll)/i);
+    const typeMap={
+      rm:'rm',wip:'wip',fg:'fg',stock_rm:'rm',stock_material:'rm',
+      wip_prod:'wip',wip_stock:'wip',stock_fg:'fg',production:'fg',weigh:'rm'
+    };
+    txns.push({
+      date:  (l.created_at||'').slice(0,10),
+      time:  (l.created_at||'').slice(11,16),
+      type:  typeMap[l.module]||'other',
+      txnType: act.label,
+      txnIcon: act.icon,
+      txnColor: act.color,
+      code:  l.ref_code||'',
+      name:  '',
+      qty:   qtyMatch?+qtyMatch[1]:0,
+      unit:  qtyMatch?qtyMatch[2]:'',
+      lotNo: '',
+      expDate:'',
+      supplier:'',
+      poNo:  '',
+      by:    l.full_name||l.username||'',
+      note:  l.detail||'',
+      src:   'activity_log'
+    });
+  });
+
+  // เรียงตาม date desc + time desc
+  txns.sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
+
+  // filter type
+  return typeFilter==='all' ? txns :
+    txns.filter(t=>t.type===typeFilter);
+}
+
+// ── สร้าง transaction table HTML ────────────────────────────
+function srBuildTable(txns){
+  if(!txns.length) return '<div class="al ali">ไม่มีข้อมูลในช่วงนี้</div>';
+
+  // สรุปยอด
+  const rmIn   = txns.filter(t=>t.type==='rm'&&t.txnType==='รับเข้า').reduce((s,t)=>s+t.qty,0);
+  const rmOut  = txns.filter(t=>t.type==='rm'&&['ตัด Stock','เบิก','ชั่ง'].includes(t.txnType)).reduce((s,t)=>s+t.qty,0);
+  const wipIn  = txns.filter(t=>t.type==='wip'&&t.txnType==='ผลิต WIP').reduce((s,t)=>s+t.qty,0);
+  const fgIn   = txns.filter(t=>t.type==='fg'&&t.txnType==='ผลิต FG').reduce((s,t)=>s+t.qty,0);
+
+  const typeColors={rm:'#dcfce7',wip:'#ede9fe',fg:'#dbeafe',other:'#f3f4f6'};
+  const typeBadge={
+    rm:'<span style="background:#16a34a;color:white;padding:1px 6px;border-radius:4px;font-size:10px">RM</span>',
+    wip:'<span style="background:#7C3AED;color:white;padding:1px 6px;border-radius:4px;font-size:10px">WIP</span>',
+    fg:'<span style="background:#2563EB;color:white;padding:1px 6px;border-radius:4px;font-size:10px">FG</span>',
+    other:'<span style="background:#6B7280;color:white;padding:1px 6px;border-radius:4px;font-size:10px">อื่น</span>',
+  };
+
+  return`
+    <!-- Summary KPI -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
+      <div class="kpi kg">
+        <div class="kl">📥 RM รับเข้า</div>
+        <div class="kv" style="font-size:18px;color:#16a34a">${fmt(rmIn,3)}</div>
+        <div class="kd">kg</div>
+      </div>
+      <div class="kpi kr">
+        <div class="kl">📤 RM ใช้/ตัด</div>
+        <div class="kv" style="font-size:18px;color:#DC2626">${fmt(rmOut,3)}</div>
+        <div class="kd">kg</div>
+      </div>
+      <div class="kpi" style="border-left:4px solid #7C3AED">
+        <div class="kl">🏭 WIP ผลิต</div>
+        <div class="kv" style="font-size:18px;color:#7C3AED">${fmt(wipIn,3)}</div>
+        <div class="kd">kg</div>
+      </div>
+      <div class="kpi kb">
+        <div class="kl">📦 FG ผลิต</div>
+        <div class="kv" style="font-size:18px;color:#2563EB">${fmt(fgIn,0)}</div>
+        <div class="kd">pcs/kg</div>
+      </div>
+    </div>
+    <!-- Transaction Table -->
+    <div class="tw">
+      <table>
+        <thead><tr style="background:#1B3A5C">
+          <th style="color:white;width:90px">วันที่</th>
+          <th style="color:white;width:50px">เวลา</th>
+          <th style="color:white;width:50px">ประเภท</th>
+          <th style="color:white">Transaction</th>
+          <th style="color:white">รหัส</th>
+          <th style="color:white">ชื่อ/รายละเอียด</th>
+          <th style="color:white;text-align:right">จำนวน</th>
+          <th style="color:white;width:40px">หน่วย</th>
+          <th style="color:white">Lot</th>
+          <th style="color:white">Supplier/หมายเหตุ</th>
+          <th style="color:white">ผู้ทำรายการ</th>
+        </tr></thead>
+        <tbody>
+        ${txns.map(t=>`<tr style="background:${typeColors[t.type]||'white'}20">
+          <td style="font-size:11px;white-space:nowrap">${t.date}</td>
+          <td style="font-size:11px;color:#6B7280">${t.time||'—'}</td>
+          <td style="text-align:center">${typeBadge[t.type]||''}</td>
+          <td style="white-space:nowrap">
+            <span style="color:${t.txnColor};font-weight:600">
+              ${t.txnIcon} ${t.txnType}
+            </span>
+          </td>
+          <td style="font-family:monospace;font-size:11px;color:#1B5EC7">${t.code||'—'}</td>
+          <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+            ${t.name||t.note||'—'}
+          </td>
+          <td style="text-align:right;font-weight:700;color:${t.txnType==='รับเข้า'||t.txnType==='ผลิต FG'||t.txnType==='ผลิต WIP'?'#16a34a':'#DC2626'}">
+            ${t.qty>0?(t.txnType==='รับเข้า'||t.txnType.startsWith('ผลิต')?'+':'-')+fmt(t.qty,3):'—'}
+          </td>
+          <td style="font-size:11px;color:#6B7280">${t.unit||'—'}</td>
+          <td style="font-size:11px;font-family:monospace">${t.lotNo||'—'}</td>
+          <td style="font-size:11px;color:#6B7280;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+            ${t.supplier||t.note||'—'}
+          </td>
+          <td style="font-size:11px">${t.by||'—'}</td>
+        </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:#6B7280">
+      รวม ${txns.length} รายการ
+    </div>`;
+}
+
+// ── รายวัน ───────────────────────────────────────────────────
+async function srLoadDaily(){
+  const date=document.getElementById('sr-day-date')?.value;
+  if(!date){alert('เลือกวันที่');return;}
+  const type=document.getElementById('sr-day-type')?.value||'all';
+  const area=document.getElementById('sr-daily-area');
+  area.innerHTML='<span class="spin"></span> กำลังโหลด...';
+  try{
+    const txns=await srFetchTransactions(date,date,type);
+    const thDate=new Date(date).toLocaleDateString('th-TH',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+    area.innerHTML=`<div style="font-size:13px;font-weight:700;color:#1B3A5C;margin-bottom:12px">${thDate}</div>`
+      +srBuildTable(txns);
+  }catch(e){area.innerHTML=`<div class="al ale">❌ ${e.message}</div>`;}
+}
+
+// ── รายสัปดาห์ ───────────────────────────────────────────────
+async function srLoadWeekly(){
+  const startStr=document.getElementById('sr-week-start')?.value;
+  if(!startStr){alert('เลือกวันเริ่มสัปดาห์');return;}
+  const type=document.getElementById('sr-week-type')?.value||'all';
+  const end=new Date(startStr); end.setDate(end.getDate()+6);
+  const endStr=end.toISOString().slice(0,10);
+  const area=document.getElementById('sr-weekly-area');
+  area.innerHTML='<span class="spin"></span> กำลังโหลด...';
+  try{
+    const txns=await srFetchTransactions(startStr,endStr,type);
+    const thStart=new Date(startStr).toLocaleDateString('th-TH',{month:'short',day:'numeric'});
+    const thEnd=end.toLocaleDateString('th-TH',{year:'numeric',month:'short',day:'numeric'});
+    area.innerHTML=`<div style="font-size:13px;font-weight:700;color:#1B3A5C;margin-bottom:12px">สัปดาห์ ${thStart} – ${thEnd}</div>`
+      +srBuildTable(txns);
+  }catch(e){area.innerHTML=`<div class="al ale">❌ ${e.message}</div>`;}
+}
+
+// ── รายเดือน ─────────────────────────────────────────────────
+async function srLoadMonthly(){
+  const monthVal=document.getElementById('sr-month')?.value;
+  if(!monthVal){alert('เลือกเดือน');return;}
+  const [yr,mn]=monthVal.split('-');
+  const from=`${yr}-${mn}-01`;
+  const to=`${yr}-${mn}-${new Date(yr,mn,0).getDate()}`;
+  const type=document.getElementById('sr-month-type')?.value||'all';
+  const area=document.getElementById('sr-monthly-area');
+  area.innerHTML='<span class="spin"></span> กำลังโหลด...';
+  try{
+    const txns=await srFetchTransactions(from,to,type);
+    const mnNames=['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.',
+                   'ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+    area.innerHTML=`<div style="font-size:13px;font-weight:700;color:#1B3A5C;margin-bottom:12px">${mnNames[+mn]} ${+yr+543}</div>`
+      +srBuildTable(txns);
+  }catch(e){area.innerHTML=`<div class="al ale">❌ ${e.message}</div>`;}
+}
+
+// ── เปรียบเทียบ Stock ────────────────────────────────────────
+async function srLoadBalance(){
+  const type=document.getElementById('sr-bal-type')?.value||'rm';
+  const area=document.getElementById('sr-balance-area');
+  area.innerHTML='<span class="spin"></span> กำลังโหลด...';
+  try{
+    let rows=[];
+    if(type==='rm'){
+      const [master, stock, lotEntries] = await Promise.all([
+        sbG('master_material',{ord:'code.asc',s:'code,name,unit,stock_min'}).catch(()=>[]),
+        sbG('stock_material',{ord:'code.asc'}).catch(()=>[]),
+        sbG('lot_entries',{ord:'material_code.asc'}).catch(()=>[])
+      ]);
+      const stockMap={};
+      stock.forEach(s=>stockMap[s.code]={
+        bal:Math.max(0,(+s.balance_opening||0)+(+s.qty_in||0)-(+s.qty_out||0)),
+        lot_no:s.lot_no||'', receive_date:s.receive_date||'', exp_date:s.exp_date||''
+      });
+      const lotMap={};
+      lotEntries.forEach(l=>{
+        if(!lotMap[l.material_code]) lotMap[l.material_code]={totalReceived:0,totalRemaining:0,lots:0};
+        lotMap[l.material_code].totalReceived+=(+l.qty_received||0);
+        lotMap[l.material_code].totalRemaining+=(+l.qty_remaining||0);
+        lotMap[l.material_code].lots++;
+      });
+      rows=master.map(m=>{
+        const s=stockMap[m.code]||{bal:0};
+        const l=lotMap[m.code]||{totalReceived:0,totalRemaining:0,lots:0};
+        const calcBal=s.bal;
+        const status=calcBal<=0?'❌ หมด':calcBal<=(+m.stock_min||0)?'⚠️ ต่ำ':'✅ ปกติ';
+        const statusColor=calcBal<=0?'#DC2626':calcBal<=(+m.stock_min||0)?'#D97706':'#16a34a';
+        return{code:m.code,name:m.name||'',unit:m.unit||'kg',stockMin:m.stock_min||0,
+          totalReceived:l.totalReceived, lots:l.lots, balance:calcBal, status, statusColor};
+      });
+    }else if(type==='wip'){
+      const [wipMaster, wipStock] = await Promise.all([
+        sbG('wip_master',{ord:'code.asc',s:'code,name,stock_min'}).catch(()=>[]),
+        sbG('wip_stock',{ord:'code.asc'}).catch(()=>[])
+      ]);
+      const wipStockMap={};
+      wipStock.forEach(w=>wipStockMap[w.code]=
+        Math.max(0,(+w.qty_produced||0)-(+w.qty_issued||0)));
+      rows=wipMaster.map(w=>({
+        code:w.code, name:w.name||'', unit:'kg', stockMin:w.stock_min||0,
+        totalReceived:0, lots:0, balance:wipStockMap[w.code]||0,
+        status:wipStockMap[w.code]>0?'✅ มี':'⚠️ ว่าง',
+        statusColor:wipStockMap[w.code]>0?'#16a34a':'#D97706'
+      }));
+    }else{
+      const [fgMaster, fgStock] = await Promise.all([
+        sbG('master_product',{ord:'sku.asc',s:'sku,name_en,stock_unit'}).catch(()=>[]),
+        sbG('stock_product',{ord:'sku.asc'}).catch(()=>[])
+      ]);
+      const fgMap={};
+      fgStock.forEach(f=>fgMap[f.sku]=Math.max(0,(+f.qty_in||0)-(+f.qty_sold||0)));
+      rows=fgMaster.map(p=>({
+        code:p.sku, name:p.name_en||'', unit:p.stock_unit||'pcs',
+        stockMin:0, totalReceived:0, lots:0, balance:fgMap[p.sku]||0,
+        status:fgMap[p.sku]>0?'✅ มี':'⚠️ ว่าง',
+        statusColor:fgMap[p.sku]>0?'#16a34a':'#D97706'
+      }));
+    }
+
+    const typeNames={rm:'วัตถุดิบ (RM)',wip:'WIP',fg:'สินค้าสำเร็จรูป (FG)'};
+    area.innerHTML=`
+      <div style="font-size:13px;font-weight:700;color:#1B3A5C;margin-bottom:12px">
+        ${typeNames[type]} | ${rows.length} รายการ
+      </div>
+      <div class="tw">
+        <table>
+          <thead><tr style="background:#1B3A5C">
+            <th style="color:white">รหัส</th>
+            <th style="color:white">ชื่อ</th>
+            <th style="color:white;text-align:right">Stock Min</th>
+            <th style="color:white;text-align:right">คงเหลือ</th>
+            <th style="color:white;text-align:right">หน่วย</th>
+            <th style="color:white;text-align:center">สถานะ</th>
+          </tr></thead>
+          <tbody>
+          ${rows.map(r=>`<tr style="background:${r.balance<=0?'#FEF2F2':r.balance<=r.stockMin?'#FFFBEB':'white'}">
+            <td style="font-family:monospace;font-size:11px;color:#1B5EC7">${r.code}</td>
+            <td style="font-size:12px">${r.name}</td>
+            <td style="text-align:right;color:#6B7280">${r.stockMin||'—'}</td>
+            <td style="text-align:right;font-weight:800;font-size:14px;color:${r.statusColor}">
+              ${fmt(r.balance,r.unit==='pcs'?0:3)}
+            </td>
+            <td style="text-align:right;font-size:11px;color:#6B7280">${r.unit}</td>
+            <td style="text-align:center">
+              <span style="color:${r.statusColor};font-weight:600">${r.status}</span>
+            </td>
+          </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }catch(e){area.innerHTML=`<div class="al ale">❌ ${e.message}</div>`;}
+}
+
+// ── Print ────────────────────────────────────────────────────
+function srPrint(areaId, title){
+  const content=document.getElementById(areaId)?.innerHTML||'';
+  const today=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+  openPreviewWindow(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+      @page{size:A4 landscape;margin:8mm}
+      body{font-family:'Sarabun',sans-serif;font-size:9pt}
+      table{width:100%;border-collapse:collapse}
+      th{background:#1B3A5C;color:white;padding:3px 6px;font-size:8.5pt}
+      td{padding:2px 6px;border-bottom:1px solid #eee;font-size:9pt}
+      @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+    </style></head><body>
+    <h3 style="color:#1B3A5C;margin:0 0 4px">📊 ${title} — FitExpo Co., Ltd.</h3>
+    <div style="color:#666;font-size:8.5pt;margin-bottom:8px">พิมพ์วันที่ ${today}</div>
+    ${content}
+    </body></html>`, title);
 }
 
 // ════════════════════════════════════════════════════════════
