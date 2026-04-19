@@ -6663,18 +6663,25 @@ async function upsertFGStock(sku, addQty, lotNo='', prodDate='', expDate=null){
   addQty=Number(addQty)||0;
   const safeLot=lotNo||`LOT-${new Date().toISOString().slice(0,10).replace(/-/g,'')}`;
 
-  // ── บันทึก lot (เช็คซ้ำก่อน) ──
+  // ── บันทึก lot — ลบซ้ำก่อน insert ──
   try{
-    const existingLot=await sbG('stock_product_lots',{
+    const existLots=await sbG('stock_product_lots',{
       f:[`sku=eq.${sku}`,`lot_no=eq.${safeLot}`]
     }).catch(()=>[]);
-    if(!existingLot.length){
-      await sbP('stock_product_lots',{
-        sku, lot_no:safeLot, qty_kg:addQty,
+    if(existLots.length>1){
+      // มี lot ซ้ำ → ลบทั้งหมด แล้ว insert ใหม่
+      for(const old of existLots){
+        await sbD('stock_product_lots',`id=eq.${old.id}`).catch(()=>{});
+      }
+      await sbP('stock_product_lots',{sku,lot_no:safeLot,qty_kg:addQty,
         prod_date:prodDate||new Date().toISOString().slice(0,10),
-        exp_date:expDate||null, status:'available'
-      });
+        exp_date:expDate||null,status:'available'});
+    }else if(existLots.length===0){
+      await sbP('stock_product_lots',{sku,lot_no:safeLot,qty_kg:addQty,
+        prod_date:prodDate||new Date().toISOString().slice(0,10),
+        exp_date:expDate||null,status:'available'});
     }
+    // length===1 → OK แล้ว
   }catch(e){ console.warn('stock_product_lots:',e.message); }
 
   // ── update stock_product ──
@@ -6762,19 +6769,30 @@ async function doFinalizeProduction(woId, ppNo, woSku, defaultKg){
         return{sku,jars,weightG,kgUsed};
       }).filter(e=>e.sku&&e.jars>0);
 
-      if(!entries.length){
+      // รวม entries ที่มี SKU เดียวกัน → ป้องกัน lot ซ้ำ
+      const skuMap={};
+      entries.forEach(e=>{
+        if(!skuMap[e.sku]) skuMap[e.sku]={...e};
+        else{
+          skuMap[e.sku].jars+=e.jars;
+          skuMap[e.sku].kgUsed=parseFloat((skuMap[e.sku].kgUsed+e.kgUsed).toFixed(4));
+        }
+      });
+      const uniqueEntries=Object.values(skuMap);
+
+      if(!uniqueEntries.length){
         msgEl('fp-msg','กรุณาเพิ่มรายการบรรจุก่อนครับ','e');
         restoreBtn(); return;
       }
-      const totalKgUsed=parseFloat(entries.reduce((s,e)=>s+e.kgUsed,0).toFixed(4));
+      const totalKgUsed=parseFloat(uniqueEntries.reduce((s,e)=>s+e.kgUsed,0).toFixed(4));
 
-      for(const e of entries){
+      for(const e of uniqueEntries){
         // บันทึกเป็น kg
         await upsertFGStock(e.sku, e.kgUsed, lotNo, prodDate, expDate);
         await logA('UPDATE','stock_fg',
           `บรรจุ ${e.sku}: ${e.jars} กระปุก × ${e.weightG}g = ${fmt(e.kgUsed,3)} kg`,ppNo);
       }
-      const summary=entries.map(e=>`${e.sku}:${e.jars}กระปุก`).join(', ');
+      const summary=uniqueEntries.map(e=>`${e.sku}:${e.jars}กระปุก`).join(', ');
       await safeUpdateWO(woId,{
         status:'เสร็จสิ้น', actual_qty:totalKgUsed,
         lot_no:lotNo, finish_date:prodDate,
@@ -6797,7 +6815,7 @@ async function doFinalizeProduction(woId, ppNo, woSku, defaultKg){
         return{sku,pcs,weightG,kgUsed};
       }).filter(e=>e.sku&&e.pcs>0);
 
-      if(!entries.length){
+      if(!uniqueEntries.length){
         msgEl('fp-msg','กรุณาเพิ่มรายการก่อนครับ','e');
         restoreBtn(); return;
       }
@@ -19676,6 +19694,29 @@ function hrEditDayType(dateStr){
 // แปลง ISO timestamp → เวลาไทย (UTC+7) format HH:MM
 function toThaiTime(isoStr){ return hrTime(isoStr); }
 
+
+
+async function cleanupDupLots(sku){
+  const area=document.getElementById('mo-b');
+  if(!area) return;
+  const allLots=await sbG('stock_product_lots',{f:[`sku=eq.${sku}`],ord:'id.asc'}).catch(()=>[]);
+  const seen=new Map();
+  let deleted=0;
+  for(const lot of allLots){
+    const key=lot.lot_no||String(lot.id);
+    if(seen.has(key)){
+      await sbD('stock_product_lots',`id=eq.${lot.id}`).catch(()=>{});
+      deleted++;
+    }else seen.set(key, lot);
+  }
+  if(deleted>0){
+    alert(`✅ ลบ lot ซ้ำ ${deleted} รายการแล้ว`);
+    const parts=area.id.match(/mo-b/);
+    const nameEl=document.querySelector('.ct');
+    // reload lot detail
+    showStockLots(sku,'fg');
+  }else alert('ไม่มี lot ซ้ำ');
+}
 
 // ════════════════════════════════════════════════════════════
 //  CLOCK
