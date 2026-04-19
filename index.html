@@ -14027,6 +14027,7 @@ async function _renderStockLots(code, type){
           ${fromWO?'<span style="font-size:10px;color:var(--amber);font-weight:400;margin-left:4px">⚠️ จาก WO</span>':''}
         </div>
         <button class="btn btnP sm" onclick="addNewLot('${code}','${type}','${stockUnit}')">+ เพิ่ม Lot ใหม่</button>
+        <button class="btn btnD sm" onclick="cleanupDupLots('${code}','${type}')" title="ลบ Lot ที่ซ้ำกัน">🧹 ล้าง Lot ซ้ำ</button>
       </div>
       <div class="tw" style="max-height:240px;overflow-y:auto;margin-bottom:14px">
         <table>
@@ -19696,26 +19697,47 @@ function toThaiTime(isoStr){ return hrTime(isoStr); }
 
 
 
-async function cleanupDupLots(sku){
-  const area=document.getElementById('mo-b');
-  if(!area) return;
-  const allLots=await sbG('stock_product_lots',{f:[`sku=eq.${sku}`],ord:'id.asc'}).catch(()=>[]);
-  const seen=new Map();
-  let deleted=0;
-  for(const lot of allLots){
-    const key=lot.lot_no||String(lot.id);
-    if(seen.has(key)){
-      await sbD('stock_product_lots',`id=eq.${lot.id}`).catch(()=>{});
-      deleted++;
-    }else seen.set(key, lot);
+async function cleanupDupLots(sku, type='fg'){
+  if(!confirm(`ลบ Lot ที่ซ้ำกันใน ${sku}?\n(เก็บไว้เฉพาะ Lot แรกของแต่ละ Lot No.)`)) return;
+
+  const table = type==='wip' ? 'wip_stock_lots' : 'stock_product_lots';
+  const codeField = type==='wip' ? 'wip_code' : 'sku';
+
+  try{
+    msgEl('mo-b','<span class="spin"></span> กำลังล้าง Lot ซ้ำ...','i');
+  }catch(e){}
+
+  try{
+    const allLots = await sbG(table,{
+      f:[`${codeField}=eq.${sku}`], ord:'id.asc'
+    }).catch(()=>[]);
+
+    const seen = new Map();
+    let deleted = 0;
+    for(const lot of allLots){
+      const key = (lot.lot_no||lot.lot||'').trim() || String(lot.id);
+      if(seen.has(key)){
+        // ลบอันซ้ำ
+        await sbD(table, `id=eq.${lot.id}`).catch(()=>{});
+        deleted++;
+      }else{
+        seen.set(key, lot);
+      }
+    }
+
+    if(deleted > 0){
+      alert(`✅ ลบ Lot ซ้ำ ${deleted} รายการแล้ว\nรายการ Lot ที่เหลือ: ${allLots.length - deleted}`);
+      await logA('DELETE', type==='wip'?'wip':'stock_fg',
+        `ล้าง Lot ซ้ำ ${sku}: ลบ ${deleted} รายการ`);
+      // Reload modal
+      showStockLots(sku, type);
+    }else{
+      alert(`✅ ไม่พบ Lot ซ้ำใน ${sku}`);
+      showStockLots(sku, type);
+    }
+  }catch(e){
+    alert('❌ Error: '+e.message);
   }
-  if(deleted>0){
-    alert(`✅ ลบ lot ซ้ำ ${deleted} รายการแล้ว`);
-    const parts=area.id.match(/mo-b/);
-    const nameEl=document.querySelector('.ct');
-    // reload lot detail
-    showStockLots(sku,'fg');
-  }else alert('ไม่มี lot ซ้ำ');
 }
 
 // ════════════════════════════════════════════════════════════
