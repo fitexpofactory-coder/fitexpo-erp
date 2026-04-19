@@ -19821,14 +19821,30 @@ async function cleanupDupLots(sku, type='fg'){
       }
     }
 
+    // คำนวณ qty ใหม่จาก lots ที่เหลือ
+    const remainLots = await sbG(table,{f:[`${codeField}=eq.${sku}`]}).catch(()=>[]);
+    const newQty = remainLots.reduce((s,l)=>s+(+l.qty_kg||+l.qty||0),0);
+
+    // อัปเดต stock table
+    if(type==='fg'){
+      const fgRow=await sbG('stock_product',{f:[`sku=eq.${sku}`]}).catch(()=>[]);
+      if(fgRow.length){
+        await sbU('stock_product',{qty_in:newQty},`sku=eq.${sku}`).catch(()=>{});
+      }
+    }else if(type==='wip'){
+      const wipRow=await sbG('wip_stock',{f:[`code=eq.${sku}`]}).catch(()=>[]);
+      if(wipRow.length){
+        await sbU('wip_stock',{qty_produced:newQty},`code=eq.${sku}`).catch(()=>{});
+      }
+    }
+
     if(deleted > 0){
-      alert(`✅ ลบ Lot ซ้ำ ${deleted} รายการแล้ว\nรายการ Lot ที่เหลือ: ${allLots.length - deleted}`);
-      await logA('DELETE', type==='wip'?'wip':'stock_fg',
-        `ล้าง Lot ซ้ำ ${sku}: ลบ ${deleted} รายการ`);
-      // Reload modal
+      alert(`✅ ลบ Lot ซ้ำ ${deleted} รายการ\nStock คำนวณใหม่: ${newQty.toFixed(0)}`);
+      await logA('UPDATE', type==='wip'?'wip':'stock_fg',
+        `ล้าง Lot ซ้ำ ${sku}: qty ใหม่=${newQty}`);
       showStockLots(sku, type);
     }else{
-      alert(`✅ ไม่พบ Lot ซ้ำใน ${sku}`);
+      alert(`✅ ไม่มี Lot ซ้ำ | Stock: ${newQty.toFixed(0)}`);
       showStockLots(sku, type);
     }
   }catch(e){
@@ -19866,8 +19882,12 @@ function srInit(){
 
 // ── ดึง transactions จาก activity_log + lot_entries ──────────
 async function srFetchTransactions(from, to, typeFilter='all'){
-  // 1. Activity log — ทุก transaction
-  const logFilter=[`created_at=gte.${from}T00:00:00`,`created_at=lte.${to}T23:59:59`];
+  // 1. Activity log — เฉพาะ action ที่ไม่ใช่ RECEIVE (ป้องกันซ้ำกับ lot_entries)
+  const logFilter=[
+    `created_at=gte.${from}T00:00:00`,
+    `created_at=lte.${to}T23:59:59`,
+    `action=neq.RECEIVE`   // RECEIVE มาจาก lot_entries แล้ว
+  ];
   const modules=typeFilter==='rm'?['rm','stock_rm','stock_material','weigh']:
                 typeFilter==='wip'?['wip','wip_prod','wip_stock']:
                 typeFilter==='fg'?['fg','stock_fg','production']:
@@ -19969,7 +19989,11 @@ async function srFetchTransactions(from, to, typeFilter='all'){
     });
   });
 
-  // จาก activity_log (เบิก/ตัก/ใช้)
+  // จาก activity_log — เฉพาะ action ที่ไม่ใช่ RECEIVE
+  const filteredLogs = logs.filter(l=>{
+    const a=(l.action||'').toUpperCase();
+    return a!=='RECEIVE'; // RECEIVE ใช้ lot_entries แทน
+  });
   const actMap={
     'RECEIVE': {label:'รับเข้า', icon:'📥', color:'#16a34a'},
     'CREATE':  {label:'สร้าง',  icon:'➕', color:'#2563EB'},
@@ -19979,7 +20003,7 @@ async function srFetchTransactions(from, to, typeFilter='all'){
     'ISSUE':   {label:'เบิก',   icon:'📤', color:'#DC2626'},
     'DEDUCT':  {label:'ตัด Stock',icon:'➖', color:'#EA580C'},
   };
-  logs.forEach(l=>{
+  filteredLogs.forEach(l=>{
     const act=actMap[l.action?.toUpperCase()]||{label:l.action,icon:'📝',color:'#6B7280'};
     // ตรวจ detail มี qty ไหม
     const qtyMatch=l.detail?.match(/([\d.]+)\s*(kg|pcs|g|liter|pack|roll)/i);
@@ -20085,16 +20109,18 @@ function srBuildTable(txns){
             </span>
           </td>
           <td style="font-family:monospace;font-size:11px;color:#1B5EC7">${t.code||'—'}</td>
-          <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-            ${t.name||t.note||'—'}
+          <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+            title="${t.name||''} ${t.note||''}">
+            ${t.name||'—'}
           </td>
           <td style="text-align:right;font-weight:700;color:${t.txnType==='รับเข้า'||t.txnType==='ผลิต FG'||t.txnType==='ผลิต WIP'?'#16a34a':'#DC2626'}">
             ${t.qty>0?(t.txnType==='รับเข้า'||t.txnType.startsWith('ผลิต')?'+':'-')+fmt(t.qty,3):'—'}
           </td>
           <td style="font-size:11px;color:#6B7280">${t.unit||'—'}</td>
-          <td style="font-size:11px;font-family:monospace">${t.lotNo||'—'}</td>
-          <td style="font-size:11px;color:#6B7280;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-            ${t.supplier||t.note||'—'}
+          <td style="font-size:11px;font-family:monospace;color:${t.lotNo?'#1B5EC7':'#9CA3AF'}">${t.lotNo||'—'}</td>
+          <td style="font-size:11px;color:#6B7280;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+            title="${t.supplier||''} ${t.note||''}">
+            ${t.supplier?'🏭 '+t.supplier:t.note?t.note.slice(0,40):'—'}
           </td>
           <td style="font-size:11px">${t.by||'—'}</td>
         </tr>`).join('')}
@@ -20277,35 +20303,54 @@ function srPrint(areaId, title){
 
 
 async function cleanupDupLotsRM(code, name, unit){
-  if(!confirm(`ลบ Lot ที่ซ้ำกันใน ${code}?\n(เก็บไว้เฉพาะ Lot แรกของแต่ละ Lot No.)`)) return;
+  if(!confirm(`ลบ Lot ที่ซ้ำกันใน ${code}?\n(เก็บไว้เฉพาะ Lot แรกของแต่ละ Lot No. และคำนวณ Stock ใหม่)`)) return;
   try{
-    // ลบจาก lot_entries (ตารางใหม่)
+    // ── ขั้น 1: ลบ lot ซ้ำใน lot_entries ─────────────────────
     const le = await sbG('lot_entries',{
       f:[`material_code=eq.${code}`], ord:'id.asc'
     }).catch(()=>[]);
-    const seen=new Map(); let del1=0;
+    const seenLE=new Map(); let del1=0;
     for(const l of le){
       const k=(l.lot_no||'').trim()||String(l.id);
-      if(seen.has(k)){
+      if(seenLE.has(k)){
         await sbD('lot_entries',`id=eq.${l.id}`).catch(()=>{});
         del1++;
-      }else seen.set(k,l);
+      }else seenLE.set(k,l);
     }
-    // ลบจาก material_lots (ตารางเก่า)
+
+    // ── ขั้น 2: ลบ lot ซ้ำใน material_lots ───────────────────
     const ml = await sbG('material_lots',{
       f:[`mat_code=eq.${code}`], ord:'id.asc'
     }).catch(()=>[]);
-    const seen2=new Map(); let del2=0;
+    const seenML=new Map(); let del2=0;
     for(const l of ml){
       const k=(l.lot_no||'').trim()||String(l.id);
-      if(seen2.has(k)){
+      if(seenML.has(k)){
         await sbD('material_lots',`id=eq.${l.id}`).catch(()=>{});
         del2++;
-      }else seen2.set(k,l);
+      }else seenML.set(k,l);
     }
+
+    // ── ขั้น 3: คำนวณ qty_in ใหม่จาก lot_entries ที่เหลือ ───
+    const remainLE = await sbG('lot_entries',{
+      f:[`material_code=eq.${code}`]
+    }).catch(()=>[]);
+    const newQtyIn = remainLE.reduce((s,l)=>s+(+l.qty_received||0), 0);
+
+    // ── ขั้น 4: อัปเดต stock_material.qty_in ─────────────────
+    const stockRow = await sbG('stock_material',{f:[`code=eq.${code}`]}).catch(()=>[]);
+    if(stockRow.length){
+      await sbU('stock_material',{qty_in: newQtyIn}, `code=eq.${code}`);
+    }
+
     const total=del1+del2;
-    alert(total>0?`✅ ลบ Lot ซ้ำ ${total} รายการแล้ว`:`✅ ไม่มี Lot ซ้ำใน ${code}`);
-    await logA('DELETE','rm',`ล้าง Lot ซ้ำ ${code}: ลบ ${total} รายการ`);
+    const newBal = (+stockRow[0]?.balance_opening||0) + newQtyIn - (+stockRow[0]?.qty_out||0);
+    const msg = total>0
+      ? `✅ ลบ Lot ซ้ำ ${total} รายการ\nคำนวณ qty_in ใหม่: ${newQtyIn.toFixed(3)} kg\nStock คงเหลือ: ${newBal.toFixed(3)} kg`
+      : `✅ ไม่มี Lot ซ้ำ\nStock คงเหลือ: ${newBal.toFixed(3)} kg`;
+    alert(msg);
+    await logA('UPDATE','rm',`ล้าง Lot ซ้ำ ${code}: qty_in ใหม่=${newQtyIn.toFixed(3)}`);
+    window._cachedRM=null;
     showRMLots(code, name, unit);
   }catch(e){ alert('❌ '+e.message); }
 }
