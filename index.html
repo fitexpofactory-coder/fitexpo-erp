@@ -595,6 +595,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
         <div class="rni" onclick="nav('rm-matrix')" data-page="rm-matrix">📊 Matrix RM</div>
         <div class="rni" onclick="nav('weigh')" data-page="weigh">⚖️ Weighing Program / ชั่งน้ำหนัก</div>
         <div class="rni" onclick="nav('forecast')" data-page="forecast">📈 Forecast & Plan</div>
+        <div class="rni" onclick="nav('stock-deduct')" data-page="stock-deduct">✂️ Deduct Stock</div>
       </div>
     </div>
     <div class="rg">
@@ -2636,6 +2637,110 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
     </div>
   </div>
 </div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     STOCK DEDUCTION PER BATCH RECORD
+     ═══════════════════════════════════════════════════════════ -->
+<div id="pg-stock-deduct" class="pg">
+  <div class="card">
+    <div class="ch">
+      <div class="ct">✂️ Deduct Stock by Batch / ตัด Stock ตาม Batch Record</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <select class="fc2 sm" id="sd-wo-sel" style="width:200px" onchange="sdLoadWO()">
+          <option value="">— Select Work Order —</option>
+        </select>
+        <button class="btn btnS sm" onclick="sdInit()">🔄 Reload</button>
+      </div>
+    </div>
+    <div id="sd-wo-info" style="display:none;background:var(--navy-light);border-radius:8px;
+      padding:10px;margin-bottom:12px;font-size:12px">
+    </div>
+  </div>
+
+  <!-- Batch selector -->
+  <div class="card" id="sd-batch-card" style="display:none">
+    <div class="ct mb3">📋 Select Batch Record / เลือก Batch</div>
+    <div id="sd-batch-list" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+  </div>
+
+  <!-- Material list per batch -->
+  <div id="sd-material-card" style="display:none">
+    <div class="card">
+      <div class="ch">
+        <div>
+          <div class="ct">⚖️ RM/WIP — Deduct by Weighing / ตัด RM ตามชั่ง</div>
+          <div style="font-size:11px;color:var(--text3)">
+            ตัด stock ทันทีเมื่อยืนยัน Batch นี้
+          </div>
+        </div>
+        <button class="btn btnP sm" onclick="sdAddRMRow()">+ Add Material</button>
+      </div>
+      <div class="tw">
+        <table id="sd-rm-table">
+          <thead><tr style="background:var(--navy)">
+            <th style="color:white">Code / รหัส</th>
+            <th style="color:white">Name / ชื่อ</th>
+            <th style="color:white">Type</th>
+            <th style="color:white;text-align:right">BOM Qty</th>
+            <th style="color:white;text-align:right">Actual Qty / จริง</th>
+            <th style="color:white;text-align:right">Unit</th>
+            <th style="color:white;text-align:right">Stock Avail.</th>
+            <th style="color:white;text-align:center">Weighed ✅</th>
+            <th style="color:white;width:60px"></th>
+          </tr></thead>
+          <tbody id="sd-rm-tbody"></tbody>
+        </table>
+      </div>
+      <div id="sd-rm-summary" style="background:var(--bg3);border-radius:6px;
+        padding:8px;font-size:12px;margin-top:8px"></div>
+      <button class="btn btnP" id="sd-confirm-rm-btn" style="width:100%;margin-top:10px;padding:12px"
+        onclick="sdConfirmRM()">
+        ✅ Confirm & Deduct RM/WIP Stock for This Batch
+      </button>
+    </div>
+
+    <!-- PK Section -->
+    <div class="card" style="margin-top:0">
+      <div class="ch">
+        <div>
+          <div class="ct">📦 PK/Packaging — Deduct at Production Close</div>
+          <div style="font-size:11px;color:var(--text3)">
+            ตัด stock เมื่อยืนยันผลผลิตทั้ง WO
+          </div>
+        </div>
+        <button class="btn btnS sm" onclick="sdAddPKRow()">+ Add PK</button>
+      </div>
+      <div class="tw">
+        <table id="sd-pk-table">
+          <thead><tr style="background:#7C3AED">
+            <th style="color:white">Code / รหัส</th>
+            <th style="color:white">Name / ชื่อ</th>
+            <th style="color:white;text-align:right">BOM Qty</th>
+            <th style="color:white;text-align:right">Actual Qty / จริง</th>
+            <th style="color:white;text-align:right">Unit</th>
+            <th style="color:white;text-align:right">Stock Avail.</th>
+            <th style="color:white;width:60px"></th>
+          </tr></thead>
+          <tbody id="sd-pk-tbody"></tbody>
+        </table>
+      </div>
+      <button class="btn" id="sd-confirm-pk-btn"
+        style="width:100%;margin-top:10px;padding:12px;
+          background:#7C3AED;color:white;border:none;border-radius:8px;
+          font-size:14px;font-weight:700;cursor:pointer"
+        onclick="sdConfirmPK()">
+        📦 Confirm & Deduct PK Stock (Whole WO)
+      </button>
+    </div>
+    <div id="sd-msg" style="margin-top:8px"></div>
+  </div>
+
+  <!-- Deduction history -->
+  <div class="card" id="sd-history-card" style="display:none">
+    <div class="ct mb3">📋 Deduction History / ประวัติการตัด Stock</div>
+    <div id="sd-history-area"></div>
+  </div>
+</div>
 </main>
 </div>
   </div><!-- /wrap -->
@@ -2674,15 +2779,15 @@ const RM={
     'inv-locations','inv-assign','inv-count','inv-sessions','inv-sheet',
     'hr-checkin','hr-attendance','hr-leave','hr-ot','hr-approve','hr-report',
     'hr-employees','hr-holidays','hr-payroll','hr-payslip','hr-diligence',
-    'import','permissions','actlog','users','pm','weigh','forecast','stock-report'],
+    'import','permissions','actlog','users','pm','weigh','forecast','stock-report','stock-deduct'],
   production:['dashboard','rm','wip-stock','fg','bom-mgr','production','prod-plan',
     'wip-prod','print-docs','oee-log','oee-dashboard','machines',
     'inv-locations','inv-assign','inv-count','inv-sessions','inv-sheet',
-    'hr-checkin','hr-leave','hr-ot','pm','weigh','forecast','stock-report'],
+    'hr-checkin','hr-leave','hr-ot','pm','weigh','forecast','stock-report','stock-deduct'],
   sales:['dashboard','fg','so','hr-checkin','hr-leave','hr-ot','forecast'],
   qc:['dashboard','rm','wip-stock','fg','print-docs','oee-log','oee-dashboard',
     'inv-locations','inv-assign','inv-count','inv-sessions','inv-sheet',
-    'hr-checkin','hr-leave','hr-ot','pm','forecast','stock-report']
+    'hr-checkin','hr-leave','hr-ot','pm','forecast','stock-report','stock-deduct']
 };
 // ══════════════════════════════════════════════════
 //  SUPABASE HELPERS
@@ -20455,6 +20560,424 @@ function restoreLabels(){
     el.removeAttribute('data-ph-orig');
   });
 }
+
+
+// ════════════════════════════════════════════════════════════
+//  STOCK DEDUCTION PER BATCH RECORD
+//  RM/WIP → ตัดต่อ Batch หลังชั่งน้ำหนัก
+//  PK     → ตัดเมื่อยืนยันผลผลิตทั้ง WO
+// ════════════════════════════════════════════════════════════
+
+let _sdWO=null, _sdBOM=[], _sdBatch=1, _sdStockMap={}, _sdWOId=null;
+let _sdDeducted=[]; // batches ที่ตัดแล้ว
+let _sdPKDeducted=false;
+
+// ── Init ─────────────────────────────────────────────────────
+async function sdInit(){
+  const sel=document.getElementById('sd-wo-sel');
+  if(!sel) return;
+  sel.innerHTML='<option value="">⏳ Loading...</option>';
+  try{
+    const wos=await sbG('production_plan',{
+      f:['status=neq.cancelled','status=neq.เสร็จสิ้น'],
+      ord:'pp_no.desc', s:'id,pp_no,sku_code,product_name,batch_kg,num_batches,status'
+    });
+    sel.innerHTML='<option value="">— Select Work Order —</option>'+
+      wos.map(w=>`<option value="${w.id}" data-pp="${w.pp_no}" data-sku="${w.sku_code}"
+        data-batches="${w.num_batches||1}" data-kg="${w.batch_kg||50}">
+        ${w.pp_no} — ${w.product_name||w.sku_code} (${w.num_batches||1} batch)
+      </option>`).join('');
+  }catch(e){ sel.innerHTML='<option value="">❌ Error: '+e.message+'</option>'; }
+}
+
+// ── Load WO + BOM ──────────────────────────────────────────────
+async function sdLoadWO(){
+  const sel=document.getElementById('sd-wo-sel');
+  const opt=sel?.options[sel.selectedIndex];
+  if(!opt?.value){ sdHideCards(); return; }
+
+  _sdWOId   = parseInt(opt.value);
+  const ppNo = opt.dataset.pp;
+  const sku  = opt.dataset.sku;
+  const numBatch = parseInt(opt.dataset.batches)||1;
+  const batchKg  = parseFloat(opt.dataset.kg)||50;
+
+  document.getElementById('sd-wo-info').style.display='block';
+  document.getElementById('sd-wo-info').innerHTML=
+    `<b>WO:</b> ${ppNo} | <b>SKU:</b> ${sku} |
+     <b>Batches:</b> ${numBatch} | <b>Batch Size:</b> ${batchKg} kg`;
+
+  // โหลด BOM + Stock
+  try{
+    const isFG=!sku.startsWith('WIP');
+    const [bom, stock, wipStock] = await Promise.all([
+      sbG(isFG?'bom_master':'wip_bom',{
+        f:[(isFG?'sku_code':'wip_code')+`=eq.${sku}`], ord:'id.asc'
+      }),
+      sbG('stock_material',{s:'code,qty_in,qty_out,balance_opening,unit'}).catch(()=>[]),
+      sbG('wip_stock',{s:'code,qty_produced,qty_issued'}).catch(()=>[])
+    ]);
+
+    // สร้าง stock map
+    _sdStockMap={};
+    stock.forEach(s=>{ _sdStockMap[s.code]={
+      avail: Math.max(0,(+s.balance_opening||0)+(+s.qty_in||0)-(+s.qty_out||0)),
+      unit: s.unit||'kg', table:'stock_material'
+    };});
+    wipStock.forEach(w=>{ _sdStockMap[w.code]={
+      avail: Math.max(0,(+w.qty_produced||0)-(+w.qty_issued||0)),
+      unit: 'kg', table:'wip_stock'
+    };});
+
+    // normalize BOM
+    _sdBOM = bom.map(b=>({
+      code:  b.mat_code||b.rm_code||'',
+      name:  b.mat_name||b.rm_name||b.mat_code||'',
+      unit:  b.unit||'kg',
+      qtyPerBatch: parseFloat(b.qty_per_batch||0),
+      isRM:  (b.mat_code||b.rm_code||'').startsWith('RM'),
+      isPK:  (b.mat_code||b.rm_code||'').startsWith('PK'),
+      isWIP: (b.mat_code||b.rm_code||'').startsWith('WIP'),
+    }));
+
+    _sdBatch=1;
+    _sdDeducted=[];
+    _sdPKDeducted=false;
+
+    // โหลด deduction history
+    const logs=await sbG('activity_log',{
+      f:[`ref_code=eq.${ppNo}`,`action=eq.DEDUCT`],
+      ord:'created_at.desc',lim:100
+    }).catch(()=>[]);
+    _sdDeducted=logs.filter(l=>l.detail?.includes('Batch')).map(l=>{
+      const m=l.detail?.match(/Batch\s*(\d+)/);
+      return m?parseInt(m[1]):0;
+    }).filter(Boolean);
+
+    // render batch selector
+    sdRenderBatches(numBatch);
+    // load first batch
+    sdSelectBatch(1);
+
+    document.getElementById('sd-batch-card').style.display='block';
+    document.getElementById('sd-material-card').style.display='block';
+    document.getElementById('sd-history-card').style.display='block';
+    sdLoadHistory(ppNo);
+  }catch(e){
+    msgEl('sd-msg','❌ '+e.message,'e');
+  }
+}
+
+function sdHideCards(){
+  ['sd-batch-card','sd-material-card','sd-history-card'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.style.display='none';
+  });
+  document.getElementById('sd-wo-info').style.display='none';
+}
+
+// ── Batch Selector ────────────────────────────────────────────
+function sdRenderBatches(numBatch){
+  const list=document.getElementById('sd-batch-list');
+  if(!list) return;
+  let html2='';
+  for(let i=1;i<=numBatch;i++){
+    const done=_sdDeducted.includes(i);
+    html2+=`<button class="btn ${done?'btnG':'btnS'} sm"
+      id="sd-batch-btn-${i}"
+      onclick="sdSelectBatch(${i})"
+      style="min-width:90px;font-weight:${_sdBatch===i?'800':'400'}">
+      ${done?'✅':'📋'} Batch ${i}
+    </button>`;
+  }
+  list.innerHTML=html2;
+}
+
+function sdSelectBatch(n){
+  const sel=document.getElementById('sd-wo-sel');
+  const opt=sel?.options[sel.selectedIndex];
+  if(!opt?.value) return;
+  _sdBatch=n;
+  const numBatch=parseInt(opt.dataset.batches)||1;
+  sdRenderBatches(numBatch);
+  sdRenderMaterials();
+}
+
+// ── Render Material Tables ────────────────────────────────────
+function sdRenderMaterials(){
+  const sel=document.getElementById('sd-wo-sel');
+  const opt=sel?.options[sel.selectedIndex];
+  if(!opt?.value) return;
+  const batchKg=parseFloat(opt.dataset.kg)||50;
+  const isDone=_sdDeducted.includes(_sdBatch);
+
+  const rmItems=_sdBOM.filter(b=>b.isRM||b.isWIP);
+  const pkItems=_sdBOM.filter(b=>b.isPK);
+
+  // ── RM/WIP table ───────────────────────────────────────────
+  const rmTbody=document.getElementById('sd-rm-tbody');
+  if(rmTbody){
+    rmTbody.innerHTML=rmItems.map((b,i)=>{
+      const target=parseFloat((b.qtyPerBatch).toFixed(4));
+      const avail=_sdStockMap[b.code]?.avail||0;
+      const typeColor=b.isWIP?'#7C3AED':b.isRM?'#1B5EC7':'#16a34a';
+      const typeLabel=b.isWIP?'WIP':b.isRM?'RM':'MAT';
+      const ok=avail>=target;
+      return`<tr style="background:${isDone?'#F0FDF4':''}">
+        <td style="font-family:monospace;font-size:11px;color:${typeColor}">${b.code}</td>
+        <td style="font-size:12px">${b.name}</td>
+        <td><span style="background:${typeColor};color:white;padding:1px 6px;
+          border-radius:4px;font-size:10px">${typeLabel}</span></td>
+        <td style="text-align:right;color:var(--text3)">${target}</td>
+        <td style="text-align:right">
+          <input type="number" class="fc2 sd-actual" data-idx="${i}" data-code="${b.code}"
+            data-table="${_sdStockMap[b.code]?.table||'stock_material'}"
+            value="${target}" step="0.001" min="0" style="width:80px;text-align:right;
+            font-size:12px;${isDone?'background:#dcfce7':''}">
+        </td>
+        <td style="text-align:right;font-size:11px">${b.unit}</td>
+        <td style="text-align:right;font-weight:600;color:${ok?'var(--green)':'var(--red)'}">
+          ${parseFloat(avail).toFixed(3)}
+        </td>
+        <td style="text-align:center">
+          ${isDone?'<span style="color:var(--green);font-size:16px">✅</span>':
+            '<span style="color:var(--text3);font-size:12px">—</span>'}
+        </td>
+        <td>
+          <button class="btn btnD sm" onclick="sdRemoveRow('rm',${i})"
+            title="Remove">✕</button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ── PK table ──────────────────────────────────────────────
+  const pkTbody=document.getElementById('sd-pk-tbody');
+  if(pkTbody){
+    pkTbody.innerHTML=pkItems.map((b,i)=>{
+      const target=parseFloat((b.qtyPerBatch*(parseInt(opt.dataset.batches)||1)).toFixed(4));
+      const avail=_sdStockMap[b.code]?.avail||0;
+      const ok=avail>=target;
+      return`<tr style="background:${_sdPKDeducted?'#F5F3FF':''}">
+        <td style="font-family:monospace;font-size:11px;color:#7C3AED">${b.code}</td>
+        <td style="font-size:12px">${b.name}</td>
+        <td style="text-align:right;color:var(--text3)">${target}</td>
+        <td style="text-align:right">
+          <input type="number" class="fc2 sd-pk-actual" data-idx="${i}" data-code="${b.code}"
+            data-table="${_sdStockMap[b.code]?.table||'stock_material'}"
+            value="${target}" step="1" min="0" style="width:80px;text-align:right;font-size:12px">
+        </td>
+        <td style="text-align:right;font-size:11px">${b.unit}</td>
+        <td style="text-align:right;font-weight:600;color:${ok?'var(--green)':'var(--red)'}">
+          ${parseFloat(avail).toFixed(3)}
+        </td>
+        <td>
+          <button class="btn btnD sm" onclick="sdRemovePKRow(${i})" title="Remove">✕</button>
+        </td>
+      </tr>`;
+    }).join('');
+    if(!pkItems.length){
+      pkTbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text3)">No PK in BOM</td></tr>';
+    }
+  }
+
+  // ── Summary ────────────────────────────────────────────────
+  const summEl=document.getElementById('sd-rm-summary');
+  if(summEl){
+    const totalRM=rmItems.reduce((s,b)=>s+b.qtyPerBatch,0);
+    summEl.innerHTML=`Batch ${_sdBatch} — Total RM/WIP: <b>${totalRM.toFixed(3)} kg</b>
+      ${isDone?'<span style="color:var(--green);font-weight:700;margin-left:12px">✅ Already Deducted</span>':''}`;
+  }
+
+  // disable confirm ถ้าตัดแล้ว
+  const rmBtn=document.getElementById('sd-confirm-rm-btn');
+  if(rmBtn){
+    rmBtn.disabled=isDone;
+    rmBtn.style.opacity=isDone?'0.5':'1';
+    rmBtn.textContent=isDone?
+      `✅ Batch ${_sdBatch} Already Deducted`:
+      `✅ Confirm & Deduct RM/WIP — Batch ${_sdBatch}`;
+  }
+}
+
+// ── Add/Remove rows ───────────────────────────────────────────
+function sdAddRMRow(){
+  const sel=document.getElementById('sd-wo-sel');
+  const opt=sel?.options[sel.selectedIndex];
+  const batchKg=parseFloat(opt?.dataset.kg)||50;
+  const code=prompt('Material Code (RM-xxx or WIP-xxx):','RM-');
+  if(!code?.trim()) return;
+  const name=prompt('Material Name:',code);
+  const qty=parseFloat(prompt('Qty per batch:','0'));
+  if(!qty) return;
+  const unit=prompt('Unit:','kg');
+  _sdBOM.push({
+    code:code.trim(), name:name||code, unit:unit||'kg',
+    qtyPerBatch:qty, isRM:code.startsWith('RM'),
+    isPK:code.startsWith('PK'), isWIP:code.startsWith('WIP')
+  });
+  sdRenderMaterials();
+}
+
+function sdAddPKRow(){
+  const code=prompt('PK Code (PK-xxx):','PK-');
+  if(!code?.trim()) return;
+  const name=prompt('Name:',code);
+  const qty=parseFloat(prompt('Total Qty (whole WO):','0'));
+  if(!qty) return;
+  const unit=prompt('Unit:','pcs');
+  _sdBOM.push({
+    code:code.trim(), name:name||code, unit:unit||'pcs',
+    qtyPerBatch:qty, isRM:false, isPK:true, isWIP:false
+  });
+  sdRenderMaterials();
+}
+
+function sdRemoveRow(type,idx){
+  if(!confirm('Remove this item?')) return;
+  const rmItems=_sdBOM.filter(b=>b.isRM||b.isWIP);
+  const target=rmItems[idx];
+  if(target) _sdBOM.splice(_sdBOM.indexOf(target),1);
+  sdRenderMaterials();
+}
+
+function sdRemovePKRow(idx){
+  if(!confirm('Remove this PK item?')) return;
+  const pkItems=_sdBOM.filter(b=>b.isPK);
+  const target=pkItems[idx];
+  if(target) _sdBOM.splice(_sdBOM.indexOf(target),1);
+  sdRenderMaterials();
+}
+
+// ── Confirm & Deduct RM/WIP ───────────────────────────────────
+async function sdConfirmRM(){
+  if(_sdDeducted.includes(_sdBatch)){
+    alert(`Batch ${_sdBatch} already deducted!`); return;
+  }
+  const sel=document.getElementById('sd-wo-sel');
+  const opt=sel?.options[sel.selectedIndex];
+  const ppNo=opt?.dataset.pp||'';
+  if(!ppNo){alert('Select a Work Order first');return;}
+
+  const rows=document.querySelectorAll('.sd-actual');
+  if(!rows.length){alert('No materials to deduct');return;}
+
+  const materials=[];
+  rows.forEach(inp=>{
+    const qty=parseFloat(inp.value)||0;
+    if(qty>0) materials.push({
+      code:inp.dataset.code, qty, table:inp.dataset.table
+    });
+  });
+
+  if(!confirm(`Deduct stock for Batch ${_sdBatch}?\n`+
+    materials.map(m=>`${m.code}: ${m.qty}`).join('\n'))) return;
+
+  const btn=document.getElementById('sd-confirm-rm-btn');
+  if(btn){btn.disabled=true;btn.textContent='⏳ Processing...';}
+  msgEl('sd-msg','<span class="spin"></span> Deducting RM/WIP stock...','i');
+
+  let ok=0,errs=[];
+  for(const m of materials){
+    try{
+      if(m.table==='wip_stock'){
+        const s=(await sbG('wip_stock',{f:[`code=eq.${m.code}`]}).catch(()=>[]))[0];
+        if(s) await sbU('wip_stock',{qty_issued:Number(s.qty_issued||0)+m.qty},`code=eq.${m.code}`);
+        else errs.push(`${m.code}: no WIP stock record`);
+      }else{
+        const s=(await sbG('stock_material',{f:[`code=eq.${m.code}`]}).catch(()=>[]))[0];
+        if(s) await sbU('stock_material',{qty_out:Number(s.qty_out||0)+m.qty},`code=eq.${m.code}`);
+        else errs.push(`${m.code}: no RM stock record`);
+      }
+      await logA('DEDUCT','rm',
+        `Deduct ${m.code} ${m.qty} ${_sdStockMap[m.code]?.unit||'kg'} — Batch ${_sdBatch} WO:${ppNo}`,
+        ppNo);
+      ok++;
+    }catch(e){ errs.push(`${m.code}: ${e.message}`); }
+  }
+
+  _sdDeducted.push(_sdBatch);
+  window._cachedRM=null;
+
+  if(errs.length){
+    msgEl('sd-msg',`⚠️ Done ${ok}/${materials.length}. Errors:<br>`+errs.join('<br>'),'e');
+  }else{
+    msgEl('sd-msg',`✅ Batch ${_sdBatch}: Deducted ${ok} materials successfully`,'s');
+  }
+
+  const numBatch=parseInt(opt?.dataset.batches)||1;
+  sdRenderBatches(numBatch);
+  sdRenderMaterials();
+  sdLoadHistory(ppNo);
+}
+
+// ── Confirm & Deduct PK ───────────────────────────────────────
+async function sdConfirmPK(){
+  if(_sdPKDeducted){alert('PK already deducted for this WO!');return;}
+  const sel=document.getElementById('sd-wo-sel');
+  const opt=sel?.options[sel.selectedIndex];
+  const ppNo=opt?.dataset.pp||'';
+  if(!ppNo){alert('Select a Work Order first');return;}
+
+  const rows=document.querySelectorAll('.sd-pk-actual');
+  const materials=[];
+  rows.forEach(inp=>{
+    const qty=parseFloat(inp.value)||0;
+    if(qty>0) materials.push({code:inp.dataset.code, qty, table:inp.dataset.table||'stock_material'});
+  });
+  if(!materials.length){alert('No PK materials to deduct');return;}
+
+  if(!confirm(`Deduct PK/Packaging stock (whole WO)?\n`+
+    materials.map(m=>`${m.code}: ${m.qty}`).join('\n'))) return;
+
+  msgEl('sd-msg','<span class="spin"></span> Deducting PK stock...','i');
+  let ok=0,errs=[];
+  for(const m of materials){
+    try{
+      const s=(await sbG('stock_material',{f:[`code=eq.${m.code}`]}).catch(()=>[]))[0];
+      if(s) await sbU('stock_material',{qty_out:Number(s.qty_out||0)+m.qty},`code=eq.${m.code}`);
+      else errs.push(`${m.code}: no stock record`);
+      await logA('DEDUCT','rm',
+        `Deduct PK ${m.code} ${m.qty} — WO:${ppNo} (Production Close)`,ppNo);
+      ok++;
+    }catch(e){ errs.push(`${m.code}: ${e.message}`); }
+  }
+  _sdPKDeducted=true;
+  window._cachedRM=null;
+
+  if(errs.length){
+    msgEl('sd-msg',`⚠️ PK ${ok}/${materials.length}. Errors: `+errs.join(', '),'e');
+  }else{
+    msgEl('sd-msg',`✅ PK/Packaging deducted (${ok} items)`,'s');
+  }
+  sdLoadHistory(ppNo);
+}
+
+// ── History ───────────────────────────────────────────────────
+async function sdLoadHistory(ppNo){
+  const area=document.getElementById('sd-history-area');
+  if(!area) return;
+  const logs=await sbG('activity_log',{
+    f:[`ref_code=eq.${ppNo}`,`action=eq.DEDUCT`],
+    ord:'created_at.desc',lim:50
+  }).catch(()=>[]);
+  if(!logs.length){area.innerHTML='<div class="al ali">No deductions yet</div>';return;}
+  area.innerHTML=`<div class="tw"><table>
+    <thead><tr style="background:var(--navy)">
+      <th style="color:white">Date/Time</th>
+      <th style="color:white">Detail</th>
+      <th style="color:white">By</th>
+    </tr></thead>
+    <tbody>${logs.map(l=>`<tr>
+      <td style="font-size:11px;white-space:nowrap">${hrTime(l.created_at)}</td>
+      <td style="font-size:11px">${l.detail||'—'}</td>
+      <td style="font-size:11px">${l.full_name||l.username||'—'}</td>
+    </tr>`).join('')}
+    </tbody></table></div>`;
+}
+
+// ── loadPage hook ─────────────────────────────────────────────
+// (เรียก sdInit เมื่อเปิด page)
 
 // ════════════════════════════════════════════════════════════
 //  CLOCK
