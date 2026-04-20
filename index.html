@@ -6467,10 +6467,13 @@ async function finalizeProduction(woId, ppNo){
 
       <!-- ยอดผลผลิตจริง -->
       <div class="fgrp">
-        <label class="flbl">⚖️ น้ำหนักที่ผลิตได้จริง (kg)</label>
+        <label class="flbl" id="fp-actual-kg-label">⚖️ Total Output / น้ำหนักที่ผลิตได้จริง (kg)</label>
         <input type="number" class="fc2" id="fp-actual-kg"
-          value="${fmt(defaultKg,1)}" step="0.1" min="0"
-          oninput="fpCalcTotal()">
+          value="${fmt(defaultKg,1)}"
+          data-batch-kg="${fmt(defaultKg,1)}"
+          step="0.001" min="0"
+          oninput="fpCalcTotal()"
+          title="Batch weight from WO — น้ำหนักวัตถุดิบที่ผลิตได้">
       </div>
 
       <!-- วันผลิต / LOT / EXP -->
@@ -6523,12 +6526,12 @@ async function finalizeProduction(woId, ppNo){
             style="display:none;font-weight:700;color:#1B5EC7;font-size:13px;margin-bottom:6px;
               padding:6px;background:#dbeafe;border-radius:4px">
           </div>
-          <div style="display:flex;justify-content:space-between">
-            <span>⚖️ น้ำหนักรวมใช้ไป:</span>
+          <div id="fp-used-row" style="display:flex;justify-content:space-between">
+            <span id="fp-used-label">⚖️ น้ำหนักรวม:</span>
             <b id="fp-used-kg" style="color:var(--accent)">0 kg</b>
           </div>
-          <div style="display:flex;justify-content:space-between">
-            <span>🗑️ เศษ/Loss:</span>
+          <div id="fp-remain-row" style="display:flex;justify-content:space-between">
+            <span>🗑️ เศษ/Loss (yield):</span>
             <b id="fp-remain-kg" style="color:var(--text3)">— kg</b>
           </div>
         </div>
@@ -6561,8 +6564,19 @@ function fpTogglePackMode(){
   document.getElementById('fp-kg-mode').style.display=mode==='kg'?'':'none';
   document.getElementById('fp-jar-mode').style.display=(mode==='jars'||mode==='pcs')?'':'none';
   const title=document.getElementById('fp-jar-title');
-  if(title) title.textContent=mode==='pcs'?'🔢 บรรจุเป็นชิ้น (pcs)':'🫙 แบ่งบรรจุ (kg)';
-  // เมื่อ switch mode → ล้าง rows แล้วเพิ่มใหม่ (weight options ต้องตรงกับ mode)
+  if(title) title.textContent=mode==='pcs'?'🔢 Pack as Pieces / บรรจุเป็นชิ้น (pcs)':'🫙 Pack by Weight / แบ่งบรรจุ (kg)';
+  // ปรับ label fp-actual-kg
+  const lblActual=document.getElementById('fp-actual-kg-label');
+  const inpActual=document.getElementById('fp-actual-kg');
+  if(mode==='pcs'){
+    if(lblActual) lblActual.innerHTML=`⚖️ Batch Weight / น้ำหนัก Batch (kg)
+      <small style="color:#6B7280">[จาก WO — วัตถุดิบที่ผลิตได้]</small>`;
+    if(inpActual){ inpActual.readOnly=false; inpActual.style.background='#FEF9C3'; }
+  }else{
+    if(lblActual) lblActual.innerHTML='⚖️ Total Output / น้ำหนักที่ผลิตได้จริง (kg)';
+    if(inpActual){ inpActual.readOnly=false; inpActual.style.background=''; }
+  }
+  // เมื่อ switch mode → ล้าง rows แล้วเพิ่มใหม่
   const rows=document.getElementById('fp-sku-rows');
   if(rows && rows.children.length>0){
     rows.innerHTML='';
@@ -6705,45 +6719,68 @@ function fpCalcJarTotal(){
   const mode=document.getElementById('fp-pack-mode')?.value||'jars';
   const isPcs=mode==='pcs';
   const rows=document.querySelectorAll('#fp-sku-rows [data-idx]');
-  let totalKg=0;
+  let totalKg=0, totalPcs=0;
+
   rows.forEach(row=>{
     const i=row.dataset.idx;
     const jars=parseInt(document.querySelector(`.fp-jars[data-idx="${i}"]`)?.value)||0;
     const weightG=fpGetWeightG(i);
     const kgUsed=parseFloat((jars*weightG/1000).toFixed(4));
-    // update fp-kg-used
+    totalPcs+=jars;
+    totalKg+=kgUsed;
+
+    // update fp-kg-used per row
     const kgEl=document.querySelector(`.fp-kg-used[data-idx="${i}"]`);
     if(kgEl) kgEl.value=kgUsed||'';
-    totalKg+=kgUsed;
-    // update pcs info panel (pcs mode)
+
+    // update pcs info panel
     if(isPcs){
-      const qtyEl=document.getElementById(`fp-pcs-qty-${i}`);
-      const wgEl=document.getElementById(`fp-pcs-wg-${i}`);
-      const totalEl=document.getElementById(`fp-pcs-total-${i}`);
+      const qtyEl  =document.getElementById(`fp-pcs-qty-${i}`);
+      const wgEl   =document.getElementById(`fp-pcs-wg-${i}`);
+      const totEl  =document.getElementById(`fp-pcs-total-${i}`);
       if(qtyEl) qtyEl.textContent=jars.toLocaleString();
       if(wgEl)  wgEl.textContent=weightG?weightG+'g':'—';
-      if(totalEl) totalEl.textContent=fmt(kgUsed,3)+' kg';
+      if(totEl) totEl.textContent=fmt(kgUsed,3)+' kg';
     }
   });
-  // อัปเดต summary
-  const actualKg=parseFloat(document.getElementById('fp-actual-kg')?.value)||0;
+
+  // batchKg = น้ำหนักวัตถุดิบที่ผลิตได้ (มาจาก WO — ค่าตั้งต้น)
+  const batchKg=parseFloat(window._fpDefKg||document.getElementById('fp-actual-kg')?.getAttribute('data-batch-kg')||
+    document.getElementById('fp-actual-kg')?.value||0);
+
   const usedEl=document.getElementById('fp-used-kg');
-  const remEl=document.getElementById('fp-remain-kg');
-  if(usedEl) usedEl.textContent=fmt(totalKg,3)+' kg';
-  if(remEl){
-    const rem=parseFloat((actualKg-totalKg).toFixed(4));
-    remEl.textContent=fmt(rem,3)+' kg';
-    remEl.style.color=rem<-0.01?'var(--red)':rem<0.01?'var(--green)':'var(--text3)';
+  const remEl =document.getElementById('fp-remain-kg');
+  const lblEl =document.getElementById('fp-total-pcs-label');
+
+  if(isPcs){
+    const over=totalKg>batchKg+0.001;
+    const loss=parseFloat((batchKg-totalKg).toFixed(3));
+    const lossOk=loss>=0;
+
+    // แสดง summary
+    if(lblEl){
+      lblEl.innerHTML=`📦 รวม <b>${totalPcs.toLocaleString()}</b> ชิ้น = <b style="color:${lossOk?'#16a34a':'#DC2626'}">${fmt(totalKg,3)} kg</b>
+        ${over?`<span style="color:#DC2626;font-size:11px;margin-left:8px">⚠️ เกิน batch weight ${fmt(batchKg,1)} kg!</span>`:''}`;
+      lblEl.style.display='block';
+      lblEl.style.background=over?'#FEE2E2':'#dbeafe';
+    }
+    if(usedEl) usedEl.textContent=fmt(totalKg,3)+' kg ('+totalPcs.toLocaleString()+' pcs)';
+    if(remEl){
+      remEl.textContent=(lossOk?'+':'')+fmt(loss,3)+' kg'+(lossOk?' (yield loss / เศษ)':' ⚠️ เกิน batch!');
+      remEl.style.color=over?'#DC2626':loss<0.01?'#16a34a':'var(--amber)';
+    }
+    // ไม่ auto-overwrite fp-actual-kg (ให้ user กรอกเอง = batch weight จาก WO)
+  }else{
+    // jars mode: เปรียบเทียบกับ actual kg
+    const actualKg=parseFloat(document.getElementById('fp-actual-kg')?.value)||0;
+    if(usedEl) usedEl.textContent=fmt(totalKg,3)+' kg';
+    if(remEl){
+      const rem=parseFloat((actualKg-totalKg).toFixed(4));
+      remEl.textContent=fmt(rem,3)+' kg';
+      remEl.style.color=rem<-0.01?'#DC2626':rem<0.01?'#16a34a':'var(--text3)';
+    }
+    if(lblEl) lblEl.style.display='none';
   }
-  // update label
-  const lbl=document.getElementById('fp-total-pcs-label');
-  if(lbl&&isPcs){
-    const totalPcs=[...rows].reduce((s,r)=>{
-      return s+(parseInt(document.querySelector(`.fp-jars[data-idx="${r.dataset.idx}"]`)?.value)||0);
-    },0);
-    lbl.textContent=`รวม ${totalPcs.toLocaleString()} ชิ้น = ${fmt(totalKg,3)} kg`;
-    lbl.style.display='block';
-  }else if(lbl){ lbl.style.display='none'; }
 }
 
 
