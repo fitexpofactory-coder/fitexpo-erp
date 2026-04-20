@@ -802,7 +802,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
         <div class="fgrp" style="margin:0">
           <label class="flbl">ค้นหาสินค้า SKU</label>
           <div style="position:relative">
-            <input type="text" class="fc2" id="pp-sku-search" placeholder="พิมพ์ SKU หรือชื่อ..." autocomplete="off"
+            <input type="text" class="fc2" id="pp-sku-search" placeholder="Search SKU / Name / พิมพ์ SKU หรือชื่อ..." autocomplete="off"
               oninput="skuAutoSearch('pp',this.value)" onkeydown="skuAutoKey('pp',event)">
             <div id="pp-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;max-height:220px;overflow-y:auto;z-index:999;box-shadow:0 4px 16px rgba(0,0,0,.18)"></div>
           </div>
@@ -2354,7 +2354,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
         <div class="fgrp">
           <label class="flbl">SKU สินค้า</label>
           <div style="position:relative">
-            <input type="text" class="fc2" id="fc-sku-search" placeholder="พิมพ์ SKU หรือชื่อ..." autocomplete="off" oninput="fcSkuSearch()"
+            <input type="text" class="fc2" id="fc-sku-search" placeholder="พิมพ์ SKU หรือชื่อ..." autocomplete="off" oninput="fcSkuSearch()" onfocus="if(!window._fcSkuList||!window._fcSkuList.length)fcInitSelects()"
               onblur="setTimeout(()=>{const d=document.getElementById('fc-sku-drop');if(d)d.style.display='none';},200)">
             <div id="fc-sku-drop" style="display:none;position:absolute;top:100%;left:0;right:0;
               background:white;border:1px solid var(--border);border-radius:8px;
@@ -16886,6 +16886,7 @@ async function fcInitSelects(){
         ord:'code.asc'
       }).catch(()=>[])
     ]);
+    console.log('[fcInitSelects] FG:', fgList.length, 'WIP:', wipList.length);
     // รวม FG + WIP เข้าด้วยกัน
     window._fcSkuList = [
       ...fgList.map(p=>({
@@ -16923,18 +16924,43 @@ function fcTab(tab){
 }
 
 // ── SKU Search ──────────────────────────────────────────────
-function fcSkuSearch(){
+async function fcSkuSearch(){
   const q=(document.getElementById('fc-sku-search')?.value||'').toLowerCase().trim();
   const drop=document.getElementById('fc-sku-drop');
-  if(!q){drop.style.display='none';return;}
+  if(!drop) return;
+  if(!q){
+    // เมื่อ q ว่าง → แสดง list ทั้งหมด (top 20) เพื่อ browse
+    if(window._fcSkuList?.length){
+      drop.innerHTML=(window._fcSkuList||[]).slice(0,20).map(p=>{
+        const typeBadge=p.type==='WIP'
+          ?'<span style="background:#EDE9FE;color:#5B21B6;padding:1px 5px;border-radius:4px;font-size:10px;font-weight:700">WIP</span>'
+          :'<span style="background:#DBEAFE;color:#1E40AF;padding:1px 5px;border-radius:4px;font-size:10px;font-weight:700">FG</span>';
+        const safeName=(p.name||'').replace(/'/g,"\'");
+        return`<div style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px"
+          onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''"
+          onclick="fcSelectSku('${p.sku}','${safeName}',${p.batch_kg||50},'${p.type||'FG'}')">
+          ${typeBadge}
+          <span style="font-family:monospace;color:var(--accent);font-size:11px">${p.sku}</span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name||''}</span>
+        </div>`;
+      }).join('');
+      drop.style.display='block';
+    }else{
+      drop.style.display='none';
+    }
+    return;
+  }
 
-  // ใช้ _fcSkuList ที่โหลดใน fcInitSelects
-  const list=window._fcSkuList||window._cachedFG||[];
-  if(!list.length){
-    drop.innerHTML='<div style="padding:8px 12px;color:var(--text3);font-size:12px">⏳ Loading SKU... รอสักครู่</div>';
+  // โหลด SKU list ถ้ายังไม่มี (await)
+  if(!window._fcSkuList||!window._fcSkuList.length){
+    drop.innerHTML='<div style="padding:8px 12px;color:var(--text3);font-size:12px"><span class="spin"></span> Loading SKUs...</div>';
     drop.style.display='block';
-    // โหลด SKU ถ้ายังไม่มี
-    fcInitSelects();
+    await fcInitSelects();
+  }
+  const list=window._fcSkuList||[];
+  if(!list.length){
+    drop.innerHTML='<div style="padding:8px 12px;color:var(--red);font-size:12px">❌ ไม่สามารถโหลด SKU ได้</div>';
+    drop.style.display='block';
     return;
   }
 
