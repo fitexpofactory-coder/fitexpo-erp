@@ -3683,6 +3683,48 @@ async function loadProduction(){
     </div>`;
   }).join(''):'<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">ยังไม่มี Work Order</div>';
   }catch(e){console.error(e);}
+  // โหลด batch progress ใน background
+  setTimeout(loadBatchProgress, 300);
+}
+
+async function loadBatchProgress(){
+  // ดึง deduction logs และ update badge ใน WO cards
+  try{
+    const logs = await sbG('activity_log',{
+      f:['action=eq.DEDUCT'],
+      s:'ref_code,detail', ord:'created_at.asc', lim:500
+    }).catch(()=>[]);
+
+    // สร้าง map: ppNo → set of batch numbers done
+    const batchMap = {};
+    logs.forEach(l=>{
+      const ppNo = l.ref_code||'';
+      if(!ppNo) return;
+      const m = l.detail?.match(/Batch\s*(\d+)/i);
+      if(m){
+        if(!batchMap[ppNo]) batchMap[ppNo]=new Set();
+        batchMap[ppNo].add(parseInt(m[1]));
+      }
+    });
+
+    // อัปเดต badge ทุก WO card
+    document.querySelectorAll('[id^="wo-bp-"]').forEach(el=>{
+      const woId = el.id.replace('wo-bp-','');
+      const card = el.closest('[data-wo-id]')||el.closest('[data-pp]');
+      // หา pp_no จาก checkbox ใกล้เคียง
+      const ppNo = el.dataset.pp||'';
+      const numBatches = parseInt(el.dataset.batches)||1;
+      if(!ppNo) return;
+
+      const done = batchMap[ppNo]?.size||0;
+      const allDone = done >= numBatches;
+      el.innerHTML = allDone
+        ? `<span style="color:#16a34a;font-weight:700">✅ ${done}/${numBatches} Batch confirmed</span>`
+        : done > 0
+          ? `<span style="color:#D97706">⬜ ${done}/${numBatches} Batch confirmed</span>`
+          : `<span style="color:var(--text3)">⬜ 0/${numBatches} Batch — Pending</span>`;
+    });
+  }catch(e){ console.warn('loadBatchProgress:',e); }
 }
 
 async function loadWOBOM(){
@@ -7058,6 +7100,27 @@ async function doFinalizeProduction(woId, ppNo, woSku, defaultKg){
   if(btn){ btn.disabled=true; btn.textContent='⏳ Saving...'; }
 
   const mode      = document.getElementById('fp-pack-mode')?.value||'kg';
+  // status ขึ้นกับ num_batches — ถ้า 1 batch → เสร็จสิ้น, ถ้า >1 → ต้อง confirm ทีละ batch
+  // แต่ form นี้ confirm ครบแล้วให้ set เสร็จสิ้นเลย (user เลือก confirm เองจาก form)
+  const _finalStatus = 'เสร็จสิ้น';
+
+  // ถ้า num_batches > 1 → แนะนำให้ใช้ batch-by-batch แทน
+  const _nb = parseInt((await sbG('production_plan',{
+    f:[`id=eq.${woId}`],s:'num_batches'}).catch(()=>[]))[0]?.num_batches)||1;
+  if(_nb > 1 && mode !== 'kg'){
+    // แจ้งเตือน แต่ยังให้ดำเนินต่อได้ (ถ้า user confirm)
+    const useAll = confirm(
+      `⚠️ WO นี้มี ${_nb} Batch\n\n` +
+      `[OK] ยืนยันผลผลิตทั้งหมดในครั้งเดียว (ไม่ตัด RM ทีละ Batch)\n` +
+      `[Cancel] กลับไปใช้ระบบ Batch-by-Batch`
+    );
+    if(!useAll){
+      restoreBtn();
+      closeMo();
+      finalizeProduction(woId, ppNo);
+      return;
+    }
+  }
   const actualKg  = parseFloat(document.getElementById('fp-actual-kg')?.value)||defaultKg;
   const note      = document.getElementById('fp-note')?.value||'';
   const lotNo     = document.getElementById('fp-lot-no')?.value||`LOT-${new Date().toISOString().slice(0,10).replace(/-/g,'')}`;
