@@ -19290,207 +19290,236 @@ function hrKPIBar(label, count, total, color){
 // ── รายวัน ────────────────────────────────────────────────────
 async function hrLoadDaily(){
   const date=document.getElementById('hr-day-date')?.value;
-  if(!date){alert('กรุณาเลือกวันที่');return;}
+  if(!date){alert('กรุณาเลือกวันที่ / Please select a date');return;}
   const area=document.getElementById('hr-daily-area');
   area.innerHTML='<span class="spin"></span> Loading...';
   try{
-    // ── โหลดข้อมูลพร้อมกัน ─────────────────────────────────
-    _hrHolidayCache=null; // reset cache ทุกครั้ง
+    _hrHolidayCache=null;
     const [attendance, empList, dayType]=await Promise.all([
       sbG('attendance',{f:[`att_date=eq.${date}`],ord:'emp_code.asc'}),
       sbG('employees',{f:['is_active=eq.true'],ord:'emp_code.asc',
-        s:'emp_code,first_name,last_name,department,position'}).catch(()=>[]),
+        s:'emp_code,first_name,last_name,department,position,work_shift'}).catch(()=>[]),
       getDayType(date)
     ]);
 
     const attMap={};
     attendance.forEach(a=>attMap[a.emp_code]=a);
-    const dayName=['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัส','ศุกร์','เสาร์'][new Date(date).getDay()];
-    const thDate=new Date(date).toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
     const total=empList.length;
+    const isHoliday=!dayType.isWork;
+    const dow=new Date(date).getDay();
+    const dayNames=['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัส','ศุกร์','เสาร์'];
+    const thDate=new Date(date).toLocaleDateString('th-TH',{
+      weekday:'long',year:'numeric',month:'long',day:'numeric'
+    });
 
-    // ── คำนวณสถานะตาม dayType ──────────────────────────────
-    const isHoliday = !dayType.isWork; // วันหยุดทุกประเภท
-    const isSwapWork = dayType.type==='swap_work'; // มาทำ = OT, ไม่มา = ไม่ขาด
+    // ── คำนวณสถานะแต่ละคน ────────────────────────────────────
+    let cntPresent=0,cntLate=0,cntAbsent=0,cntLeave=0,cntOT=0,cntHoliday=0;
+    const groups={present:[],late:[],absent:[],leave:[],ot:[],holiday:[]};
 
-    let cntPresent=0, cntLate=0, cntAbsent=0, cntLeave=0,
-        cntOT=0, cntHoliday=0, cntDiligent=0;
-
-    const rows=empList.map(e=>{
+    empList.forEach(e=>{
       const a=attMap[e.emp_code];
-      const hasComeIn = a && ['present','late','ot'].includes(a.status);
-      const hrs=a?.actual_work_min?Math.round(a.actual_work_min/60*10)/10:0;
-
-      let status, statusLabel, statusColor, countForDiligence=false;
+      const hasComeIn=a&&['present','late','ot'].includes(a.status);
+      let status,color,label;
 
       if(isHoliday){
-        if(hasComeIn){
-          // มาทำงานวันหยุด = OT
-          status='ot'; statusLabel='💰 OT'; statusColor='#2563EB';
-          cntOT++; countForDiligence=true;
-        } else if(a?.status==='leave'){
-          // ลาวันหยุด (ไม่ควรลด)
-          status='leave'; statusLabel='📋 ลา'; statusColor='#2563EB';
-          cntLeave++;
-          countForDiligence=true; // วันหยุด ยังได้เบี้ยขยัน
-        } else {
-          // ไม่มาวันหยุด = ปกติ ไม่ขาด ยังได้เบี้ยขยัน
-          status='holiday'; statusLabel=dayType.label; statusColor=dayType.color||'#6B7280';
-          cntHoliday++; countForDiligence=true;
+        if(hasComeIn||a?.status==='ot'){
+          status='ot'; label='💰 OT'; color='#2563EB'; cntOT++;
+          groups.ot.push({...e,a});
+        }else if(a?.status==='leave'){
+          status='leave'; label='📋 ลางาน'; color='#2563EB'; cntLeave++;
+          groups.leave.push({...e,a});
+        }else{
+          status='holiday'; label=dayType.label; color=dayType.color||'#6B7280'; cntHoliday++;
+          groups.holiday.push({...e,a});
         }
-      } else {
-        // วันทำงานปกติ
-        if(!a || a.status==='absent'){
-          status='absent'; statusLabel='❌ ขาดงาน'; statusColor='#DC2626';
-          cntAbsent++;
-        } else if(a.status==='leave'){
-          status='leave'; statusLabel='📋 ลางาน'; statusColor='#2563EB';
-          cntLeave++;
-        } else if(a.status==='late'){
-          status='late'; statusLabel='⏰ มาสาย'; statusColor='#D97706';
-          cntLate++; countForDiligence=true;
-        } else {
-          status='present'; statusLabel='✅ มาทำงาน'; statusColor='#16a34a';
-          cntPresent++; countForDiligence=true;
+      }else{
+        if(!a||a.status==='absent'){
+          status='absent'; label='❌ ขาดงาน'; color='#DC2626'; cntAbsent++;
+          groups.absent.push({...e,a});
+        }else if(a.status==='leave'){
+          status='leave'; label='📋 ลางาน'; color='#2563EB'; cntLeave++;
+          groups.leave.push({...e,a});
+        }else if(a.status==='late'){
+          status='late'; label='⏰ มาสาย'; color='#D97706'; cntLate++;
+          groups.late.push({...e,a});
+        }else if(a.status==='ot'){
+          status='ot'; label='💰 OT'; color='#2563EB'; cntOT++;
+          groups.ot.push({...e,a});
+        }else{
+          status='present'; label='✅ มาทำงาน'; color='#16a34a'; cntPresent++;
+          groups.present.push({...e,a});
         }
       }
-      if(countForDiligence) cntDiligent++;
+      e._status=status; e._label=label; e._color=color;
+    });
 
-      return`<tr>
-        <td style="font-family:monospace;font-size:11px">${e.emp_code}</td>
-        <td style="font-weight:600">${(e.first_name||'')+' '+(e.last_name||'')}</td>
-        <td style="font-size:11px;color:#6B7280">${e.department||'—'}</td>
-        <td style="text-align:center">
-          <span style="background:${statusColor};color:white;
-            padding:2px 8px;border-radius:8px;font-size:11px;white-space:nowrap">
-            ${statusLabel}
-          </span>
+    const workdayTotal=isHoliday?0:total;
+    const presentPct=workdayTotal?Math.round((cntPresent+cntLate)/workdayTotal*100):100;
+    const absentPct =workdayTotal?Math.round(cntAbsent/workdayTotal*100):0;
+
+    // ── สร้าง row สำหรับ group ─────────────────────────────────
+    function makeRows(list,bgColor){
+      if(!list.length) return `<tr><td colspan="8" style="text-align:center;color:#9CA3AF;font-size:11px;padding:6px">—</td></tr>`;
+      return list.map(e=>{
+        const a=e.a;
+        const name=(e.first_name||'')+' '+(e.last_name||'');
+        const ci=a?.check_in?hrTime(a.check_in):'—';
+        const co=a?.check_out?hrTime(a.check_out):'—';
+        const hrs=a?.actual_work_min?Math.round(a.actual_work_min/60*10)/10:0;
+        const late=a?.late_min?a.late_min+'m':'—';
+        return`<tr style="background:${bgColor}">
+          <td style="font-family:monospace;font-size:11px;color:#6B7280">${e.emp_code}</td>
+          <td style="font-weight:600;font-size:12px">${name.trim()||e.emp_code}</td>
+          <td style="font-size:11px;color:#6B7280">${e.department||'—'}</td>
+          <td style="font-size:11px;color:#6B7280">${e.position||'—'}</td>
+          <td style="text-align:center;font-family:monospace;font-size:12px">${ci}</td>
+          <td style="text-align:center;font-family:monospace;font-size:12px">${co}</td>
+          <td style="text-align:right;font-size:11px">${hrs?hrs+' h':'—'}</td>
+          <td style="text-align:right;font-size:11px;color:${a?.late_min?'#D97706':''}">${late}</td>
+          ${a?.note?`<td style="font-size:10px;color:#6B7280">${a.note}</td>`:'<td></td>'}
+        </tr>`;
+      }).join('');
+    }
+
+    // ── Section header ─────────────────────────────────────────
+    function sectionHdr(icon,label,count,color,bg){
+      return`<tr style="background:${bg}">
+        <td colspan="9" style="font-weight:800;font-size:12px;padding:6px 10px;color:${color}">
+          ${icon} ${label} — ${count} คน
         </td>
-        <td style="text-align:center;font-size:11px;font-family:monospace">
-          ${toThaiTime(a?.check_in)}
-        </td>
-        <td style="text-align:center;font-size:11px;font-family:monospace">
-          ${toThaiTime(a?.check_out)}
-        </td>
-        <td style="text-align:right;font-weight:600">${hrs?hrs+' h':'—'}</td>
-        <td style="text-align:right;color:${a?.late_min?'#D97706':''}">
-          ${a?.late_min?a.late_min+' นาที':'—'}
-        </td>
-        <td style="font-size:11px;color:#6B7280">${a?.note||'—'}</td>
       </tr>`;
-    }).join('');
+    }
 
-    // ── Holiday banner ──────────────────────────────────────
-    const holidayBanner = isHoliday ? `
+    // ── Holiday banner ─────────────────────────────────────────
+    const holidayBanner=isHoliday?`
       <div style="background:${dayType.type==='swap_work'?'#dbeafe':'#FEF3C7'};
         border:1px solid ${dayType.type==='swap_work'?'#93c5fd':'#FDE68A'};
-        border-radius:8px;padding:10px 14px;margin-bottom:12px;
-        display:flex;align-items:center;gap:10px">
-        <div style="font-size:22px">${dayType.type==='swap_work'?'💼':'🎌'}</div>
+        border-radius:8px;padding:10px;margin-bottom:12px;display:flex;gap:10px;align-items:center">
+        <div style="font-size:24px">${dayType.type==='swap_work'?'💼':'🎌'}</div>
         <div>
-          <div style="font-weight:700;color:${dayType.type==='swap_work'?'#1e40af':'#92400E'}">
-            ${dayType.label}
-            ${dayType.holiday?.holiday_name?' — '+dayType.holiday.holiday_name:''}
+          <b style="color:${dayType.type==='swap_work'?'#1e40af':'#92400E'}">${dayType.label}
+            ${dayType.holiday?.holiday_name?' — '+dayType.holiday.holiday_name:''}</b>
+          <div style="font-size:11px;color:#6B7280;margin-top:2px">
+            ไม่มีการขาดงาน | คนที่มา = OT | ทุกคนได้เบี้ยขยัน
           </div>
-          <div style="font-size:12px;color:#6B7280;margin-top:2px">
-            ${dayType.type==='swap_work'
-              ? '💼 วันทำงานสลับ — คนที่มา = OT | คนที่ไม่มา = ไม่ขาด + ยังได้เบี้ยขยัน'
-              : '🎌 วันหยุด — ทุกคนไม่ขาด | ยังได้เบี้ยขยัน | คนที่มา = OT'}
-          </div>
-          ${dayType.holiday?.swap_date?`<div style="font-size:11px;color:#6B7280">🔄 สลับกับวัน: ${dayType.holiday.swap_date}</div>`:''}
         </div>
-      </div>` : '';
-
-    // ── presentPct คำนวณบน workday เท่านั้น ─────────────────
-    const workdayEmps = isHoliday ? 0 : total;
-    const presentPct  = workdayEmps ? Math.round((cntPresent+cntLate)/workdayEmps*100) : 100;
-    const absentPct   = workdayEmps ? Math.round(cntAbsent/workdayEmps*100) : 0;
+      </div>`:''
 
     area.innerHTML=`
       ${holidayBanner}
-      <div style="font-size:13px;font-weight:700;color:#1B3A5C;margin-bottom:12px">
-        วัน${dayName}ที่ ${thDate}
+      <div style="font-weight:700;font-size:14px;color:#1B3A5C;margin-bottom:14px">
+        ${thDate}
         <span style="font-size:11px;font-weight:400;color:#6B7280;margin-left:8px">
-          พนักงาน ${total} คน
+          ${total} พนักงาน
         </span>
       </div>
 
-      <!-- KPI -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
-        ${isHoliday ? `
-          <div class="kpi" style="border-left:4px solid #2563EB">
-            <div class="kl">💰 OT / Worked</div>
-            <div class="kv" style="color:#2563EB">${cntOT}</div>
-            <div class="kd">${total?Math.round(cntOT/total*100):0}%</div>
+      <!-- KPI Summary Cards -->
+      <div style="display:grid;grid-template-columns:repeat(${isHoliday?3:4},1fr);gap:8px;margin-bottom:16px">
+        ${isHoliday?`
+          <div style="background:#dbeafe;border-radius:10px;padding:12px;text-align:center">
+            <div style="font-size:11px;color:#1e40af;font-weight:600">💰 OT / มาทำงาน</div>
+            <div style="font-size:28px;font-weight:800;color:#2563EB">${cntOT}</div>
+            <div style="font-size:11px;color:#6B7280">${total?Math.round(cntOT/total*100):0}%</div>
           </div>
-          <div class="kpi" style="border-left:4px solid #6B7280">
-            <div class="kl">${dayType.label}</div>
-            <div class="kv" style="color:#6B7280">${cntHoliday}</div>
-            <div class="kd">ไม่ขาด</div>
+          <div style="background:#f3f4f6;border-radius:10px;padding:12px;text-align:center">
+            <div style="font-size:11px;color:#4B5563;font-weight:600">${dayType.label}</div>
+            <div style="font-size:28px;font-weight:800;color:#4B5563">${cntHoliday}</div>
+            <div style="font-size:11px;color:#6B7280">ไม่ขาด</div>
           </div>
-          <div class="kpi kg">
-            <div class="kl">⭐ Diligence Bonus</div>
-            <div class="kv" style="color:#16a34a">${cntDiligent}</div>
-            <div class="kd">${total?Math.round(cntDiligent/total*100):0}%</div>
+          <div style="background:#dcfce7;border-radius:10px;padding:12px;text-align:center">
+            <div style="font-size:11px;color:#16a34a;font-weight:600">⭐ เบี้ยขยัน</div>
+            <div style="font-size:28px;font-weight:800;color:#16a34a">${total}</div>
+            <div style="font-size:11px;color:#6B7280">100%</div>
           </div>
-          <div class="kpi kb">
-            <div class="kl">📋 On Leave / ลา</div>
-            <div class="kv" style="color:#2563EB">${cntLeave}</div>
-            <div class="kd">ไม่ขาด</div>
+        `:`
+          <div style="background:#dcfce7;border-radius:10px;padding:12px;text-align:center;border:2px solid #bbf7d0">
+            <div style="font-size:11px;color:#16a34a;font-weight:600">✅ มาทำงาน</div>
+            <div style="font-size:28px;font-weight:800;color:#16a34a">${cntPresent}</div>
+            <div style="font-size:11px;color:#6B7280">${workdayTotal?Math.round(cntPresent/workdayTotal*100):0}%</div>
           </div>
-        ` : `
-          <div class="kpi kg">
-            <div class="kl">✅ Present / มา</div>
-            <div class="kv" style="color:#16a34a">${cntPresent}</div>
-            <div class="kd">${presentPct}%</div>
+          <div style="background:#FEF9C3;border-radius:10px;padding:12px;text-align:center;border:2px solid #FDE68A">
+            <div style="font-size:11px;color:#D97706;font-weight:600">⏰ มาสาย</div>
+            <div style="font-size:28px;font-weight:800;color:#D97706">${cntLate}</div>
+            <div style="font-size:11px;color:#6B7280">${workdayTotal?Math.round(cntLate/workdayTotal*100):0}%</div>
           </div>
-          <div class="kpi ka">
-            <div class="kl">⏰ Late / สาย</div>
-            <div class="kv" style="color:#D97706">${cntLate}</div>
-            <div class="kd">${total?Math.round(cntLate/total*100):0}%</div>
+          <div style="background:#FEE2E2;border-radius:10px;padding:12px;text-align:center;border:2px solid #FECACA">
+            <div style="font-size:11px;color:#DC2626;font-weight:600">❌ ขาดงาน</div>
+            <div style="font-size:28px;font-weight:800;color:#DC2626">${cntAbsent}</div>
+            <div style="font-size:11px;color:#6B7280">${absentPct}%</div>
           </div>
-          <div class="kpi kr">
-            <div class="kl">❌ Absent / ขาด</div>
-            <div class="kv" style="color:#DC2626">${cntAbsent}</div>
-            <div class="kd">${absentPct}%</div>
-          </div>
-          <div class="kpi kb">
-            <div class="kl">📋 On Leave / ลา</div>
-            <div class="kv" style="color:#2563EB">${cntLeave}</div>
-            <div class="kd">${total?Math.round(cntLeave/total*100):0}%</div>
+          <div style="background:#dbeafe;border-radius:10px;padding:12px;text-align:center;border:2px solid #bfdbfe">
+            <div style="font-size:11px;color:#2563EB;font-weight:600">📋 ลางาน</div>
+            <div style="font-size:28px;font-weight:800;color:#2563EB">${cntLeave}</div>
+            <div style="font-size:11px;color:#6B7280">${workdayTotal?Math.round(cntLeave/workdayTotal*100):0}%</div>
           </div>
         `}
       </div>
 
-      ${!isHoliday ? `
-      <div class="card" style="padding:12px;margin-bottom:12px">
-        ${hrKPIBar('✅ มาทำงาน (รวมสาย)', cntPresent+cntLate, total, '#16a34a')}
-        ${hrKPIBar('⏰ มาสาย', cntLate, total, '#D97706')}
-        ${hrKPIBar('❌ ขาดงาน', cntAbsent, total, '#DC2626')}
-        ${hrKPIBar('📋 ลางาน', cntLeave, total, '#2563EB')}
-      </div>` : ''}
+      ${!isHoliday?`
+      <!-- Progress Bar -->
+      <div style="background:#f3f4f6;border-radius:8px;overflow:hidden;height:12px;margin-bottom:16px;display:flex">
+        <div style="width:${workdayTotal?cntPresent/workdayTotal*100:0}%;background:#16a34a;transition:width .4s" title="มา ${cntPresent}"></div>
+        <div style="width:${workdayTotal?cntLate/workdayTotal*100:0}%;background:#D97706" title="สาย ${cntLate}"></div>
+        <div style="width:${workdayTotal?cntLeave/workdayTotal*100:0}%;background:#2563EB" title="ลา ${cntLeave}"></div>
+        <div style="width:${workdayTotal?cntAbsent/workdayTotal*100:0}%;background:#DC2626" title="ขาด ${cntAbsent}"></div>
+      </div>`:''}
 
-      <!-- ตารางรายคน -->
+      <!-- Full table by group -->
       <div class="tw">
-        <table>
-          <thead><tr style="background:#1B3A5C">
-            <th style="color:white">Code / รหัส</th>
-            <th style="color:white">Name / ชื่อ</th>
-            <th style="color:white">Dept. / แผนก</th>
-            <th style="color:white;text-align:center">Status / สถานะ</th>
+        <table style="font-size:12px">
+          <thead><tr style="background:#1B3A5C;position:sticky;top:0">
+            <th style="color:white">ID</th>
+            <th style="color:white">ชื่อ / Name</th>
+            <th style="color:white">แผนก</th>
+            <th style="color:white">ตำแหน่ง</th>
             <th style="color:white;text-align:center">เข้า</th>
             <th style="color:white;text-align:center">ออก</th>
             <th style="color:white;text-align:right">ชม.</th>
-            <th style="color:white;text-align:right">สาย(นาที)</th>
-            <th style="color:white">Note / หมายเหตุ</th>
+            <th style="color:white;text-align:right">สาย</th>
+            <th style="color:white">หมายเหตุ</th>
           </tr></thead>
-          <tbody>${rows}</tbody>
+          <tbody>
+
+          ${!isHoliday&&groups.absent.length?`
+            ${sectionHdr('❌','ขาดงาน / Absent',cntAbsent,'#DC2626','#FEF2F2')}
+            ${makeRows(groups.absent,'#FFF5F5')}
+          `:''}
+
+          ${groups.late.length?`
+            ${sectionHdr('⏰','มาสาย / Late',cntLate,'#92400E','#FFFBEB')}
+            ${makeRows(groups.late,'#FFFFF5')}
+          `:''}
+
+          ${!isHoliday&&groups.leave.length?`
+            ${sectionHdr('📋','ลางาน / On Leave',cntLeave,'#1e40af','#EFF6FF')}
+            ${makeRows(groups.leave,'#F8FAFF')}
+          `:''}
+
+          ${groups.present.length?`
+            ${sectionHdr('✅','มาทำงาน / Present',cntPresent,'#166534','#F0FDF4')}
+            ${makeRows(groups.present,'#F8FFF9')}
+          `:''}
+
+          ${groups.ot.length?`
+            ${sectionHdr('💰','OT / ทำงานล่วงเวลา',cntOT,'#1e40af','#EFF6FF')}
+            ${makeRows(groups.ot,'#F5F8FF')}
+          `:''}
+
+          ${isHoliday&&groups.holiday.length?`
+            ${sectionHdr('🎌',dayType.label+' / Holiday',cntHoliday,'#6B7280','#F9FAFB')}
+            ${makeRows(groups.holiday,'white')}
+          `:''}
+
+          </tbody>
         </table>
       </div>
-      <div style="margin-top:8px;font-size:11px;color:#6B7280">
-        พนักงาน ${total} คน | บันทึก ${attendance.length} คน
-        ${isHoliday?` | <b style="color:#D97706">⚠️ วันนี้เป็น${dayType.label} — ไม่มีการขาดงาน</b>`:''}
+
+      <div style="margin-top:10px;font-size:11px;color:#6B7280;display:flex;justify-content:space-between">
+        <span>พนักงานทั้งหมด: ${total} คน | บันทึกแล้ว: ${attendance.length} คน</span>
+        ${isHoliday?`<b style="color:#D97706">⚠️ ${dayType.label} — ไม่มีการขาดงาน</b>`:''}
       </div>`;
+
   }catch(e){area.innerHTML=`<div class="al ale">❌ ${e.message}</div>`;}
 }
 
@@ -19913,7 +19942,11 @@ async function hrReportInit(){
   // ตั้ง default dates
   const today=new Date().toISOString().slice(0,10);
   const dateEl=document.getElementById('hr-day-date');
-  if(dateEl && !dateEl.value) dateEl.value=today;
+  if(dateEl && !dateEl.value){
+    dateEl.value=today;
+    // auto-load วันนี้เลย
+    setTimeout(hrLoadDaily, 300);
+  }
   const monEl=document.getElementById('hr-mon-month');
   if(monEl && !monEl.value) monEl.value=today.slice(0,7);
 
