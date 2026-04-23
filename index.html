@@ -651,6 +651,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
       </div>
     </div>
   </div>
+</div>
 <main id="mn">
       <div id="tb">
         <div><div class="tbt" id="pt">Dashboard</div><div class="tbs" id="ps">ภาพรวมระบบ</div></div>
@@ -2738,6 +2739,89 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
   <div class="card" id="sd-history-card" style="display:none">
     <div class="ct mb3">📋 Deduction History / ประวัติการตัด Stock</div>
     <div id="sd-history-area"></div>
+  </div>
+</div>
+
+<div id="pg-stock-report" class="pg">
+  <div class="ftabs mb3" id="sr-tabs">
+    <div class="ftab on"  onclick="srTab('daily')">📋 Daily</div>
+    <div class="ftab"     onclick="srTab('weekly')">📅 Weekly</div>
+    <div class="ftab"     onclick="srTab('monthly')">📆 Monthly</div>
+    <div class="ftab"     onclick="srTab('balance')">⚖️ Stock Balance</div>
+  </div>
+  <div id="sr-tab-daily">
+    <div class="card">
+      <div class="ch">
+        <div class="ct">📋 Daily Transactions</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <input type="date" class="fc2 sm" id="sr-day-date" style="width:150px">
+          <select class="fc2 sm" id="sr-day-type" style="width:130px">
+            <option value="all">All Types</option>
+            <option value="rm">🧱 Raw Material</option>
+            <option value="wip">🏭 WIP</option>
+            <option value="fg">📦 Finished Goods</option>
+          </select>
+          <button class="btn btnP sm" onclick="srLoadDaily()">📊 Generate</button>
+          <button class="btn btnT sm" onclick="srPrint('sr-daily-area','Daily Stock Report')">🖨️</button>
+        </div>
+      </div>
+      <div id="sr-daily-area"><div class="al ali">Select date and click 📊</div></div>
+    </div>
+  </div>
+  <div id="sr-tab-weekly" style="display:none">
+    <div class="card">
+      <div class="ch">
+        <div class="ct">📅 Weekly Transactions</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <input type="date" class="fc2 sm" id="sr-week-start" style="width:150px">
+          <select class="fc2 sm" id="sr-week-type" style="width:130px">
+            <option value="all">All Types</option>
+            <option value="rm">🧱 Raw Material</option>
+            <option value="wip">🏭 WIP</option>
+            <option value="fg">📦 Finished Goods</option>
+          </select>
+          <button class="btn btnP sm" onclick="srLoadWeekly()">📊 Generate</button>
+          <button class="btn btnT sm" onclick="srPrint('sr-weekly-area','Weekly Stock Report')">🖨️</button>
+        </div>
+      </div>
+      <div id="sr-weekly-area"><div class="al ali">Select week start date</div></div>
+    </div>
+  </div>
+  <div id="sr-tab-monthly" style="display:none">
+    <div class="card">
+      <div class="ch">
+        <div class="ct">📆 Monthly Transactions</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <input type="month" class="fc2 sm" id="sr-month" style="width:150px">
+          <select class="fc2 sm" id="sr-month-type" style="width:130px">
+            <option value="all">All Types</option>
+            <option value="rm">🧱 Raw Material</option>
+            <option value="wip">🏭 WIP</option>
+            <option value="fg">📦 Finished Goods</option>
+          </select>
+          <button class="btn btnP sm" onclick="srLoadMonthly()">📊 Generate</button>
+          <button class="btn btnT sm" onclick="srPrint('sr-monthly-area','Monthly Stock Report')">🖨️</button>
+        </div>
+      </div>
+      <div id="sr-monthly-area"><div class="al ali">Select month and click 📊</div></div>
+    </div>
+  </div>
+  <div id="sr-tab-balance" style="display:none">
+    <div class="card">
+      <div class="ch">
+        <div class="ct">⚖️ Stock Balance Comparison</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <select class="fc2 sm" id="sr-bal-type" style="width:130px">
+            <option value="rm">🧱 Raw Material</option>
+            <option value="wip">🏭 WIP</option>
+            <option value="fg">📦 Finished Goods</option>
+          </select>
+          <button class="btn btnP sm" onclick="srLoadBalance()">📊 Generate</button>
+          <button class="btn btnT sm" onclick="srPrint('sr-balance-area','Stock Balance Report')">🖨️</button>
+        </div>
+      </div>
+      <div id="sr-balance-area"><div class="al ali">Select type and click 📊</div></div>
+    </div>
   </div>
 </div>
 </main>
@@ -12955,11 +13039,14 @@ async function viewBatchRecord(woId, ppNo){
     const docType   = skuCode.startsWith('WIP')?'wip':'fg';
 
     // Build batch record HTML
+    // ส่ง batch_kg จาก WO → คำนวณ BOM qty ตาม WO จริง
     const docHtml = await buildDocHTML(
       docType, skuCode,
       wo.num_batches||1,
       wo.start_date||new Date().toISOString().slice(0,10),
-      machine, method
+      machine, method,
+      wo.batch_kg||0,
+      0
     );
 
     // แสดงใน modal พร้อมปุ่ม Print
