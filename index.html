@@ -19383,13 +19383,29 @@ async function hrLoadDaily(){
     _hrHolidayCache=null;
     const [attendance, empList, dayType]=await Promise.all([
       sbG('attendance',{f:[`att_date=eq.${date}`],ord:'emp_code.asc'}),
-      sbG('employees',{f:['is_active=eq.true'],ord:'emp_code.asc',
-        s:'emp_code,first_name,last_name,department,position,work_shift'}).catch(()=>[]),
+      // โหลด employees พร้อม fallback หลายรูปแบบ
+      (async ()=>{
+        let emps = await sbG('employees',{f:['is_active=eq.true'],ord:'emp_code.asc',
+          s:'emp_code,first_name,last_name,department,position,work_shift'}).catch(()=>[]);
+        if(!emps.length) emps = await sbG('employees',{f:['status=eq.active'],ord:'emp_code.asc',
+          s:'emp_code,first_name,last_name,department,position,work_shift'}).catch(()=>[]);
+        if(!emps.length) emps = await sbG('employees',{ord:'emp_code.asc',
+          s:'emp_code,first_name,last_name,department,position,work_shift',lim:500}).catch(()=>[]);
+        return emps;
+      })(),
       getDayType(date)
     ]);
 
+    // debug
+    console.log('[hrLoadDaily] empList:', empList.length, 'attendance:', attendance.length, 'date:', date);
+
     const attMap={};
     attendance.forEach(a=>attMap[a.emp_code]=a);
+    if(!empList.length){
+      area.innerHTML=`<div class="al ale">❌ ไม่พบข้อมูลพนักงาน — ตรวจสอบ Supabase table 'employees' หรือ RLS policy<br>
+        <small>ลองเพิ่มพนักงานใน HR → Employees ก่อน</small></div>`;
+      return;
+    }
     const total=empList.length;
     const isHoliday=!dayType.isWork;
     const dow=new Date(date).getDay();
@@ -19625,8 +19641,15 @@ async function hrLoadWeekly(){
         f:[`att_date=gte.${startStr}`,`att_date=lte.${endStr}`],
         ord:'att_date.asc,emp_code.asc'
       }),
-      sbG('employees',{f:['is_active=eq.true'],ord:'emp_code.asc',
-        s:'emp_code,first_name,last_name,department'}).catch(()=>[])
+      (async()=>{
+        let emps=await sbG('employees',{f:['is_active=eq.true'],ord:'emp_code.asc',
+          s:'emp_code,first_name,last_name,department'}).catch(()=>[]);
+        if(!emps.length) emps=await sbG('employees',{f:['status=eq.active'],ord:'emp_code.asc',
+          s:'emp_code,first_name,last_name,department'}).catch(()=>[]);
+        if(!emps.length) emps=await sbG('employees',{ord:'emp_code.asc',
+          s:'emp_code,first_name,last_name,department',lim:500}).catch(()=>[]);
+        return emps;
+      })()
     ]);
 
     const days=[]; const dayNames=['จ','อ','พ','พฤ','ศ','ส','อา'];
@@ -19756,8 +19779,15 @@ async function hrLoadMonthlyNew(){
     if(empCode!=='all') filters.push(`emp_code=eq.${empCode}`);
     const [attendance, empList]=await Promise.all([
       sbG('attendance',{f:filters,ord:'att_date.asc,emp_code.asc'}),
-      sbG('employees',{f:['is_active=eq.true'],ord:'emp_code.asc',
-        s:'emp_code,first_name,last_name,department'}).catch(()=>[])
+      (async()=>{
+        let emps=await sbG('employees',{f:['is_active=eq.true'],ord:'emp_code.asc',
+          s:'emp_code,first_name,last_name,department'}).catch(()=>[]);
+        if(!emps.length) emps=await sbG('employees',{f:['status=eq.active'],ord:'emp_code.asc',
+          s:'emp_code,first_name,last_name,department'}).catch(()=>[]);
+        if(!emps.length) emps=await sbG('employees',{ord:'emp_code.asc',
+          s:'emp_code,first_name,last_name,department',lim:500}).catch(()=>[]);
+        return emps;
+      })()
     ]);
     const filteredEmps=empCode==='all'?empList:empList.filter(e=>e.emp_code===empCode);
     const mnNames=['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.',
@@ -20055,7 +20085,7 @@ async function hrReportInit(){
       const el=document.getElementById(id);
       if(!el) return;
       el.innerHTML='<option value="all">👥 ทุกคน</option>'+
-        emps.map(e=>`<option value="${e.emp_code}">${e.emp_code} ${e.name_th||''}</option>`).join('');
+        emps.map(e=>`<option value="${e.emp_code}">${e.emp_code} ${(e.first_name||e.name_th||'')+' '+(e.last_name||'')}</option>`).join('');
     });
   }catch(e){}
 }
