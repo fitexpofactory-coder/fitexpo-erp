@@ -4835,7 +4835,7 @@ async function printWORecord(id){
     // ตรวจชนิด WO: ถ้า sku_code ขึ้นต้น WIP → type='wip', ไม่งั้น 'fg'
     const skuCode=wo.sku_code||'';
     const docType=skuCode.startsWith('WIP')?'wip':'fg';
-    const docHtml=await buildDocHTML(docType,skuCode,wo.num_batches,wo.start_date,machine||'',method||'');
+    const docHtml=await buildDocHTML(docType,skuCode,wo.num_batches||1,wo.start_date,machine||'',method||'',wo.batch_kg||0,0);
     const fullHtml2=`<!DOCTYPE html><html><head>
       <meta charset="UTF-8"><title>Batch Record — ${skuCode}</title>
       <style>${PDOC_CSS}</style></head><body>${docHtml}</body></html>`;
@@ -13087,7 +13087,7 @@ async function printWORecordWin(woId, ppNo){
     const method  = noteParts.find(p=>p.startsWith('วิธีผลิต:'))?.replace('วิธีผลิต: ','') || '';
     const skuCode = wo.sku_code||'';
     const docType = skuCode.startsWith('WIP')?'wip':'fg';
-    const docHtml = await buildDocHTML(docType,skuCode,wo.num_batches||1,wo.start_date,machine,method);
+    const docHtml = await buildDocHTML(docType,skuCode,wo.num_batches||1,wo.start_date,machine,method,wo.batch_kg||0,0);
     const fullHtml=`<!DOCTYPE html><html><head><meta charset="UTF-8">
       <title>Batch Record — ${ppNo||woId}</title>
       <style>${PDOC_CSS}</style></head><body>${docHtml}</body></html>`;
