@@ -1826,29 +1826,78 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
 
 <!-- HR REPORT -->
 <div id="pg-hr-report" class="pg">
-  <div class="ftabs mb4" style="display:flex;gap:4px;background:var(--bg3);border-radius:6px;padding:3px;width:fit-content">
-    <div onclick="hrSwitchReport('monthly',this)" style="padding:6px 14px;border-radius:4px;font-size:12px;font-weight:700;cursor:pointer;background:white;color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.1)">📋 รายเดือน</div>
-    <div onclick="hrSwitchReport('yearly',this)" style="padding:6px 14px;border-radius:4px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text3)">📆 รายปี</div>
+  <div class="ftabs mb3" id="hr-rpt-tabs">
+    <div class="ftab on" onclick="hrTab('daily')">📋 Daily</div>
+    <div class="ftab" onclick="hrTab('weekly')">📅 Weekly</div>
+    <div class="ftab" onclick="hrTab('monthly')">📆 Monthly</div>
+    <div class="ftab" onclick="hrTab('yearly')">📊 Yearly</div>
   </div>
-  <div id="hr-rpt-monthly">
-    <div class="ch2 mb3">
-      <select class="fc2" id="hr-rm-emp" style="width:220px"><option value="all">ทุกคน</option></select>
-      <input type="month" class="fc2" id="hr-rm-month" style="width:160px">
-      <button class="btn btnP sm" onclick="hrLoadMonthly()">📊 สร้าง</button>
-      <button class="btn btnT sm" onclick="hrPrintReport('monthly')">🖨️ พิมพ์</button>
-      <button class="btn btnN sm" onclick="hrPdfReport('monthly')">📄 PDF</button>
+
+  <!-- Daily -->
+  <div id="hr-tab-daily">
+    <div class="card">
+      <div class="ch">
+        <div class="ct">📋 Daily Attendance Summary / สรุปการเข้างานรายวัน</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <input type="date" class="fc2 sm" id="hr-day-date" style="width:150px">
+          <button class="btn btnP sm" onclick="hrLoadDaily()">📊 Generate Report</button>
+          <button class="btn btnT sm" onclick="hrPrintSection('hr-daily-area','Daily Attendance Report')">🖨️</button>
+        </div>
+      </div>
+      <div id="hr-daily-area"><div class="al ali">เลือกวันที่แล้วกด 📊 Generate Report</div></div>
     </div>
-    <div id="hr-monthly-area"></div>
   </div>
-  <div id="hr-rpt-yearly" style="display:none">
-    <div class="ch2 mb3">
-      <select class="fc2" id="hr-ry-emp" style="width:220px"><option value="all">ทุกคน</option></select>
-      <select class="fc2" id="hr-ry-year" style="width:120px"></select>
-      <button class="btn btnP sm" onclick="hrLoadYearly()">📊 สร้าง</button>
-      <button class="btn btnT sm" onclick="hrPrintReport('yearly')">🖨️ พิมพ์</button>
-      <button class="btn btnN sm" onclick="hrPdfReport('yearly')">📄 PDF</button>
+
+  <!-- Weekly -->
+  <div id="hr-tab-weekly" style="display:none">
+    <div class="card">
+      <div class="ch">
+        <div class="ct">📅 Weekly Attendance Summary / สรุปรายสัปดาห์</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <input type="date" class="fc2 sm" id="hr-week-start" style="width:150px">
+          <button class="btn btnP sm" onclick="hrLoadWeekly()">📊 Generate</button>
+          <button class="btn btnT sm" onclick="hrPrintSection('hr-weekly-area','Weekly Attendance Report')">🖨️</button>
+        </div>
+      </div>
+      <div id="hr-weekly-area"><div class="al ali">เลือกวันเริ่มต้นสัปดาห์</div></div>
     </div>
-    <div id="hr-yearly-area"></div>
+  </div>
+
+  <!-- Monthly -->
+  <div id="hr-tab-monthly" style="display:none">
+    <div class="card">
+      <div class="ch">
+        <div class="ct">📆 Monthly Attendance Summary / สรุปรายเดือน</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <select class="fc2 sm" id="hr-mon-emp" style="width:180px">
+            <option value="all">👥 All Employees / ทุกคน</option>
+          </select>
+          <input type="month" class="fc2 sm" id="hr-mon-month" style="width:140px">
+          <button class="btn btnP sm" onclick="hrLoadMonthlyNew()">📊 Generate</button>
+          <button class="btn btnN sm" onclick="(()=>{const m=document.getElementById('hr-mon-month')?.value||new Date().toISOString().slice(0,7);const[y,mn]=m.split('-');hrShowCalendar(parseInt(y),parseInt(mn));})()">📅 Calendar</button>
+          <button class="btn btnT sm" onclick="hrPrintSection('hr-monthly-area','Monthly Attendance Report')">🖨️</button>
+        </div>
+      </div>
+      <div id="hr-monthly-area"><div class="al ali">เลือกเดือนแล้วกด 📊 Generate</div></div>
+    </div>
+  </div>
+
+  <!-- Yearly -->
+  <div id="hr-tab-yearly" style="display:none">
+    <div class="card">
+      <div class="ch">
+        <div class="ct">📊 Yearly Attendance Summary / สรุปรายปี</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <select class="fc2 sm" id="hr-yr-emp" style="width:180px">
+            <option value="all">👥 All Employees / ทุกคน</option>
+          </select>
+          <select class="fc2 sm" id="hr-yr-year" style="width:110px"></select>
+          <button class="btn btnP sm" onclick="hrLoadYearlyNew()">📊 Generate</button>
+          <button class="btn btnT sm" onclick="hrPrintSection('hr-yearly-area','Yearly Attendance Report')">🖨️</button>
+        </div>
+      </div>
+      <div id="hr-yearly-area"><div class="al ali">เลือกปีแล้วกด 📊 Generate</div></div>
+    </div>
   </div>
 </div>
 
