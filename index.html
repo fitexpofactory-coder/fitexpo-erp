@@ -4552,7 +4552,8 @@ async function buildDocHTML(type,code,n,dt,machine,method,customBatchKg=0,lossPc
         'weight' = qty_per_batch × scaleFactor × n  (fallback)
     */
     let qtyPerBatch, qtyTotal, pctShow, basisLabel;
-    const qty0 = Number(r.qty_per_batch||0);
+    const qty0   = Number(r.qty_per_batch||0);
+    const rUnit  = (r.unit||'kg').toLowerCase(); // unit ของวัตถุดิบนี้
 
     if(mode==='base'){
       // ─── Base: % ของ batchKg ─────────────────────────────
@@ -4588,7 +4589,7 @@ async function buildDocHTML(type,code,n,dt,machine,method,customBatchKg=0,lossPc
 
     }else if(mode==='piece'){
       // ─── Piece mode: คำนวณจากชิ้นที่คาดว่าจะผลิตได้ × น้ำหนักต่อชิ้น ─
-      const rUnit=(r.unit||'kg').toLowerCase(); // declare ใน scope นี้
+      // rUnit declared ที่ต้น map callback แล้ว
       // qty0 = น้ำหนักต่อชิ้น: ถ้า unit=g → ค่าเป็น g, ถ้า unit=kg → แปลง×1000
       const gPerPiece = rUnit==='g' ? qty0 : (qty0>0 ? qty0*1000 : 10); // default 10g
       const pcsPerBatch = units&&units>0 ? units/n : Math.floor(batchKg*1000/gPerPiece);
