@@ -4455,9 +4455,27 @@ async function buildDocHTML(type,code,n,dt,machine,method,customBatchKg=0,lossPc
   ]);
   const m=masterArr?.[0];
   const name=isFG?m?.name_en:m?.name;
-  const baseBatchKg=Number(m?.batch_kg)||50;
-  const batchKg=customBatchKg>0?customBatchKg:baseBatchKg;
-  const scaleFactor=batchKg/baseBatchKg;
+  const baseBatchKgMaster=Number(m?.batch_kg)||50;
+  const batchKg=customBatchKg>0?customBatchKg:baseBatchKgMaster;
+
+  // คำนวณ Section 1 base total จาก BOM จริง (mode=base → pct, mode=direct → kg)
+  const _sec1Total = bom.filter(r=>{
+    const s=(r.section||r.note||'').toLowerCase();
+    return !s.includes('fill')&&!s.includes('coat')&&!s.includes('crunch')&&
+           !s.includes('pk')&&!s.includes('packag')&&
+           !(r.mat_code||r.rm_code||'').startsWith('PK');
+  }).reduce((sum,r)=>{
+    const qty0=Number(r.qty_per_batch||0);
+    const pct=Number(r.pct_of_batch||0);
+    // ถ้ามี pct_of_batch → qty = pct/100 × baseBatchKgMaster
+    return sum + (pct>0 ? pct/100*baseBatchKgMaster : qty0);
+  },0);
+
+  // ใช้ Section 1 base total เป็น reference สำหรับ scale
+  // ถ้า Section 1 base sum ≈ baseBatchKgMaster → ใช้ batchKg/sec1Total
+  // เพื่อให้ Section 1 รวม = batchKg (น้ำหนักต่อ Batch ที่แก้)
+  const baseBatchKg = _sec1Total>0 ? _sec1Total : baseBatchKgMaster;
+  const scaleFactor = batchKg/baseBatchKg;
   const lossMultiplier=1+(lossPct/100);
   const yieldPct=Number(m?.yield_pct)||95;
   const sizeG=m?.size_g;
@@ -4568,6 +4586,16 @@ async function buildDocHTML(type,code,n,dt,machine,method,customBatchKg=0,lossPc
         ? `${fmt(qpu,3)} × ${units} ชิ้น`
         : `${fmt(qpu,3)}/batch`;
 
+    }else if(mode==='piece'){
+      // ─── Piece mode: คำนวณจากชิ้นที่คาดว่าจะผลิตได้ × น้ำหนักต่อชิ้น ─
+      // qty0 = น้ำหนักต่อชิ้น: ถ้า unit=g → ค่าเป็น g, ถ้า unit=kg → แปลง×1000
+      const gPerPiece = rUnit==='g' ? qty0 : (qty0>0 ? qty0*1000 : 10); // default 10g
+      const pcsPerBatch = units&&units>0 ? units/n : Math.floor(batchKg*1000/gPerPiece);
+      qtyPerBatch = pcsPerBatch * gPerPiece / 1000;  // แปลงกลับเป็น kg
+      qtyTotal    = qtyPerBatch * n;
+      pctShow     = fmt(gPerPiece,1)+' g/ชิ้น';
+      basisLabel  = `${Math.round(pcsPerBatch).toLocaleString()} ชิ้น × ${fmt(gPerPiece,1)}g`;
+
     }else{
       // ─── Weight fallback: qty_per_batch × scaleFactor × n ─
       qtyPerBatch = qty0*scaleFactor;
@@ -4611,7 +4639,7 @@ async function buildDocHTML(type,code,n,dt,machine,method,customBatchKg=0,lossPc
     const baseItems=[...secBase,...wipBase];
     const kgBase=_kgFn(baseItems), pctBase=_pctFn(baseItems);
     let h=`<div class="pdoc-sec" style="background:#EBF3FA;color:#1B3A5C">
-      🧱 ส่วนที่ 1 — สูตรหลัก (Base) <span style="font-weight:400;font-size:8pt">รวม = 100% = ${batchKg} kg/Batch</span>
+      🧱 ส่วนที่ 1 — สูตรหลัก (Base) <span style="font-weight:400;font-size:8pt">รวม = 100% = ${fmt(batchKg,3)} kg/Batch | Ref: ${fmt(baseBatchKg,3)} kg</span>
     </div>
     <table class="pdoc-table">
       ${_TH_BASE}
@@ -4635,7 +4663,7 @@ async function buildDocHTML(type,code,n,dt,machine,method,customBatchKg=0,lossPc
     if(!fillItems.length&&!coatItems.length&&!crunchItems.length) return '';
 
     h+=`<div class="pdoc-sec" style="background:#F3E8FF;color:#5B21B6">
-      🍭 ส่วนที่ 2 — Filling / Coating / Crunch <span style="font-weight:400;font-size:8pt">(ไม่นับรวม%)</span>
+      🍭 ส่วนที่ 2 — Filling / Coating / Crunch <span style="font-weight:400;font-size:8pt">(คำนวณจาก ${units&&units>0 ? `${Math.round(units/n).toLocaleString()} ชิ้น/batch × น้ำหนักต่อชิ้น` : 'อัตราส่วน %'})</span>
     </div>`;
 
     if(fillItems.length){
@@ -4643,11 +4671,12 @@ async function buildDocHTML(type,code,n,dt,machine,method,customBatchKg=0,lossPc
       <table class="pdoc-table">
         <thead><tr style="background:#FCE7F3">
           <th>#</th><th>รหัสวัสดุ</th><th>ชื่อวัตถุดิบ</th>
-          <th style="text-align:right">น้ำหนัก/Batch</th>
+          <th style="text-align:right">น้ำหนัก/Batch (kg)</th>
+          <th style="text-align:right">g/ชิ้น</th>
           <th style="text-align:right;color:#9D174D">ชั่งจริง ✍️</th>
-          <th>Unit / หน่วย</th><th>Initial</th><th>Lot No.</th>
+          <th>Unit</th><th>Initial</th><th>Lot No.</th>
         </tr></thead>
-        <tbody>${tblRows(fillItems,'#9D174D',0,'base')}</tbody>
+        <tbody>${tblRows(fillItems,'#9D174D',0,units&&units>0?'piece':'base')}</tbody>
         <tfoot><tr style="background:#FCE7F3;font-weight:700">
           <td colspan="3" style="text-align:right;font-size:9pt">รวม Filling:</td>
           <td style="text-align:right;color:#9D174D">${fmt(_kgFn(fillItems),3)} kg</td>
@@ -4664,7 +4693,7 @@ async function buildDocHTML(type,code,n,dt,machine,method,customBatchKg=0,lossPc
           <th style="text-align:right;color:#D97706">ชั่งจริง ✍️</th>
           <th>Unit / หน่วย</th><th>Initial</th><th>Lot No.</th>
         </tr></thead>
-        <tbody>${tblRows(coatItems,'#D97706',0,'base')}</tbody>
+        <tbody>${tblRows(coatItems,'#D97706',0,units&&units>0?'piece':'base')}</tbody>
         <tfoot><tr style="background:#FEF3C7;font-weight:700">
           <td colspan="3" style="text-align:right;font-size:9pt">รวม Coating:</td>
           <td style="text-align:right;color:#D97706">${fmt(_kgFn(coatItems),3)} kg</td>
