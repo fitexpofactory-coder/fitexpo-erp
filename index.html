@@ -596,6 +596,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
         <div class="rni" onclick="nav('weigh')" data-page="weigh">⚖️ Weighing Program / ชั่งน้ำหนัก</div>
         <div class="rni" onclick="nav('forecast')" data-page="forecast">📈 Forecast & Plan</div>
         <div class="rni" onclick="nav('stock-deduct')" data-page="stock-deduct">✂️ Deduct Stock</div>
+        <div class="rni" onclick="nav('prod-schedule')" data-page="prod-schedule">📆 Production Schedule</div>
       </div>
     </div>
     <div class="rg">
@@ -2873,6 +2874,37 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
     </div>
   </div>
 </div>
+
+<div id="pg-prod-schedule" class="pg">
+  <!-- Toolbar -->
+  <div class="card" style="padding:10px 14px;margin-bottom:10px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <button class="btn btnS sm" onclick="psNavWeek(-1)">◀</button>
+      <span id="ps-week-label" style="font-weight:700;font-size:14px;color:#1B3A5C;min-width:200px;text-align:center"></span>
+      <button class="btn btnS sm" onclick="psNavWeek(1)">▶</button>
+      <button class="btn btnN sm" onclick="psGoToday()">📅 Today</button>
+      <div style="display:flex;gap:4px;margin-left:auto">
+        <button class="btn btnP sm" onclick="psShowAddModal()">+ New WO</button>
+        <button class="btn btnT sm" onclick="psRefresh()">🔄 Refresh</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Weekly Calendar Grid -->
+  <div id="ps-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;min-height:400px"></div>
+
+  <!-- Unscheduled WOs -->
+  <div class="card" style="margin-top:10px">
+    <div class="ch">
+      <div class="ct">📋 Unscheduled / ยังไม่ได้กำหนดวัน</div>
+      <button class="btn btnS sm" onclick="psLoadUnscheduled()">🔄</button>
+    </div>
+    <div id="ps-unscheduled" style="display:flex;gap:6px;flex-wrap:wrap;min-height:40px;
+      border:2px dashed var(--border);border-radius:8px;padding:8px;background:var(--bg3)">
+      <span style="color:var(--text3);font-size:12px">ลาก WO มาวางที่นี่เพื่อยกเลิกการกำหนดวัน</span>
+    </div>
+  </div>
+</div>
 </main>
 </div>
   </div><!-- /wrap -->
@@ -2911,11 +2943,11 @@ const RM={
     'inv-locations','inv-assign','inv-count','inv-sessions','inv-sheet',
     'hr-checkin','hr-attendance','hr-leave','hr-ot','hr-approve','hr-report',
     'hr-employees','hr-holidays','hr-payroll','hr-payslip','hr-diligence',
-    'import','permissions','actlog','users','pm','weigh','forecast','stock-report','stock-deduct'],
+    'import','permissions','actlog','users','pm','weigh','forecast','stock-report','stock-deduct','prod-schedule'],
   production:['dashboard','rm','wip-stock','fg','bom-mgr','production','prod-plan',
     'wip-prod','print-docs','oee-log','oee-dashboard','machines',
     'inv-locations','inv-assign','inv-count','inv-sessions','inv-sheet',
-    'hr-checkin','hr-leave','hr-ot','pm','weigh','forecast','stock-report','stock-deduct'],
+    'hr-checkin','hr-leave','hr-ot','pm','weigh','forecast','stock-report','stock-deduct','prod-schedule'],
   sales:['dashboard','fg','so','hr-checkin','hr-leave','hr-ot','forecast'],
   qc:['dashboard','rm','wip-stock','fg','print-docs','oee-log','oee-dashboard',
     'inv-locations','inv-assign','inv-count','inv-sessions','inv-sheet',
@@ -3107,7 +3139,10 @@ function loadPage(id){
     forecast:()=>{fcInitSelects();fcLoadDemand();},
     pm:()=>{setTimeout(pmInitYears,100);},
     'hr-report':()=>{hrReportInit();},
-    'weigh':()=>{wtInit();}
+    'weigh':()=>{wtInit();},
+    'stock-report':()=>{srInit();},
+    'stock-deduct':()=>{sdInit();},
+    'prod-schedule':()=>{psInit();}
   };
   if(fn[id]) fn[id]();
   // re-apply translations หลัง page load
@@ -21512,6 +21547,357 @@ async function sdLoadHistory(ppNo){
 
 // ── loadPage hook ─────────────────────────────────────────────
 // (เรียก sdInit เมื่อเปิด page)
+
+
+// ════════════════════════════════════════════════════════════
+//  PRODUCTION SCHEDULE — Weekly Calendar
+// ════════════════════════════════════════════════════════════
+let _psWeekStart = null;   // Date object = Monday of current week
+let _psWOs       = [];     // all WOs
+let _psDragId    = null;   // dragging WO id
+let _psProdsCache= null;   // master products cache
+
+function psInit(){
+  if(!_psWeekStart){
+    const d=new Date(); const dow=d.getDay()||7;
+    _psWeekStart=new Date(d); _psWeekStart.setDate(d.getDate()-(dow-1));
+    _psWeekStart.setHours(0,0,0,0);
+  }
+  psRenderGrid();
+  psLoadWOs();
+}
+
+// ── Week Navigation ──────────────────────────────────────────
+function psNavWeek(dir){
+  _psWeekStart=new Date(_psWeekStart);
+  _psWeekStart.setDate(_psWeekStart.getDate()+dir*7);
+  psRenderGrid(); psLoadWOs();
+}
+function psGoToday(){
+  const d=new Date(); const dow=d.getDay()||7;
+  _psWeekStart=new Date(d); _psWeekStart.setDate(d.getDate()-(dow-1));
+  _psWeekStart.setHours(0,0,0,0);
+  psRenderGrid(); psLoadWOs();
+}
+
+// ── Render Grid ──────────────────────────────────────────────
+function psRenderGrid(){
+  const days=['จันทร์','อังคาร','พุธ','พฤหัส','ศุกร์','เสาร์','อาทิตย์'];
+  const grid=document.getElementById('ps-grid');
+  if(!grid) return;
+  const today=new Date(); today.setHours(0,0,0,0);
+
+  // Week label
+  const endDate=new Date(_psWeekStart); endDate.setDate(endDate.getDate()+6);
+  const fmt2=(d)=>d.toLocaleDateString('th-TH',{month:'short',day:'numeric'});
+  const lbl=document.getElementById('ps-week-label');
+  if(lbl) lbl.textContent=`${fmt2(_psWeekStart)} – ${fmt2(endDate)} ${endDate.getFullYear()+543}`;
+
+  // Render columns
+  grid.innerHTML='';
+  for(let i=0;i<7;i++){
+    const day=new Date(_psWeekStart); day.setDate(_psWeekStart.getDate()+i);
+    const dateStr=day.toISOString().slice(0,10);
+    const isToday=day.getTime()===today.getTime();
+    const isPast=day<today;
+    const isWeekend=i>=5;
+    const col=document.createElement('div');
+    col.dataset.date=dateStr;
+    col.className='ps-col';
+    col.style.cssText=`border-radius:10px;border:2px solid ${isToday?'#2563EB':isWeekend?'#E5E7EB':'#E2E8F0'};
+      background:${isToday?'#EFF6FF':isPast?'#F9FAFB':isWeekend?'#FAFAFA':'white'};
+      padding:6px;min-height:180px;position:relative;transition:background .15s`;
+    col.innerHTML=`
+      <div style="font-size:11px;font-weight:700;color:${isToday?'#2563EB':isWeekend?'#9CA3AF':'#374151'};margin-bottom:4px">
+        ${days[i]}<br>
+        <span style="font-size:13px;font-weight:800">${day.getDate()}</span>
+      </div>
+      <div class="ps-drop-zone" data-date="${dateStr}"
+        style="min-height:120px;border-radius:6px;transition:background .15s"></div>
+      <button class="btn btnP sm" onclick="psShowAddModal('${dateStr}')"
+        style="width:100%;margin-top:4px;font-size:10px;padding:3px 6px;opacity:.6">+ Add WO</button>`;
+
+    // Drag-over events
+    col.addEventListener('dragover', e=>{
+      e.preventDefault();
+      col.style.background=isWeekend?'#F0FDF4':'#EFF6FF';
+      col.style.borderColor='#2563EB';
+    });
+    col.addEventListener('dragleave', e=>{
+      col.style.background=isToday?'#EFF6FF':isPast?'#F9FAFB':isWeekend?'#FAFAFA':'white';
+      col.style.borderColor=isToday?'#2563EB':isWeekend?'#E5E7EB':'#E2E8F0';
+    });
+    col.addEventListener('drop', e=>{
+      e.preventDefault();
+      col.style.background=isToday?'#EFF6FF':isPast?'#F9FAFB':isWeekend?'#FAFAFA':'white';
+      col.style.borderColor=isToday?'#2563EB':isWeekend?'#E5E7EB':'#E2E8F0';
+      if(_psDragId) psMoveWO(_psDragId, dateStr);
+    });
+    grid.appendChild(col);
+  }
+}
+
+// ── Load WOs ─────────────────────────────────────────────────
+async function psLoadWOs(){
+  const endDate=new Date(_psWeekStart); endDate.setDate(_psWeekStart.getDate()+6);
+  const from=_psWeekStart.toISOString().slice(0,10);
+  const to=endDate.toISOString().slice(0,10);
+
+  try{
+    // โหลด WO ในสัปดาห์นี้ + ที่ไม่มีวัน
+    _psWOs=await sbG('production_plan',{
+      f:[`status=neq.cancelled`],
+      s:'id,pp_no,sku_code,product_name,num_batches,batch_kg,status,start_date,actual_qty',
+      ord:'start_date.asc,pp_no.asc', lim:200
+    });
+    psRenderWOs(from, to);
+    psLoadUnscheduled();
+  }catch(e){ console.error('psLoadWOs:',e); }
+}
+
+// ── Render WO Cards into Grid ─────────────────────────────────
+function psRenderWOs(from, to){
+  // Clear drop zones
+  document.querySelectorAll('.ps-drop-zone').forEach(z=>z.innerHTML='');
+
+  _psWOs.forEach(wo=>{
+    const d=wo.start_date;
+    if(!d || d<from || d>to) return;
+    const zone=document.querySelector(`.ps-drop-zone[data-date="${d}"]`);
+    if(!zone) return;
+    zone.appendChild(psMakeCard(wo));
+  });
+}
+
+// ── Make WO Card ─────────────────────────────────────────────
+function psMakeCard(wo){
+  const statusColors={
+    'จองแล้ว':'#D97706','กำลังผลิต':'#2563EB',
+    'เสร็จสิ้น':'#16a34a','เสร็จแล้ว':'#16a34a'
+  };
+  const sc=statusColors[wo.status]||'#6B7280';
+  const isFG=!wo.sku_code?.startsWith('WIP');
+  const card=document.createElement('div');
+  card.dataset.woId=wo.id;
+  card.draggable=true;
+  card.style.cssText=`border-radius:6px;padding:5px 7px;margin-bottom:4px;cursor:grab;
+    border-left:3px solid ${sc};background:${wo.status==='เสร็จสิ้น'||wo.status==='เสร็จแล้ว'?'#F0FDF4':'white'};
+    box-shadow:0 1px 4px rgba(0,0,0,.1);font-size:10px;user-select:none;
+    transition:box-shadow .15s,opacity .15s`;
+
+  card.innerHTML=`
+    <div style="font-weight:700;color:#1B3A5C;font-size:10.5px;white-space:nowrap;
+      overflow:hidden;text-overflow:ellipsis;max-width:120px"
+      title="${wo.product_name||wo.sku_code}">
+      ${isFG?'📦':'🏭'} ${wo.product_name||wo.sku_code}
+    </div>
+    <div style="color:#6B7280;font-size:9.5px">${wo.pp_no}</div>
+    <div style="display:flex;gap:4px;align-items:center;margin-top:2px">
+      <span style="color:${sc};font-weight:700;font-size:9px">${wo.status||'—'}</span>
+      <span style="color:#94A3B8;font-size:9px;margin-left:auto">${wo.num_batches||1}×${wo.batch_kg||50}kg</span>
+    </div>
+    <div style="display:flex;gap:3px;margin-top:3px">
+      <button onclick="psEditWO(${wo.id})" title="Edit date"
+        style="border:none;background:#EFF6FF;color:#2563EB;border-radius:3px;
+          padding:1px 5px;font-size:9px;cursor:pointer">✏️</button>
+      <button onclick="psViewWO(${wo.id},'${wo.pp_no}')" title="Batch Record"
+        style="border:none;background:#F0FDF4;color:#16a34a;border-radius:3px;
+          padding:1px 5px;font-size:9px;cursor:pointer">📋</button>
+      <button onclick="psMoveWO(${wo.id},null)" title="Remove from schedule"
+        style="border:none;background:#FEF2F2;color:#DC2626;border-radius:3px;
+          padding:1px 5px;font-size:9px;cursor:pointer">✕</button>
+    </div>`;
+
+  card.addEventListener('dragstart', e=>{
+    _psDragId=wo.id;
+    card.style.opacity='0.5';
+    e.dataTransfer.effectAllowed='move';
+  });
+  card.addEventListener('dragend', ()=>{
+    _psDragId=null;
+    card.style.opacity='1';
+  });
+  return card;
+}
+
+// ── Move WO to Date ───────────────────────────────────────────
+async function psMoveWO(woId, dateStr){
+  try{
+    await sbU('production_plan',{start_date: dateStr||null},`id=eq.${woId}`);
+    const wo=_psWOs.find(w=>w.id===woId);
+    if(wo){
+      wo.start_date=dateStr;
+      await logA('UPDATE','production',`ย้ายวันผลิต ${wo.pp_no} → ${dateStr||'ไม่ระบุวัน'}`,wo.pp_no);
+    }
+    // Re-render
+    const endDate=new Date(_psWeekStart); endDate.setDate(_psWeekStart.getDate()+6);
+    psRenderWOs(_psWeekStart.toISOString().slice(0,10), endDate.toISOString().slice(0,10));
+    psLoadUnscheduled();
+    msgEl('pg-prod-schedule','','s'); // clear
+  }catch(e){ alert('❌ '+e.message); }
+}
+
+// ── Unscheduled WOs ───────────────────────────────────────────
+async function psLoadUnscheduled(){
+  const area=document.getElementById('ps-unscheduled');
+  if(!area) return;
+  const noDate=_psWOs.filter(w=>!w.start_date&&w.status!=='เสร็จสิ้น'&&w.status!=='เสร็จแล้ว');
+  if(!noDate.length){
+    area.innerHTML='<span style="color:var(--text3);font-size:12px">✅ ทุก WO มีวันผลิตแล้ว</span>';
+    return;
+  }
+  area.innerHTML='';
+  noDate.forEach(wo=>{
+    const c=psMakeCard(wo);
+    c.style.cssText+=';display:inline-block;min-width:130px;max-width:150px;vertical-align:top';
+    area.appendChild(c);
+  });
+
+  // Make unscheduled area droppable → clear date
+  area.addEventListener('dragover', e=>{ e.preventDefault(); area.style.background='#FEF2F2'; });
+  area.addEventListener('dragleave', ()=>{ area.style.background=''; });
+  area.addEventListener('drop', e=>{
+    e.preventDefault(); area.style.background='';
+    if(_psDragId) psMoveWO(_psDragId, null);
+  });
+}
+
+// ── Add WO Modal ──────────────────────────────────────────────
+async function psShowAddModal(dateStr=''){
+  if(!_psProdsCache){
+    const [fg,wip]=await Promise.all([
+      sbG('master_product',{s:'sku,name_en,batch_kg',ord:'sku.asc'}).catch(()=>[]),
+      sbG('wip_master',{s:'code,name,batch_kg',ord:'code.asc'}).catch(()=>[])
+    ]);
+    _psProdsCache=[...fg.map(p=>({sku:p.sku,name:p.name_en||p.sku,bkg:p.batch_kg||50,type:'FG'})),
+                  ...wip.map(w=>({sku:w.code,name:w.name||w.code,bkg:w.batch_kg||50,type:'WIP'}))];
+  }
+  const opts=_psProdsCache.map(p=>`<option value="${p.sku}" data-bkg="${p.bkg}" data-type="${p.type}">${p.sku} — ${p.name}</option>`).join('');
+  openMo(`📆 Add to Schedule / เพิ่มแผนผลิต`,`
+    <div class="fgrp">
+      <label class="flbl">📅 วันที่ผลิต</label>
+      <input type="date" class="fc2" id="ps-add-date" value="${dateStr||new Date().toISOString().slice(0,10)}">
+    </div>
+    <div class="fgrp">
+      <label class="flbl">📦 SKU / สินค้า</label>
+      <select class="fc2" id="ps-add-sku" onchange="psAddAutoFill()">
+        <option value="">— เลือก SKU —</option>${opts}
+      </select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fgrp">
+        <label class="flbl">จำนวน Batch</label>
+        <input type="number" class="fc2" id="ps-add-batches" value="1" min="1" step="1">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">น้ำหนัก/Batch (kg)</label>
+        <input type="number" class="fc2" id="ps-add-bkg" value="50" min="1" step="0.5">
+      </div>
+    </div>
+    <div class="fgrp">
+      <label class="flbl">หมายเหตุ / Note</label>
+      <input type="text" class="fc2" id="ps-add-note" placeholder="Optional">
+    </div>
+    <div id="ps-add-msg"></div>
+    <button class="btn btnP" style="width:100%;margin-top:10px" onclick="psAddWO()">
+      ➕ Create & Schedule
+    </button>
+  `);
+}
+
+function psAddAutoFill(){
+  const sel=document.getElementById('ps-add-sku');
+  const opt=sel?.options[sel.selectedIndex];
+  if(!opt?.value) return;
+  const bkg=document.getElementById('ps-add-bkg');
+  if(bkg) bkg.value=opt.dataset.bkg||50;
+}
+
+async function psAddWO(){
+  const dateStr = document.getElementById('ps-add-date')?.value;
+  const sel     = document.getElementById('ps-add-sku');
+  const opt     = sel?.options[sel.selectedIndex];
+  const sku     = opt?.value;
+  const batches = parseInt(document.getElementById('ps-add-batches')?.value)||1;
+  const bkg     = parseFloat(document.getElementById('ps-add-bkg')?.value)||50;
+  const note    = document.getElementById('ps-add-note')?.value||'';
+  if(!sku||!dateStr){ msgEl('ps-add-msg','เลือก SKU และวันที่ก่อน','e'); return; }
+
+  msgEl('ps-add-msg','<span class="spin"></span> Creating...','i');
+  try{
+    const isFG=opt.dataset.type==='FG';
+    const prodName=opt.textContent.split('—')[1]?.trim()||sku;
+    // สร้าง pp_no
+    const prefix=isFG?'O-':'O-WIP-';
+    const existing=await sbG('production_plan',{f:[`pp_no=like.${prefix}%`],s:'pp_no',ord:'pp_no.desc',lim:1}).catch(()=>[]);
+    const lastNum=existing.length?parseInt(existing[0].pp_no.replace(/\D/g,''))||0:500000;
+    const ppNo=`${prefix}${String(lastNum+1).padStart(6,'0')}`;
+
+    await sbP('production_plan',{
+      pp_no:ppNo, sku_code:sku, product_name:prodName,
+      num_batches:batches, batch_kg:bkg, start_date:dateStr,
+      status:'จองแล้ว', note, created_by:CU?.username||'system'
+    });
+    await logA('CREATE','production',`สร้าง WO ${ppNo} ${sku} กำหนด ${dateStr}`,ppNo);
+    msgEl('ps-add-msg',`✅ Created ${ppNo} → ${dateStr}`,'s');
+    setTimeout(async ()=>{ closeMo(); await psLoadWOs(); }, 800);
+  }catch(e){ msgEl('ps-add-msg','❌ '+e.message,'e'); }
+}
+
+// ── Edit WO Date ──────────────────────────────────────────────
+async function psEditWO(woId){
+  const wo=_psWOs.find(w=>w.id===woId);
+  if(!wo) return;
+  openMo(`✏️ Edit Schedule — ${wo.pp_no}`,`
+    <div style="font-size:13px;margin-bottom:12px">
+      <b>${wo.product_name||wo.sku_code}</b><br>
+      <span style="color:#6B7280">${wo.num_batches} Batch × ${wo.batch_kg}kg</span>
+    </div>
+    <div class="fgrp">
+      <label class="flbl">📅 วันที่ผลิตใหม่</label>
+      <input type="date" class="fc2" id="ps-edit-date" value="${wo.start_date||''}">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fgrp">
+        <label class="flbl">จำนวน Batch</label>
+        <input type="number" class="fc2" id="ps-edit-batches" value="${wo.num_batches||1}" min="1">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">น้ำหนัก/Batch (kg)</label>
+        <input type="number" class="fc2" id="ps-edit-bkg" value="${wo.batch_kg||50}" min="1" step="0.5">
+      </div>
+    </div>
+    <div id="ps-edit-msg"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btnP" style="flex:1" onclick="psSaveEdit(${woId})">💾 Save</button>
+      <button class="btn btnD sm" onclick="psClearDate(${woId})" title="Remove from schedule">🗑️ Clear Date</button>
+    </div>
+  `);
+}
+
+async function psSaveEdit(woId){
+  const date=document.getElementById('ps-edit-date')?.value;
+  const batches=parseInt(document.getElementById('ps-edit-batches')?.value)||1;
+  const bkg=parseFloat(document.getElementById('ps-edit-bkg')?.value)||50;
+  msgEl('ps-edit-msg','<span class="spin"></span> Saving...','i');
+  try{
+    await sbU('production_plan',{start_date:date||null,num_batches:batches,batch_kg:bkg},`id=eq.${woId}`);
+    const wo=_psWOs.find(w=>w.id===woId);
+    if(wo){ wo.start_date=date; wo.num_batches=batches; wo.batch_kg=bkg; }
+    await logA('UPDATE','production',`แก้แผน WO#${woId}: ${batches}batch ${bkg}kg → ${date||'ไม่ระบุ'}`,wo?.pp_no||'');
+    msgEl('ps-edit-msg','✅ Saved!','s');
+    setTimeout(async()=>{ closeMo(); await psLoadWOs(); }, 500);
+  }catch(e){ msgEl('ps-edit-msg','❌ '+e.message,'e'); }
+}
+
+async function psClearDate(woId){
+  if(!confirm('Remove this WO from the schedule? (WO ยังคงอยู่ แค่ไม่มีวัน)')) return;
+  await psMoveWO(woId, null);
+  closeMo();
+}
+
+function psViewWO(woId, ppNo){ viewBatchRecord(woId, ppNo); }
+function psRefresh(){ psLoadWOs(); }
 
 // ════════════════════════════════════════════════════════════
 //  CLOCK
