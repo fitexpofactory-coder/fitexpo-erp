@@ -22196,12 +22196,17 @@ async function psSaveBatchDist(woId, ppNo, productName, batchKg, totalBatches){
     const note   = row.querySelector('.pd-note')?.value||'';
     if(!date||batches<1){errors.push('ข้ามแถวไม่สมบูรณ์');continue;}
 
+    // fields ต้องตรงกับ table: id,wo_id,pp_no,product_name,plan_date,batches,batch_kg,status,note
     const payload={
-      wo_id:woId, pp_no:ppNo, sku_code:'',
-      product_name:productName, plan_date:date,
-      batches:batches, batch_kg:batchKg,
-      status:'planned', note
+      wo_id:       woId,
+      pp_no:       ppNo,
+      product_name:productName,
+      plan_date:   date,
+      batches:     batches,
+      batch_kg:    batchKg,
+      status:      'planned'
     };
+    if(note) payload.note=note;
     try{
       if(planId==='new'||!planId){
         await sbP('prod_batch_plan', payload);
