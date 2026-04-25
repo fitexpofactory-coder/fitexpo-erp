@@ -2876,6 +2876,27 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
 </div>
 
 <div id="pg-prod-schedule" class="pg">
+  <div id="ps-sql-notice" class="card" style="background:#FFF7ED;border-left:4px solid #F59E0B;display:none">
+    <div style="font-size:12px;color:#92400E">
+      ⚠️ ต้องรัน SQL นี้ใน Supabase ก่อนใช้งาน Batch Distribution:
+      <pre style="background:#1e293b;color:#e2e8f0;padding:8px;border-radius:4px;font-size:10px;margin-top:6px;overflow-x:auto">CREATE TABLE IF NOT EXISTS prod_batch_plan (
+  id          BIGSERIAL PRIMARY KEY,
+  wo_id       INTEGER,
+  pp_no       TEXT,
+  sku_code    TEXT,
+  product_name TEXT,
+  plan_date   DATE,
+  batches     INTEGER DEFAULT 1,
+  batch_kg    NUMERIC DEFAULT 50,
+  status      TEXT DEFAULT 'planned',
+  note        TEXT,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_pbp_ppno ON prod_batch_plan(pp_no);
+CREATE INDEX IF NOT EXISTS idx_pbp_date ON prod_batch_plan(plan_date);</pre>
+      <button class="btn btnS sm" onclick="document.getElementById('ps-sql-notice').style.display='none'">✕ ปิด</button>
+    </div>
+  </div>
   <!-- Toolbar -->
   <div class="card" style="padding:10px 14px;margin-bottom:10px">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -2886,6 +2907,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
       <div style="display:flex;gap:4px;margin-left:auto">
         <button class="btn btnP sm" onclick="psShowAddModal()">+ New WO</button>
         <button class="btn btnT sm" onclick="psRefresh()">🔄 Refresh</button>
+        <button class="btn btnS sm" onclick="psPrintWeekly()">🖨️ Print Week</button>
       </div>
     </div>
   </div>
@@ -21567,6 +21589,11 @@ function psDateStr(d){
 }
 
 function psInit(){
+  // ตรวจว่า prod_batch_plan มีหรือไม่
+  sbG('prod_batch_plan',{lim:1}).catch(()=>{
+    const n=document.getElementById('ps-sql-notice');
+    if(n) n.style.display='block';
+  });
   if(!_psWeekStart){
     const d=new Date();
     // ใช้ local date เพื่อหลีกเลี่ยงปัญหา timezone UTC+7
@@ -21663,6 +21690,9 @@ async function psLoadWOs(){
     });
     psRenderWOs(from, to);
     psLoadUnscheduled();
+    // โหลด batch distribution plan
+    const ppNos = _psWOs.map(w=>w.pp_no).filter(Boolean);
+    if(ppNos.length) psLoadBatchPlan(ppNos);
   }catch(e){ console.error('psLoadWOs:',e); }
 }
 
@@ -21714,6 +21744,9 @@ function psMakeCard(wo){
       <button onclick="psViewWO(${wo.id},'${wo.pp_no}')" title="Batch Record"
         style="border:none;background:#F0FDF4;color:#16a34a;border-radius:3px;
           padding:1px 5px;font-size:9px;cursor:pointer">📋</button>
+      <button onclick="psDistributeBatches(${wo.id})" title="กระจาย Batch ลงรายวัน"
+        style="border:none;background:#EDE9FE;color:#7C3AED;border-radius:3px;
+          padding:1px 5px;font-size:9px;cursor:pointer">⚡</button>
       <button onclick="psMoveWO(${wo.id},null)" title="Remove from schedule"
         style="border:none;background:#FEF2F2;color:#DC2626;border-radius:3px;
           padding:1px 5px;font-size:9px;cursor:pointer">✕</button>
@@ -21916,6 +21949,395 @@ async function psClearDate(woId){
 
 function psViewWO(woId, ppNo){ viewBatchRecord(woId, ppNo); }
 function psRefresh(){ psLoadWOs(); }
+
+
+// ════════════════════════════════════════════════════════════
+//  PRODUCTION BATCH DISTRIBUTION
+// ════════════════════════════════════════════════════════════
+
+// table: prod_batch_plan
+// fields: id, wo_id, pp_no, sku_code, product_name,
+//         plan_date, batches, batch_kg, status, note
+
+let _psBatchPlan = {}; // { pp_no: [{plan_date, batches, batch_kg}] }
+
+// ── Load batch plan from DB ──────────────────────────────────
+async function psLoadBatchPlan(ppNos=[]){
+  if(!ppNos.length) return;
+  try{
+    const plans = await sbG('prod_batch_plan',{
+      f:[`pp_no=in.(${ppNos.join(',')})`],
+      ord:'plan_date.asc,id.asc', lim:500
+    }).catch(()=>[]);
+    _psBatchPlan = {};
+    plans.forEach(p=>{
+      if(!_psBatchPlan[p.pp_no]) _psBatchPlan[p.pp_no]=[];
+      _psBatchPlan[p.pp_no].push(p);
+    });
+    psRenderBatchPlanInGrid();
+  }catch(e){ console.warn('psLoadBatchPlan:',e); }
+}
+
+// ── Render batch plan badges in grid ────────────────────────
+function psRenderBatchPlanInGrid(){
+  // นับ batches ต่อวันจาก _psBatchPlan
+  const dayMap = {}; // dateStr → [{pp_no, product_name, batches, batch_kg}]
+  Object.values(_psBatchPlan).flat().forEach(p=>{
+    if(!p.plan_date) return;
+    if(!dayMap[p.plan_date]) dayMap[p.plan_date]=[];
+    dayMap[p.plan_date].push(p);
+  });
+  // แสดงใน drop zones
+  document.querySelectorAll('.ps-drop-zone').forEach(zone=>{
+    const d = zone.dataset.date;
+    if(!dayMap[d]) return;
+    // เพิ่ม batch plan badges
+    dayMap[d].forEach(plan=>{
+      if(zone.querySelector(`[data-plan-id="${plan.id}"]`)) return; // already shown
+      const badge=document.createElement('div');
+      badge.dataset.planId=plan.id;
+      badge.style.cssText=`background:#EDE9FE;border-left:3px solid #7C3AED;border-radius:4px;
+        padding:3px 6px;font-size:9.5px;margin-bottom:2px;cursor:pointer`;
+      badge.innerHTML=`<b style="color:#7C3AED">${plan.batches}B</b>
+        <span style="color:#374151"> ${plan.product_name||plan.sku_code||''}</span>
+        <span style="color:#9CA3AF;font-size:9px"> ×${plan.batch_kg}kg</span>`;
+      badge.onclick=()=>psEditBatchPlan(plan);
+      zone.appendChild(badge);
+    });
+  });
+}
+
+// ── Distribute Batches Modal ─────────────────────────────────
+async function psDistributeBatches(woId){
+  const wo = _psWOs.find(w=>w.id===woId);
+  if(!wo){ alert('WO not found'); return; }
+  const totalBatches = parseInt(wo.num_batches)||1;
+  const batchKg      = parseFloat(wo.batch_kg)||50;
+
+  // โหลด plan ที่มีอยู่แล้ว
+  const existing = await sbG('prod_batch_plan',{
+    f:[`wo_id=eq.${woId}`], ord:'plan_date.asc'
+  }).catch(()=>[]);
+  const usedBatches = existing.reduce((s,p)=>s+(parseInt(p.batches)||0),0);
+  const remBatches  = totalBatches - usedBatches;
+
+  // สร้าง row สำหรับ existing plans
+  const existingRows = existing.map(p=>`
+    <tr data-plan-id="${p.id}" style="background:#F5F3FF">
+      <td><input type="date" class="fc2 sm pd-date" value="${p.plan_date}"
+        style="font-size:11px;width:130px"></td>
+      <td style="text-align:right">
+        <input type="number" class="fc2 sm pd-batches" value="${p.batches}"
+          min="1" max="${totalBatches}" step="1"
+          style="width:55px;text-align:right;font-size:12px"
+          oninput="psBatchDistSum()">
+      </td>
+      <td style="text-align:right;color:#6B7280;font-size:11px">
+        ${batchKg}kg
+      </td>
+      <td style="text-align:right;font-weight:700;font-size:11px" class="pd-kg-total">
+        ${((parseInt(p.batches)||0)*batchKg).toFixed(1)} kg
+      </td>
+      <td>
+        <input type="text" class="fc2 sm" value="${p.note||''}"
+          placeholder="Note" style="font-size:11px;width:90px" class="pd-note">
+      </td>
+      <td>
+        <button onclick="psDeletePlan(${p.id},${woId})"
+          style="border:none;background:#FEF2F2;color:#DC2626;
+          border-radius:3px;padding:2px 6px;cursor:pointer;font-size:10px">🗑</button>
+      </td>
+    </tr>`).join('');
+
+  openMo(`⚡ กระจาย Batch — ${wo.pp_no}`,`
+    <div style="background:#F5F3FF;border-radius:8px;padding:10px;margin-bottom:12px;font-size:12px">
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <span>📦 <b>${wo.product_name||wo.sku_code}</b></span>
+        <span>📋 รวม <b>${totalBatches} Batch</b> × ${batchKg} kg</span>
+        <span>⚖️ รวม <b>${(totalBatches*batchKg).toFixed(1)} kg</b></span>
+        <span id="pd-remain" style="color:${remBatches>0?'#D97706':'#16a34a'};font-weight:700">
+          ${remBatches>0?`⚠️ คงเหลือ ${remBatches} Batch`:'✅ กระจายครบแล้ว'}
+        </span>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <b style="font-size:12px">📅 แผนรายวัน</b>
+      <button class="btn btnP sm" onclick="psAddBatchRow(${woId},${totalBatches},${batchKg})">
+        + เพิ่มวัน
+      </button>
+    </div>
+
+    <div class="tw" style="max-height:300px;overflow-y:auto">
+      <table id="pd-table" style="width:100%;font-size:12px">
+        <thead><tr style="background:#1B3A5C">
+          <th style="color:white">วันที่</th>
+          <th style="color:white;text-align:right">Batch</th>
+          <th style="color:white;text-align:right">kg/Batch</th>
+          <th style="color:white;text-align:right">รวม kg</th>
+          <th style="color:white">Note</th>
+          <th style="color:white;width:30px"></th>
+        </tr></thead>
+        <tbody id="pd-tbody">${existingRows}</tbody>
+      </table>
+    </div>
+
+    <div id="pd-summary" style="background:#F8FAFF;border-radius:6px;padding:8px;
+      margin-top:10px;font-size:12px;display:flex;gap:16px;flex-wrap:wrap">
+      <span>กำหนดแล้ว: <b id="pd-used">0</b> Batch</span>
+      <span>คงเหลือ: <b id="pd-rem">${remBatches}</b> Batch</span>
+      <span>น้ำหนักรวม: <b id="pd-kg">0</b> kg</span>
+    </div>
+    <div id="pd-msg"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btnP" style="flex:1" onclick="psSaveBatchDist(${woId},'${wo.pp_no}','${wo.product_name||wo.sku_code}',${batchKg},${totalBatches})">
+        💾 Save Distribution
+      </button>
+      <button class="btn btnT sm" onclick="psPrintSchedule('wo',${woId},'${wo.pp_no}')">🖨️ Print</button>
+    </div>
+  `);
+  setTimeout(psBatchDistSum, 100);
+}
+
+function psAddBatchRow(woId, totalBatches, batchKg){
+  const tbody=document.getElementById('pd-tbody');
+  if(!tbody) return;
+  const tr=document.createElement('tr');
+  tr.dataset.planId='new';
+  const tomorrow=new Date(); tomorrow.setDate(tomorrow.getDate()+1);
+  tr.innerHTML=`
+    <td><input type="date" class="fc2 sm pd-date" value="${psDateStr(tomorrow)}"
+      style="font-size:11px;width:130px"></td>
+    <td style="text-align:right">
+      <input type="number" class="fc2 sm pd-batches" value="1"
+        min="1" max="${totalBatches}" step="1"
+        style="width:55px;text-align:right;font-size:12px"
+        oninput="psBatchDistSum()">
+    </td>
+    <td style="text-align:right;color:#6B7280;font-size:11px">${batchKg}kg</td>
+    <td style="text-align:right;font-weight:700;font-size:11px" class="pd-kg-total">
+      ${batchKg.toFixed(1)} kg
+    </td>
+    <td><input type="text" class="fc2 sm pd-note" placeholder="Note"
+      style="font-size:11px;width:90px"></td>
+    <td><button onclick="this.closest('tr').remove();psBatchDistSum()"
+      style="border:none;background:#FEF2F2;color:#DC2626;
+      border-radius:3px;padding:2px 6px;cursor:pointer;font-size:10px">✕</button></td>`;
+  tbody.appendChild(tr);
+  psBatchDistSum();
+}
+
+function psBatchDistSum(){
+  const rows=[...document.querySelectorAll('#pd-tbody tr')];
+  let used=0, totalKg=0;
+  rows.forEach(row=>{
+    const b=parseInt(row.querySelector('.pd-batches')?.value)||0;
+    const bkg=parseFloat(row.querySelector('.pd-kg-total')?.closest('td')?.previousSibling?.textContent)||
+               parseFloat(row.querySelector('td:nth-child(3)')?.textContent)||50;
+    used+=b;
+    totalKg+=b*bkg;
+    const kgCell=row.querySelector('.pd-kg-total');
+    if(kgCell) kgCell.textContent=fmt(b*bkg,1)+' kg';
+  });
+  const usedEl=document.getElementById('pd-used');
+  const remEl=document.getElementById('pd-rem');
+  const kgEl=document.getElementById('pd-kg');
+  if(usedEl) usedEl.textContent=used;
+  if(kgEl)   kgEl.textContent=fmt(totalKg,1);
+  // หา total จาก modal title หรือ summary
+}
+
+async function psSaveBatchDist(woId, ppNo, productName, batchKg, totalBatches){
+  const rows=[...document.querySelectorAll('#pd-tbody tr')];
+  if(!rows.length){alert('เพิ่มแผนรายวันก่อน');return;}
+  msgEl('pd-msg','<span class="spin"></span> Saving...','i');
+
+  let saved=0, errors=[];
+  for(const row of rows){
+    const planId = row.dataset.planId;
+    const date   = row.querySelector('.pd-date')?.value;
+    const batches= parseInt(row.querySelector('.pd-batches')?.value)||0;
+    const note   = row.querySelector('.pd-note')?.value||'';
+    if(!date||batches<1){errors.push('ข้ามแถวไม่สมบูรณ์');continue;}
+
+    const payload={
+      wo_id:woId, pp_no:ppNo, sku_code:'',
+      product_name:productName, plan_date:date,
+      batches:batches, batch_kg:batchKg,
+      status:'planned', note
+    };
+    try{
+      if(planId==='new'||!planId){
+        await sbP('prod_batch_plan', payload);
+      }else{
+        await sbU('prod_batch_plan',
+          {plan_date:date,batches:batches,note},
+          `id=eq.${planId}`);
+      }
+      saved++;
+    }catch(e){ errors.push(e.message); }
+  }
+
+  // อัปเดต start_date ของ WO = วันแรกในแผน
+  const dates=rows.map(r=>r.querySelector('.pd-date')?.value).filter(Boolean).sort();
+  if(dates.length){
+    await sbU('production_plan',{start_date:dates[0]},`id=eq.${woId}`).catch(()=>{});
+    const wo=_psWOs.find(w=>w.id===woId);
+    if(wo) wo.start_date=dates[0];
+  }
+
+  if(errors.length){
+    msgEl('pd-msg',`⚠️ Saved ${saved}, errors: ${errors.join(', ')}`,'e');
+  }else{
+    msgEl('pd-msg',`✅ Saved ${saved} day plans`,'s');
+    await logA('UPDATE','production',`กระจาย Batch ${ppNo}: ${saved} วัน`,ppNo);
+    setTimeout(async()=>{
+      closeMo();
+      await psLoadWOs();
+      // Reload batch plans
+      const ppNos=_psWOs.map(w=>w.pp_no).filter(Boolean);
+      await psLoadBatchPlan(ppNos);
+    }, 600);
+  }
+}
+
+async function psDeletePlan(planId, woId){
+  if(!confirm('ลบแผนวันนี้?')) return;
+  await sbD('prod_batch_plan',`id=eq.${planId}`).catch(()=>{});
+  document.querySelector(`[data-plan-id="${planId}"]`)?.remove();
+  psBatchDistSum();
+}
+
+async function psEditBatchPlan(plan){
+  openMo(`✏️ แก้แผน ${plan.plan_date}`,`
+    <div class="fgrp">
+      <label class="flbl">วันที่</label>
+      <input type="date" class="fc2" id="pbe-date" value="${plan.plan_date}">
+    </div>
+    <div class="fgrp">
+      <label class="flbl">จำนวน Batch</label>
+      <input type="number" class="fc2" id="pbe-batches" value="${plan.batches}" min="1">
+    </div>
+    <div class="fgrp">
+      <label class="flbl">Note</label>
+      <input type="text" class="fc2" id="pbe-note" value="${plan.note||''}">
+    </div>
+    <div id="pbe-msg"></div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn btnP" style="flex:1" onclick="psUpdatePlan(${plan.id},${plan.wo_id})">
+        💾 Save
+      </button>
+      <button class="btn btnD sm" onclick="psDeletePlanAndReload(${plan.id},${plan.wo_id})">🗑 ลบ</button>
+    </div>
+  `);
+}
+
+async function psUpdatePlan(planId, woId){
+  const date=document.getElementById('pbe-date')?.value;
+  const batches=parseInt(document.getElementById('pbe-batches')?.value)||1;
+  const note=document.getElementById('pbe-note')?.value||'';
+  msgEl('pbe-msg','<span class="spin"></span> Saving...','i');
+  try{
+    await sbU('prod_batch_plan',{plan_date:date,batches,note},`id=eq.${planId}`);
+    msgEl('pbe-msg','✅ Saved','s');
+    setTimeout(async()=>{
+      closeMo();
+      const ppNos=_psWOs.map(w=>w.pp_no).filter(Boolean);
+      await psLoadBatchPlan(ppNos);
+    },400);
+  }catch(e){ msgEl('pbe-msg','❌ '+e.message,'e'); }
+}
+
+async function psDeletePlanAndReload(planId, woId){
+  if(!confirm('ลบแผนวันนี้?')) return;
+  await sbD('prod_batch_plan',`id=eq.${planId}`).catch(()=>{});
+  closeMo();
+  const ppNos=_psWOs.map(w=>w.pp_no).filter(Boolean);
+  await psLoadBatchPlan(ppNos);
+}
+
+// ── Print Production Plan ─────────────────────────────────────
+async function psPrintSchedule(mode, woId, ppNo){
+  const plans = Object.values(_psBatchPlan).flat();
+  let filtered = plans;
+  if(mode==='wo') filtered=plans.filter(p=>p.pp_no===ppNo);
+
+  if(!filtered.length){
+    alert('ไม่มีแผนรายวัน — กด ⚡ กระจาย Batch ก่อน'); return;
+  }
+  // Group by date
+  const byDate={};
+  filtered.forEach(p=>{
+    if(!byDate[p.plan_date]) byDate[p.plan_date]=[];
+    byDate[p.plan_date].push(p);
+  });
+  const dates=Object.keys(byDate).sort();
+  const rows=dates.map(d=>{
+    const items=byDate[d];
+    const totalB=items.reduce((s,p)=>s+(p.batches||0),0);
+    const totalKg=items.reduce((s,p)=>s+(p.batches||0)*(p.batch_kg||0),0);
+    const detail=items.map(p=>`${p.product_name||p.pp_no} (${p.batches}B×${p.batch_kg}kg)`).join('<br>');
+    const thDate=new Date(d+'T00:00:00').toLocaleDateString('th-TH',{weekday:'short',year:'numeric',month:'short',day:'numeric'});
+    return `<tr>
+      <td style="white-space:nowrap;font-weight:600">${thDate}</td>
+      <td style="text-align:center;font-weight:700;color:#2563EB">${totalB}</td>
+      <td style="text-align:right;font-weight:700">${fmt(totalKg,1)} kg</td>
+      <td style="font-size:11px">${detail}</td>
+    </tr>`;
+  }).join('');
+
+  const totB=filtered.reduce((s,p)=>s+p.batches,0);
+  const totKg=filtered.reduce((s,p)=>s+(p.batches||0)*(p.batch_kg||0),0);
+  const title=mode==='wo'?`Production Plan — ${ppNo}`:'Production Schedule';
+  const printHtml=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+      @page{size:A4;margin:15mm}
+      body{font-family:'Sarabun',sans-serif;font-size:10pt}
+      h2{color:#1B3A5C;margin:0 0 4px}
+      table{width:100%;border-collapse:collapse}
+      th{background:#1B3A5C;color:white;padding:5px 8px;text-align:left}
+      td{padding:4px 8px;border-bottom:1px solid #E5E7EB}
+      tfoot td{background:#EFF6FF;font-weight:700}
+      @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+    </style></head><body>
+    <h2>📅 ${title}</h2>
+    <p style="color:#6B7280;font-size:9pt;margin:0 0 10px">
+      พิมพ์วันที่ ${new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'})}
+    </p>
+    <table>
+      <thead><tr>
+        <th>วันที่</th>
+        <th style="text-align:center">Batch</th>
+        <th style="text-align:right">น้ำหนักรวม</th>
+        <th>รายการผลิต</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr>
+        <td>รวมทั้งหมด</td>
+        <td style="text-align:center">${totB} Batch</td>
+        <td style="text-align:right">${fmt(totKg,1)} kg</td>
+        <td>${dates.length} วัน</td>
+      </tr></tfoot>
+    </table>
+    </body></html>`;
+  openPreviewWindow(printHtml, title);
+}
+
+// Print buttons in schedule page
+function psPrintWeekly(){
+  const from=psDateStr(_psWeekStart);
+  const end=new Date(_psWeekStart.getFullYear(),_psWeekStart.getMonth(),_psWeekStart.getDate()+6);
+  const to=psDateStr(end);
+  const filtered=Object.values(_psBatchPlan).flat()
+    .filter(p=>p.plan_date>=from&&p.plan_date<=to);
+  if(!filtered.length){ alert('ไม่มีแผนในสัปดาห์นี้'); return; }
+  // reuse psPrintSchedule
+  const tmp=Object.assign({},_psBatchPlan);
+  _psBatchPlan={'week':filtered};
+  psPrintSchedule('week');
+  _psBatchPlan=tmp;
+}
 
 // ════════════════════════════════════════════════════════════
 //  CLOCK
