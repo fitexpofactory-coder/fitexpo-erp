@@ -21557,11 +21557,21 @@ let _psWOs       = [];     // all WOs
 let _psDragId    = null;   // dragging WO id
 let _psProdsCache= null;   // master products cache
 
+
+// Helper: แปลง Date เป็น "YYYY-MM-DD" ตาม local timezone (ไม่ใช่ UTC)
+function psDateStr(d){
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,'0');
+  const day2=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day2}`;
+}
+
 function psInit(){
   if(!_psWeekStart){
-    const d=new Date(); const dow=d.getDay()||7;
-    _psWeekStart=new Date(d); _psWeekStart.setDate(d.getDate()-(dow-1));
-    _psWeekStart.setHours(0,0,0,0);
+    const d=new Date();
+    // ใช้ local date เพื่อหลีกเลี่ยงปัญหา timezone UTC+7
+    const dow=d.getDay()||7; // 1=Mon, 7=Sun
+    _psWeekStart=new Date(d.getFullYear(), d.getMonth(), d.getDate()-(dow-1));
   }
   psRenderGrid();
   psLoadWOs();
@@ -21569,14 +21579,14 @@ function psInit(){
 
 // ── Week Navigation ──────────────────────────────────────────
 function psNavWeek(dir){
-  _psWeekStart=new Date(_psWeekStart);
-  _psWeekStart.setDate(_psWeekStart.getDate()+dir*7);
+  _psWeekStart=new Date(_psWeekStart.getFullYear(), _psWeekStart.getMonth(),
+    _psWeekStart.getDate()+dir*7);
   psRenderGrid(); psLoadWOs();
 }
 function psGoToday(){
-  const d=new Date(); const dow=d.getDay()||7;
-  _psWeekStart=new Date(d); _psWeekStart.setDate(d.getDate()-(dow-1));
-  _psWeekStart.setHours(0,0,0,0);
+  const d=new Date();
+  const dow=d.getDay()||7;
+  _psWeekStart=new Date(d.getFullYear(), d.getMonth(), d.getDate()-(dow-1));
   psRenderGrid(); psLoadWOs();
 }
 
@@ -21585,10 +21595,11 @@ function psRenderGrid(){
   const days=['จันทร์','อังคาร','พุธ','พฤหัส','ศุกร์','เสาร์','อาทิตย์'];
   const grid=document.getElementById('ps-grid');
   if(!grid) return;
-  const today=new Date(); today.setHours(0,0,0,0);
+  const _now=new Date();
+  const today=new Date(_now.getFullYear(),_now.getMonth(),_now.getDate());
 
   // Week label
-  const endDate=new Date(_psWeekStart); endDate.setDate(endDate.getDate()+6);
+  const endDate=new Date(_psWeekStart.getFullYear(), _psWeekStart.getMonth(), _psWeekStart.getDate()+6);
   const fmt2=(d)=>d.toLocaleDateString('th-TH',{month:'short',day:'numeric'});
   const lbl=document.getElementById('ps-week-label');
   if(lbl) lbl.textContent=`${fmt2(_psWeekStart)} – ${fmt2(endDate)} ${endDate.getFullYear()+543}`;
@@ -21596,8 +21607,8 @@ function psRenderGrid(){
   // Render columns
   grid.innerHTML='';
   for(let i=0;i<7;i++){
-    const day=new Date(_psWeekStart); day.setDate(_psWeekStart.getDate()+i);
-    const dateStr=day.toISOString().slice(0,10);
+    const day=new Date(_psWeekStart.getFullYear(), _psWeekStart.getMonth(), _psWeekStart.getDate()+i);
+    const dateStr=psDateStr(day);
     const isToday=day.getTime()===today.getTime();
     const isPast=day<today;
     const isWeekend=i>=5;
@@ -21640,8 +21651,8 @@ function psRenderGrid(){
 // ── Load WOs ─────────────────────────────────────────────────
 async function psLoadWOs(){
   const endDate=new Date(_psWeekStart); endDate.setDate(_psWeekStart.getDate()+6);
-  const from=_psWeekStart.toISOString().slice(0,10);
-  const to=endDate.toISOString().slice(0,10);
+  const from=psDateStr(_psWeekStart);
+  const to=psDateStr(endDate);
 
   try{
     // โหลด WO ในสัปดาห์นี้ + ที่ไม่มีวัน
@@ -21776,7 +21787,7 @@ async function psShowAddModal(dateStr=''){
   openMo(`📆 Add to Schedule / เพิ่มแผนผลิต`,`
     <div class="fgrp">
       <label class="flbl">📅 วันที่ผลิต</label>
-      <input type="date" class="fc2" id="ps-add-date" value="${dateStr||new Date().toISOString().slice(0,10)}">
+      <input type="date" class="fc2" id="ps-add-date" value="${dateStr||psDateStr(new Date())}">
     </div>
     <div class="fgrp">
       <label class="flbl">📦 SKU / สินค้า</label>
