@@ -21961,24 +21961,31 @@ function psRefresh(){ psLoadWOs(); }
 let _psBatchPlan = {}; // { pp_no: [{plan_date, batches, batch_kg}] }
 
 // ── Load batch plan from DB ──────────────────────────────────
-let _psBatchTableExists = null; // null=unknown, true=exists, false=missing
+let _psBatchTableExists = null;
+let _psBatchCheckPromise = null; // singleton promise
 
-async function psCheckBatchTable(){
-  if(_psBatchTableExists !== null) return _psBatchTableExists;
-  try{
-    await sbG('prod_batch_plan',{lim:1,s:'id'});
-    _psBatchTableExists = true;
-    // ซ่อน SQL notice
-    const n=document.getElementById('ps-sql-notice');
-    if(n) n.style.display='none';
-  }catch(e){
-    _psBatchTableExists = false;
-    // แสดง SQL notice
-    const n=document.getElementById('ps-sql-notice');
-    if(n) n.style.display='block';
-    console.warn('[Schedule] prod_batch_plan table not found — run SQL first');
-  }
-  return _psBatchTableExists;
+function psCheckBatchTable(){
+  if(_psBatchTableExists !== null)
+    return Promise.resolve(_psBatchTableExists);
+  if(_psBatchCheckPromise) return _psBatchCheckPromise;
+
+  _psBatchCheckPromise = sbG('prod_batch_plan',{lim:1,s:'id'})
+    .then(()=>{
+      _psBatchTableExists=true;
+      _psBatchCheckPromise=null;
+      const n=document.getElementById('ps-sql-notice');
+      if(n) n.style.display='none';
+      return true;
+    })
+    .catch(e=>{
+      _psBatchTableExists=false;
+      _psBatchCheckPromise=null;
+      const n=document.getElementById('ps-sql-notice');
+      if(n) n.style.display='block';
+      console.warn('[Schedule] prod_batch_plan: table missing or RLS blocking. Run SQL first.',e?.response?.status||e?.message);
+      return false;
+    });
+  return _psBatchCheckPromise;
 }
 
 async function psLoadBatchPlan(ppNos=[]){
