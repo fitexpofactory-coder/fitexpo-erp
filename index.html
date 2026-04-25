@@ -2879,7 +2879,9 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
   <div id="ps-sql-notice" class="card" style="background:#FFF7ED;border-left:4px solid #F59E0B;display:none">
     <div style="font-size:12px;color:#92400E">
       ⚠️ ต้องรัน SQL นี้ใน Supabase ก่อนใช้งาน Batch Distribution:
-      <pre style="background:#1e293b;color:#e2e8f0;padding:8px;border-radius:4px;font-size:10px;margin-top:6px;overflow-x:auto">CREATE TABLE IF NOT EXISTS prod_batch_plan (
+      <button class="btn btnS sm" onclick="navigator.clipboard.writeText(document.getElementById('ps-sql-code').textContent).then(()=>alert('Copied!'))"
+        style="margin-bottom:4px">📋 Copy SQL</button>
+      <pre id="ps-sql-code" style="background:#1e293b;color:#e2e8f0;padding:8px;border-radius:4px;font-size:10px;margin-top:6px;overflow-x:auto">CREATE TABLE IF NOT EXISTS prod_batch_plan (
   id          BIGSERIAL PRIMARY KEY,
   wo_id       INTEGER,
   pp_no       TEXT,
@@ -21589,11 +21591,8 @@ function psDateStr(d){
 }
 
 function psInit(){
-  // ตรวจว่า prod_batch_plan มีหรือไม่
-  sbG('prod_batch_plan',{lim:1}).catch(()=>{
-    const n=document.getElementById('ps-sql-notice');
-    if(n) n.style.display='block';
-  });
+  // ตรวจ table ใน background
+  setTimeout(psCheckBatchTable, 500);
   if(!_psWeekStart){
     const d=new Date();
     // ใช้ local date เพื่อหลีกเลี่ยงปัญหา timezone UTC+7
@@ -21962,11 +21961,34 @@ function psRefresh(){ psLoadWOs(); }
 let _psBatchPlan = {}; // { pp_no: [{plan_date, batches, batch_kg}] }
 
 // ── Load batch plan from DB ──────────────────────────────────
+let _psBatchTableExists = null; // null=unknown, true=exists, false=missing
+
+async function psCheckBatchTable(){
+  if(_psBatchTableExists !== null) return _psBatchTableExists;
+  try{
+    await sbG('prod_batch_plan',{lim:1,s:'id'});
+    _psBatchTableExists = true;
+    // ซ่อน SQL notice
+    const n=document.getElementById('ps-sql-notice');
+    if(n) n.style.display='none';
+  }catch(e){
+    _psBatchTableExists = false;
+    // แสดง SQL notice
+    const n=document.getElementById('ps-sql-notice');
+    if(n) n.style.display='block';
+    console.warn('[Schedule] prod_batch_plan table not found — run SQL first');
+  }
+  return _psBatchTableExists;
+}
+
 async function psLoadBatchPlan(ppNos=[]){
   if(!ppNos.length) return;
+  const ok = await psCheckBatchTable();
+  if(!ok) return; // table ไม่มี → skip silently
   try{
+    const inList = ppNos.slice(0,50).join(','); // limit to 50 to avoid URL too long
     const plans = await sbG('prod_batch_plan',{
-      f:[`pp_no=in.(${ppNos.join(',')})`],
+      f:[`pp_no=in.(${inList})`],
       ord:'plan_date.asc,id.asc', lim:500
     }).catch(()=>[]);
     _psBatchPlan = {};
@@ -22009,6 +22031,13 @@ function psRenderBatchPlanInGrid(){
 
 // ── Distribute Batches Modal ─────────────────────────────────
 async function psDistributeBatches(woId){
+  const ok = await psCheckBatchTable();
+  if(!ok){
+    alert('❌ ต้องสร้าง table prod_batch_plan ก่อน\nดู SQL ที่แสดงด้านบน หรือไปที่ Supabase → SQL Editor แล้วรัน SQL');
+    const n=document.getElementById('ps-sql-notice');
+    if(n) n.style.display='block';
+    return;
+  }
   const wo = _psWOs.find(w=>w.id===woId);
   if(!wo){ alert('WO not found'); return; }
   const totalBatches = parseInt(wo.num_batches)||1;
