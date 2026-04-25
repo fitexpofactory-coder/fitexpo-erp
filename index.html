@@ -4587,16 +4587,17 @@ async function buildDocHTML(type,code,n,dt,machine,method,customBatchKg=0,lossPc
         ? `${fmt(qpu,3)} × ${units} ชิ้น`
         : `${fmt(qpu,3)}/batch`;
 
-    }else if(mode==='piece'){
+    }else if(mode==='piece'||mode==='piece-crunch'){
       // ─── Piece mode: คำนวณจากชิ้นที่คาดว่าจะผลิตได้ × น้ำหนักต่อชิ้น ─
-      // rUnit declared ที่ต้น map callback แล้ว
-      // qty0 = น้ำหนักต่อชิ้น: ถ้า unit=g → ค่าเป็น g, ถ้า unit=kg → แปลง×1000
-      const gPerPiece = rUnit==='g' ? qty0 : (qty0>0 ? qty0*1000 : 10); // default 10g
-      const pcsPerBatch = units&&units>0 ? units/n : Math.floor(batchKg*1000/gPerPiece);
+      // filling/coating = 10g/ชิ้น (default)
+      // crunch          =  2g/ชิ้น (default)
+      const defaultG  = mode==='piece-crunch' ? 2 : 10;
+      const gPerPiece = defaultG;  // ใช้ค่า fixed ตามประเภท
+      const pcsPerBatch = units&&units>0 ? Math.floor(units/n) : Math.floor(batchKg*1000/(gPerPiece||10));
       qtyPerBatch = pcsPerBatch * gPerPiece / 1000;  // แปลงกลับเป็น kg
       qtyTotal    = qtyPerBatch * n;
-      pctShow     = fmt(gPerPiece,1)+' g/ชิ้น';
-      basisLabel  = `${Math.round(pcsPerBatch).toLocaleString()} ชิ้น × ${fmt(gPerPiece,1)}g`;
+      pctShow     = gPerPiece+' g/ชิ้น';
+      basisLabel  = `${pcsPerBatch.toLocaleString()} ชิ้น/batch × ${gPerPiece}g`;
 
     }else{
       // ─── Weight fallback: qty_per_batch × scaleFactor × n ─
@@ -4665,7 +4666,7 @@ async function buildDocHTML(type,code,n,dt,machine,method,customBatchKg=0,lossPc
     if(!fillItems.length&&!coatItems.length&&!crunchItems.length) return '';
 
     h+=`<div class="pdoc-sec" style="background:#F3E8FF;color:#5B21B6">
-      🍭 ส่วนที่ 2 — Filling / Coating / Crunch <span style="font-weight:400;font-size:8pt">(คำนวณจาก ${units&&units>0 ? `${Math.round(units/n).toLocaleString()} ชิ้น/batch × น้ำหนักต่อชิ้น` : 'อัตราส่วน %'})</span>
+      🍭 ส่วนที่ 2 — Filling / Coating / Crunch <span style="font-weight:400;font-size:8pt">(${units&&units>0 ? `${Math.floor(units/n).toLocaleString()} ชิ้น/batch | Fill/Coat=10g/ชิ้น, Crunch=2g/ชิ้น` : 'อัตราส่วน %'})</span>
     </div>`;
 
     if(fillItems.length){
@@ -4712,7 +4713,7 @@ async function buildDocHTML(type,code,n,dt,machine,method,customBatchKg=0,lossPc
           <th style="text-align:right;color:#059669">ชั่งจริง ✍️</th>
           <th>Unit / หน่วย</th><th>Initial</th><th>Lot No.</th>
         </tr></thead>
-        <tbody>${tblRows(crunchItems,'#059669',0,'base')}</tbody>
+        <tbody>${tblRows(crunchItems,'#059669',0,units&&units>0?'piece-crunch':'base')}</tbody>
         <tfoot><tr style="background:#ECFDF5;font-weight:700">
           <td colspan="3" style="text-align:right;font-size:9pt">รวม Crunch:</td>
           <td style="text-align:right;color:#059669">${fmt(_kgFn(crunchItems),3)} kg</td>
