@@ -21646,7 +21646,7 @@ async function psLoadWOs(){
   try{
     // โหลด WO ในสัปดาห์นี้ + ที่ไม่มีวัน
     _psWOs=await sbG('production_plan',{
-      f:[`status=neq.cancelled`],
+      f:['status=neq.cancelled','status=neq.เสร็จสิ้น'],
       s:'id,pp_no,sku_code,product_name,num_batches,batch_kg,status,start_date,actual_qty',
       ord:'start_date.asc,pp_no.asc', lim:200
     });
@@ -21843,7 +21843,7 @@ async function psAddWO(){
       status:      'จองแล้ว'
     };
     if(note) woInsert.note=note;
-    if(CU?.username) woInsert.created_by=CU.username;
+    if(CU?.username||CU?.full_name) woInsert.operator=CU.username||CU.full_name;
     await sbP('production_plan', woInsert);
     await logA('CREATE','production',`สร้าง WO ${ppNo} ${sku} กำหนด ${dateStr}`,ppNo);
     msgEl('ps-add-msg',`✅ Created ${ppNo} → ${dateStr}`,'s');
