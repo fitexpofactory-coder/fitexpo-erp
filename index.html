@@ -21827,17 +21827,24 @@ async function psAddWO(){
   try{
     const isFG=opt.dataset.type==='FG';
     const prodName=opt.textContent.split('—')[1]?.trim()||sku;
-    // สร้าง pp_no
+    // สร้าง pp_no จาก timestamp (หลีกเลี่ยง LIKE query ที่มีปัญหา CORS)
     const prefix=isFG?'O-':'O-WIP-';
-    const existing=await sbG('production_plan',{f:[`pp_no=like.${prefix}%`],s:'pp_no',ord:'pp_no.desc',lim:1}).catch(()=>[]);
-    const lastNum=existing.length?parseInt(existing[0].pp_no.replace(/\D/g,''))||0:500000;
-    const ppNo=`${prefix}${String(lastNum+1).padStart(6,'0')}`;
+    const tsNum=Date.now()%1000000; // 6 digits from timestamp
+    const ppNo=`${prefix}${String(tsNum).padStart(6,'0')}`;
 
-    await sbP('production_plan',{
-      pp_no:ppNo, sku_code:sku, product_name:prodName,
-      num_batches:batches, batch_kg:bkg, start_date:dateStr,
-      status:'จองแล้ว', note, created_by:CU?.username||'system'
-    });
+    // ดึง field จาก WO สร้างปกติ (woData ใน createWO)
+    const woInsert={
+      pp_no:       ppNo,
+      sku_code:    sku,
+      product_name:prodName,
+      num_batches: batches,
+      batch_kg:    bkg,
+      start_date:  dateStr||null,
+      status:      'จองแล้ว'
+    };
+    if(note) woInsert.note=note;
+    if(CU?.username) woInsert.created_by=CU.username;
+    await sbP('production_plan', woInsert);
     await logA('CREATE','production',`สร้าง WO ${ppNo} ${sku} กำหนด ${dateStr}`,ppNo);
     msgEl('ps-add-msg',`✅ Created ${ppNo} → ${dateStr}`,'s');
     setTimeout(async ()=>{ closeMo(); await psLoadWOs(); }, 800);
