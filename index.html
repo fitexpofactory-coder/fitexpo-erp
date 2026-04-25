@@ -4588,6 +4588,7 @@ async function buildDocHTML(type,code,n,dt,machine,method,customBatchKg=0,lossPc
 
     }else if(mode==='piece'){
       // ─── Piece mode: คำนวณจากชิ้นที่คาดว่าจะผลิตได้ × น้ำหนักต่อชิ้น ─
+      const rUnit=(r.unit||'kg').toLowerCase(); // declare ใน scope นี้
       // qty0 = น้ำหนักต่อชิ้น: ถ้า unit=g → ค่าเป็น g, ถ้า unit=kg → แปลง×1000
       const gPerPiece = rUnit==='g' ? qty0 : (qty0>0 ? qty0*1000 : 10); // default 10g
       const pcsPerBatch = units&&units>0 ? units/n : Math.floor(batchKg*1000/gPerPiece);
