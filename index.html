@@ -2901,21 +2901,57 @@ CREATE INDEX IF NOT EXISTS idx_pbp_date ON prod_batch_plan(plan_date);</pre>
   </div>
   <!-- Toolbar -->
   <div class="card" style="padding:10px 14px;margin-bottom:10px">
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <button class="btn btnS sm" onclick="psNavWeek(-1)">◀</button>
-      <span id="ps-week-label" style="font-weight:700;font-size:14px;color:#1B3A5C;min-width:200px;text-align:center"></span>
-      <button class="btn btnS sm" onclick="psNavWeek(1)">▶</button>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <!-- View mode tabs -->
+      <div style="display:flex;gap:3px;background:#F1F5F9;border-radius:8px;padding:3px">
+        <button id="ps-mode-week"  class="btn btnP sm" style="font-size:11px"
+          onclick="psSetView('week')">📅 Week</button>
+        <button id="ps-mode-month" class="btn btnS sm" style="font-size:11px"
+          onclick="psSetView('month')">📆 Month</button>
+        <button id="ps-mode-2month" class="btn btnS sm" style="font-size:11px"
+          onclick="psSetView('2month')">📆×2</button>
+      </div>
+      <!-- Navigation -->
+      <button class="btn btnS sm" onclick="psNavPeriod(-1)">◀</button>
+      <span id="ps-week-label" style="font-weight:700;font-size:13px;color:#1B3A5C;
+        min-width:180px;text-align:center"></span>
+      <button class="btn btnS sm" onclick="psNavPeriod(1)">▶</button>
       <button class="btn btnN sm" onclick="psGoToday()">📅 Today</button>
-      <div style="display:flex;gap:4px;margin-left:auto">
+      <!-- Actions -->
+      <div style="display:flex;gap:4px;margin-left:auto;flex-wrap:wrap">
         <button class="btn btnP sm" onclick="psShowAddModal()">+ New WO</button>
-        <button class="btn btnT sm" onclick="psRefresh()">🔄 Refresh</button>
-        <button class="btn btnS sm" onclick="psPrintWeekly()">🖨️ Print Week</button>
+        <button class="btn btnT sm" onclick="psRefresh()">🔄</button>
+        <div style="position:relative" id="ps-print-menu-wrap">
+          <button class="btn btnS sm" onclick="document.getElementById('ps-print-menu').style.display=
+            document.getElementById('ps-print-menu').style.display==='block'?'none':'block'">
+            🖨️ Print ▾
+          </button>
+          <div id="ps-print-menu" style="display:none;position:absolute;right:0;top:110%;
+            background:white;border:1px solid var(--border);border-radius:8px;
+            box-shadow:0 4px 12px rgba(0,0,0,.15);min-width:160px;z-index:200;overflow:hidden">
+            <div onclick="psPrintView('week')"
+              style="padding:8px 14px;cursor:pointer;font-size:12px;display:flex;gap:8px"
+              onmouseover="this.style.background='#F1F5F9'" onmouseout="this.style.background=''">
+              📅 Print This Week
+            </div>
+            <div onclick="psPrintView('month')"
+              style="padding:8px 14px;cursor:pointer;font-size:12px;display:flex;gap:8px"
+              onmouseover="this.style.background='#F1F5F9'" onmouseout="this.style.background=''">
+              📆 Print This Month
+            </div>
+            <div onclick="psPrintView('2month')"
+              style="padding:8px 14px;cursor:pointer;font-size:12px;display:flex;gap:8px"
+              onmouseover="this.style.background='#F1F5F9'" onmouseout="this.style.background=''">
+              📆×2 Print 2 Months
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- Weekly Calendar Grid -->
-  <div id="ps-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;min-height:400px"></div>
+  <div id="ps-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;min-height:400px"></div>
 
   <!-- Unscheduled WOs -->
   <div class="card" style="margin-top:10px">
@@ -22379,6 +22415,293 @@ function psPrintWeekly(){
   psPrintSchedule('week');
   _psBatchPlan=tmp;
 }
+
+
+// ════════════════════════════════════════════════════════════
+//  SCHEDULE VIEW MODES: week / month / 2month
+// ════════════════════════════════════════════════════════════
+let _psViewMode = 'week'; // 'week' | 'month' | '2month'
+
+function psSetView(mode){
+  _psViewMode = mode;
+  // อัปเดต active button
+  ['week','month','2month'].forEach(m=>{
+    const btn=document.getElementById(`ps-mode-${m}`);
+    if(btn) btn.className=`btn ${m===mode?'btnP':'btnS'} sm`;
+    if(btn) btn.style.fontSize='11px';
+  });
+  psRenderGrid();
+  psLoadWOs();
+}
+
+// Override psNavPeriod (แทน psNavWeek)
+function psNavPeriod(dir){
+  if(_psViewMode==='week'){
+    _psWeekStart=new Date(_psWeekStart.getFullYear(),_psWeekStart.getMonth(),
+      _psWeekStart.getDate()+dir*7);
+  }else if(_psViewMode==='month'){
+    _psWeekStart=new Date(_psWeekStart.getFullYear(),_psWeekStart.getMonth()+dir,1);
+  }else{ // 2month
+    _psWeekStart=new Date(_psWeekStart.getFullYear(),_psWeekStart.getMonth()+dir*2,1);
+  }
+  psRenderGrid(); psLoadWOs();
+}
+
+// Override psGoToday
+function psGoToday(){
+  const d=new Date();
+  if(_psViewMode==='week'){
+    const dow=d.getDay()||7;
+    _psWeekStart=new Date(d.getFullYear(),d.getMonth(),d.getDate()-(dow-1));
+  }else{
+    _psWeekStart=new Date(d.getFullYear(),d.getMonth(),1);
+  }
+  psRenderGrid(); psLoadWOs();
+}
+
+// ── Monthly grid render ──────────────────────────────────────
+function psRenderMonthGrid(months=1){
+  const grid=document.getElementById('ps-grid');
+  if(!grid) return;
+  const _now=new Date();
+  const today=new Date(_now.getFullYear(),_now.getMonth(),_now.getDate());
+
+  // หาช่วงวัน
+  const startMonth=new Date(_psWeekStart.getFullYear(),_psWeekStart.getMonth(),1);
+  const endMonth=new Date(startMonth.getFullYear(),startMonth.getMonth()+months,0); // last day
+
+  // Update label
+  const lbl=document.getElementById('ps-week-label');
+  if(lbl){
+    const opt={month:'long',year:'numeric'};
+    if(months===1){
+      lbl.textContent=startMonth.toLocaleDateString('th-TH',opt);
+    }else{
+      const em=new Date(startMonth.getFullYear(),startMonth.getMonth()+months-1,1);
+      lbl.textContent=startMonth.toLocaleDateString('th-TH',{month:'short',year:'numeric'})+
+        ' – '+em.toLocaleDateString('th-TH',opt);
+    }
+  }
+
+  // Grid: 7 columns (Mon-Sun) with day-of-week headers
+  grid.style.gridTemplateColumns='repeat(7,1fr)';
+  grid.innerHTML='';
+
+  // Day headers
+  const dayNames=['จ','อ','พ','พฤ','ศ','ส','อา'];
+  dayNames.forEach(d=>{
+    const h=document.createElement('div');
+    h.style.cssText='text-align:center;font-size:10px;font-weight:700;color:#64748B;padding:3px 0';
+    h.textContent=d;
+    grid.appendChild(h);
+  });
+
+  // Pad before month start (Mon=1, so dow-1 blank cells)
+  const firstDow=(startMonth.getDay()||7)-1; // 0=Mon
+  for(let i=0;i<firstDow;i++){
+    const blank=document.createElement('div');
+    blank.style.cssText='min-height:60px';
+    grid.appendChild(blank);
+  }
+
+  // Fill days
+  for(let d=new Date(startMonth); d<=endMonth; d.setDate(d.getDate()+1)){
+    const dateStr=psDateStr(d);
+    const isToday=d.getTime()===today.getTime();
+    const isWeekend=d.getDay()===0||d.getDay()===6;
+    const isOtherMonth=d.getMonth()!==startMonth.getMonth()&&months===1;
+
+    const cell=document.createElement('div');
+    cell.dataset.date=dateStr;
+    cell.className='ps-col';
+    cell.style.cssText=`border-radius:6px;border:1.5px solid ${isToday?'#2563EB':isWeekend?'#E5E7EB':'#E2E8F0'};
+      background:${isToday?'#EFF6FF':isWeekend?'#F9FAFB':'white'};
+      padding:3px;min-height:65px;font-size:10px;position:relative;
+      ${isOtherMonth?'opacity:.35':''}`;
+
+    cell.innerHTML=`
+      <div style="font-weight:700;font-size:11px;color:${isToday?'#2563EB':isWeekend?'#9CA3AF':'#374151'};
+        margin-bottom:2px;display:flex;justify-content:space-between;align-items:center">
+        <span>${d.getDate()}</span>
+        <button onclick="psShowAddModal('${dateStr}')"
+          style="border:none;background:transparent;color:${isToday?'#2563EB':'#CBD5E1'};
+          cursor:pointer;font-size:11px;padding:0;line-height:1">+</button>
+      </div>
+      <div class="ps-drop-zone" data-date="${dateStr}" style="min-height:42px"></div>`;
+
+    // drag events
+    cell.addEventListener('dragover',e=>{
+      e.preventDefault(); cell.style.background='#DBEAFE'; cell.style.borderColor='#2563EB';
+    });
+    cell.addEventListener('dragleave',()=>{
+      cell.style.background=isToday?'#EFF6FF':isWeekend?'#F9FAFB':'white';
+      cell.style.borderColor=isToday?'#2563EB':isWeekend?'#E5E7EB':'#E2E8F0';
+    });
+    cell.addEventListener('drop',e=>{
+      e.preventDefault();
+      cell.style.background=isToday?'#EFF6FF':isWeekend?'#F9FAFB':'white';
+      cell.style.borderColor=isToday?'#2563EB':isWeekend?'#E5E7EB':'#E2E8F0';
+      if(_psDragId) psMoveWO(_psDragId, dateStr);
+    });
+    grid.appendChild(cell);
+  }
+}
+
+// ── Override psRenderGrid to support view modes ──────────────
+const _psRenderGridOrig = psRenderGrid;
+psRenderGrid = function(){
+  if(_psViewMode==='month')  return psRenderMonthGrid(1);
+  if(_psViewMode==='2month') return psRenderMonthGrid(2);
+  // week: update label differently
+  const endDate=new Date(_psWeekStart.getFullYear(),_psWeekStart.getMonth(),_psWeekStart.getDate()+6);
+  const fmt2=(d)=>d.toLocaleDateString('th-TH',{month:'short',day:'numeric'});
+  const lbl=document.getElementById('ps-week-label');
+  if(lbl) lbl.textContent=`${fmt2(_psWeekStart)} – ${fmt2(endDate)} ${endDate.getFullYear()+543}`;
+  return _psRenderGridOrig();
+};
+
+// ── Override psLoadWOs to load correct date range ────────────
+const _psLoadWOsOrig = psLoadWOs;
+psLoadWOs = async function(){
+  const endDate = _psViewMode==='2month'
+    ? new Date(_psWeekStart.getFullYear(),_psWeekStart.getMonth()+2,0)
+    : _psViewMode==='month'
+    ? new Date(_psWeekStart.getFullYear(),_psWeekStart.getMonth()+1,0)
+    : new Date(_psWeekStart.getFullYear(),_psWeekStart.getMonth(),_psWeekStart.getDate()+6);
+  const from=psDateStr(_psWeekStart);
+  const to=psDateStr(endDate);
+  try{
+    _psWOs=await sbG('production_plan',{
+      f:['status=neq.cancelled','status=neq.เสร็จสิ้น'],
+      s:'id,pp_no,sku_code,product_name,num_batches,batch_kg,status,start_date',
+      ord:'start_date.asc,pp_no.asc', lim:200
+    });
+    psRenderWOs(from,to);
+    psLoadUnscheduled();
+    const ppNos=_psWOs.map(w=>w.pp_no).filter(Boolean);
+    if(ppNos.length) psLoadBatchPlan(ppNos);
+  }catch(e){ console.error('psLoadWOs:',e); }
+};
+
+// ── Print by view ─────────────────────────────────────────────
+function psPrintView(mode){
+  document.getElementById('ps-print-menu').style.display='none';
+  let from, to;
+  const m=mode||_psViewMode;
+  if(m==='week'){
+    from=psDateStr(_psWeekStart);
+    const e=new Date(_psWeekStart.getFullYear(),_psWeekStart.getMonth(),_psWeekStart.getDate()+6);
+    to=psDateStr(e);
+  }else if(m==='month'){
+    from=psDateStr(new Date(_psWeekStart.getFullYear(),_psWeekStart.getMonth(),1));
+    to=psDateStr(new Date(_psWeekStart.getFullYear(),_psWeekStart.getMonth()+1,0));
+  }else{ // 2month
+    from=psDateStr(new Date(_psWeekStart.getFullYear(),_psWeekStart.getMonth(),1));
+    to=psDateStr(new Date(_psWeekStart.getFullYear(),_psWeekStart.getMonth()+2,0));
+  }
+  psPrintRange(from, to, m);
+}
+
+function psPrintRange(from, to, mode){
+  // รวม WO + batch plans ในช่วงนี้
+  const allPlans = Object.values(_psBatchPlan).flat()
+    .filter(p=>p.plan_date>=from&&p.plan_date<=to);
+
+  // WOs ที่มี start_date ในช่วง แต่ไม่มี batch plan
+  const woInRange = _psWOs.filter(w=>w.start_date>=from&&w.start_date<=to);
+
+  // สร้าง dayMap
+  const dayMap = {};
+  allPlans.forEach(p=>{
+    if(!dayMap[p.plan_date]) dayMap[p.plan_date]=[];
+    dayMap[p.plan_date].push({name:p.product_name||p.pp_no, batches:p.batches, bkg:p.batch_kg, pp:p.pp_no, type:'plan'});
+  });
+  woInRange.forEach(w=>{
+    if(!w.start_date) return;
+    // ถ้าไม่มี batch plan → แสดง WO เลย
+    const hasPlan=allPlans.some(p=>p.pp_no===w.pp_no);
+    if(!hasPlan){
+      if(!dayMap[w.start_date]) dayMap[w.start_date]=[];
+      dayMap[w.start_date].push({name:w.product_name||w.sku_code, batches:w.num_batches, bkg:w.batch_kg, pp:w.pp_no, type:'wo'});
+    }
+  });
+
+  if(!Object.keys(dayMap).length){ alert('ไม่มีแผนในช่วงนี้'); return; }
+
+  // หา date range
+  const d0=new Date(from+'T00:00:00'), d1=new Date(to+'T00:00:00');
+  const modeLabels={'week':'Weekly','month':'Monthly','2month':'2-Month'};
+  const title=`Production Schedule — ${modeLabels[mode]||mode}`;
+  const printFrom=d0.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+  const printTo=d1.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+
+  // build rows by week
+  let rows='', curWeekMon=null, weekKg=0, weekBatch=0;
+  const dates=[...new Set(Object.keys(dayMap))].sort();
+  const totalKgAll=Object.values(dayMap).flat().reduce((s,x)=>s+(x.batches||0)*(x.bkg||0),0);
+  const totalBAll=Object.values(dayMap).flat().reduce((s,x)=>s+(x.batches||0),0);
+
+  dates.forEach(dateStr=>{
+    const d=new Date(dateStr+'T00:00:00');
+    const dow=d.getDay()||7;
+    const thDate=d.toLocaleDateString('th-TH',{weekday:'short',day:'numeric',month:'short'});
+    const items=dayMap[dateStr];
+    const dayB=items.reduce((s,x)=>s+(x.batches||0),0);
+    const dayKg=items.reduce((s,x)=>s+(x.batches||0)*(x.bkg||0),0);
+    const detail=items.map(x=>`${x.name} (${x.batches}B×${x.bkg}kg)`).join('<br>');
+    const isWeekend=dow>=6;
+    rows+=`<tr style="background:${isWeekend?'#F9FAFB':'white'}">
+      <td style="white-space:nowrap;font-weight:600;font-size:9.5pt">${thDate}</td>
+      <td style="text-align:center;font-weight:700;color:#2563EB">${dayB}</td>
+      <td style="text-align:right;font-weight:600">${dayKg.toFixed(1)}</td>
+      <td style="font-size:9pt">${detail}</td>
+    </tr>`;
+  });
+
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+      @page{size:A4 ${mode==='2month'?'landscape':'portrait'};margin:12mm}
+      body{font-family:'Sarabun',sans-serif;font-size:10pt}
+      h2{color:#1B3A5C;margin:0 0 4px;font-size:14pt}
+      table{width:100%;border-collapse:collapse}
+      th{background:#1B3A5C;color:white;padding:4px 8px;font-size:9pt;text-align:left}
+      td{padding:3px 8px;border-bottom:1px solid #E5E7EB;vertical-align:top}
+      tfoot td{background:#DBEAFE;font-weight:700}
+      @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+    </style></head><body>
+    <h2>📅 ${title}</h2>
+    <div style="color:#6B7280;font-size:9pt;margin-bottom:10px;display:flex;gap:20px">
+      <span>ช่วง: ${printFrom} — ${printTo}</span>
+      <span>พิมพ์: ${new Date().toLocaleDateString('th-TH',{year:'numeric',month:'short',day:'numeric'})}</span>
+      <span>รวม: <b>${totalBAll} Batch</b> | <b>${totalKgAll.toFixed(1)} kg</b></span>
+    </div>
+    <table>
+      <thead><tr>
+        <th style="width:100px">วันที่</th>
+        <th style="text-align:center;width:55px">Batch</th>
+        <th style="text-align:right;width:70px">kg รวม</th>
+        <th>รายการผลิต</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr>
+        <td>รวมทั้งหมด</td>
+        <td style="text-align:center">${totalBAll} Batch</td>
+        <td style="text-align:right">${totalKgAll.toFixed(1)} kg</td>
+        <td>${dates.length} วัน</td>
+      </tr></tfoot>
+    </table>
+    <script>window.onload=()=>window.print();<\/script>
+    </body></html>`;
+  openPreviewWindow(html, title);
+}
+
+// close print menu on click outside
+document.addEventListener('click',e=>{
+  const menu=document.getElementById('ps-print-menu');
+  const wrap=document.getElementById('ps-print-menu-wrap');
+  if(menu&&wrap&&!wrap.contains(e.target)) menu.style.display='none';
+});
 
 // ════════════════════════════════════════════════════════════
 //  CLOCK
