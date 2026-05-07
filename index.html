@@ -8677,7 +8677,7 @@ async function hrLoadEmployees(){
   const accessLabel={employee:'👤 พนักงาน',supervisor:'👔 หัวหน้า',hr:'🏢 HR',admin:'👑 Admin'};
   // Load users to cross-reference
   let usersMap={};
-  try{const users=await sbG('users');users.forEach(u=>usersMap[u.username]=u);}catch(e){}
+  try{const users=await sbG('users'); window._hrUsersAll=users;users.forEach(u=>usersMap[u.username]=u);}catch(e){}
   document.getElementById('hr-emp-tb').innerHTML=_hrEmps.length?_hrEmps.map(e=>{
     const linkedUser=usersMap[e.emp_code]||usersMap[e.email]||null;
     return`<tr>
@@ -8827,17 +8827,32 @@ async function hrEditEmp(code){const r=_hrEmps.find(e=>e.emp_code===code)||{};op
 // Quick set login only
 function hrSetLogin(empCode){
   const emp=_hrEmps.find(e=>e.emp_code===empCode);
-  openMo(`🔑 กำหนด/เปลี่ยน Login: ${empCode}`,`
-    <div class="al ali mb3">${emp?.first_name} ${emp?.last_name} (${empCode})</div>
-    <div class="fgrp"><label class="flbl">Username</label><input type="text" class="fc2" id="hsl-user" value="${empCode}" placeholder="${empCode}"></div>
-    <div class="fgrp"><label class="flbl">Passwordใหม่ (อย่างน้อย 6 ตัว)</label><input type="password" class="fc2" id="hsl-pass" placeholder="••••••••"></div>
-    <div class="fgrp"><label class="flbl">ERP Role</label>
+  // ดึง user ที่ link กับ emp_code นี้
+  const existingUser=(_hrUsersAll||[]).find(u=>u.emp_code===empCode)||null;
+  const curRole=existingUser?.role||'production';
+  const curUser=existingUser?.username||empCode;
+  openMo(`🔑 กำหนด Login & สิทธิ์: ${empCode}`,`
+    <div style="background:#EFF6FF;border-radius:8px;padding:10px;margin-bottom:12px;font-size:12px">
+      <b>${emp?.first_name||''} ${emp?.last_name||''}</b> · ${empCode}<br>
+      <span style="color:var(--text3)">Login ปัจจุบัน: ${existingUser?existingUser.username:'ยังไม่มี'} · Role: ${existingUser?.role||'—'}</span>
+    </div>
+    <div class="fgrp"><label class="flbl">Username</label><input type="text" class="fc2" id="hsl-user" value="${curUser}" placeholder="${empCode}"></div>
+    <div class="fgrp"><label class="flbl">Password ${existingUser?'ใหม่ (เว้นว่างถ้าไม่เปลี่ยน)':'(อย่างน้อย 6 ตัว)'}</label><input type="password" class="fc2" id="hsl-pass" placeholder="••••••••"></div>
+    <div class="fgrp">
+      <label class="flbl">🔐 ERP Role / สิทธิ์การใช้งาน</label>
       <select class="fc2" id="hsl-role">
-        <option value="production">🔧 Production</option>
-        <option value="sales">📊 Sales</option>
-        <option value="qc">🔍 QC</option>
-        <option value="admin">👑 Admin</option>
+        <option value="production" \${curRole==='production'?'selected':''}>🔧 Production</option>
+        <option value="hr" \${curRole==='hr'?'selected':''}>👥 HR</option>
+        <option value="sales" \${curRole==='sales'?'selected':''}>📊 Sales</option>
+        <option value="qc" \${curRole==='qc'?'selected':''}>🔍 QC</option>
+        <option value="admin" \${curRole==='admin'?'selected':''}>👑 Admin</option>
       </select>
+      <div style="font-size:10px;color:var(--text3);margin-top:4px">
+        👥 HR = เข้าถึงระบบ HR ทั้งหมด (เงินเดือน, ลา, OT, รายงาน)<br>
+        🔧 Production = เข้าถึงคลัง, ผลิต, ชั่งน้ำหนัก<br>
+        🔍 QC = เข้าถึงคลัง, นับสต็อก<br>
+        👑 Admin = เข้าถึงทุกอย่าง
+      </div>
     </div>
     <button class="btn btnP" style="width:100%" onclick="hrSaveLogin('${empCode}')">🔑 บันทึก Login</button>
     <div id="hsl-msg" style="margin-top:8px"></div>`);
