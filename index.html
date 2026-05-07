@@ -1469,6 +1469,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
     <button class="btn btnS sm" onclick="loadPerms('production')" id="prm-production">🔧 Production</button>
     <button class="btn btnS sm" onclick="loadPerms('sales')" id="prm-sales">📊 Sales</button>
     <button class="btn btnS sm" onclick="loadPerms('qc')" id="prm-qc">🔍 QC</button>
+    <button class="btn btnS sm" onclick="loadPerms('hr')" id="prm-hr">👥 HR</button>
     <button class="btn btnG sm" onclick="savePerms()" style="margin-left:auto">💾 บันทึกสิทธิ์</button>
   </div>
   <div class="tw"><table id="perms-table">
@@ -3011,7 +3012,11 @@ const RM={
   sales:['dashboard','fg','so','hr-checkin','hr-leave','hr-ot','forecast'],
   qc:['dashboard','rm','wip-stock','fg','print-docs','oee-log','oee-dashboard',
     'inv-locations','inv-assign','inv-count','inv-sessions','inv-sheet',
-    'hr-checkin','hr-leave','hr-ot','pm','forecast','stock-report','stock-deduct']
+    'hr-checkin','hr-leave','hr-ot','pm','forecast','stock-report','stock-deduct'],
+  hr:['dashboard',
+    'hr-checkin','hr-attendance','hr-leave','hr-ot','hr-approve',
+    'hr-report','hr-employees','hr-holidays','hr-payroll','hr-payslip',
+    'hr-diligence','stock-report']
 };
 // ══════════════════════════════════════════════════
 //  SUPABASE HELPERS
@@ -6261,29 +6266,67 @@ async function delMachine(code){if(!confirm(`ลบ ${code}?`))return;await sbU(
 //  CUSTOM PERMISSIONS
 // ════════════════════════════════════════════════════════════
 const MODULE_NAMES={
-  dashboard:'📊 Dashboard',stock_rm:'🧱 Stock RM & PK',stock_wip:'🏭 Stock WIP',stock_fg:'📦 Stock FG',
-  bom:'📋 BOM & สูตรผลิต',production:'🔧 Production Order',oee:'⏱️ OEE',
-  sales:'🛒 Sales Order',master_mat:'🗂️ วัตถุดิบ',master_prod:'🏷️ สินค้า',
-  inventory_count:'📊 นับสต็อก',import:'📥 Import',
-  reports:'📈 รายงาน',users:'👤 ผู้ใช้งาน',permissions:'🔐 สิทธิ์'
+  // ── Inventory ───────────────────────────────────
+  dashboard:      '📊 Dashboard',
+  stock_rm:       '🧱 Stock RM & PK',
+  stock_wip:      '🏭 Stock WIP',
+  stock_fg:       '📦 Stock FG',
+  // ── Production ──────────────────────────────────
+  bom:            '📋 BOM & Production Formula',
+  production:     '🔧 Production Order',
+  oee:            '⏱️ OEE & PM',
+  // ── Sales ───────────────────────────────────────
+  sales:          '🛒 Sales Order',
+  // ── Master Data ─────────────────────────────────
+  master_mat:     '🗂️ Raw Material Master',
+  master_prod:    '🏷️ Product Master',
+  inventory_count:'📊 Stock Count',
+  // ── HR ──────────────────────────────────────────
+  hr_checkin:     '⏰ Check In / Check Out',
+  hr_attendance:  '📅 Attendance Record',
+  hr_leave:       '🏖️ Leave Management',
+  hr_ot:          '⏱️ OT Management',
+  hr_approve:     '✅ Approve Requests',
+  hr_report:      '📋 HR Reports',
+  hr_employees:   '👥 Employee Master',
+  hr_holidays:    '🎌 Holiday Calendar',
+  hr_payroll:     '💰 Payroll',
+  hr_payslip:     '🧾 Pay Slip',
+  hr_diligence:   '🏅 Diligence Bonus',
+  // ── System ──────────────────────────────────────
+  import:         '📥 Data Import',
+  reports:        '📈 Reports',
+  users:          '👤 User Management',
+  permissions:    '🔐 Permission Management',
 };
 let _curPermRole='admin', _permData=[];
 
 async function loadPerms(role){
   _curPermRole=role;
-  ['admin','production','sales','qc'].forEach(r=>{
+  ['admin','production','sales','qc','hr'].forEach(r=>{
     const el=document.getElementById(`prm-${r}`);
     if(el)el.className=r===role?'btn btnP sm':'btn btnS sm';
   });
   try{
     _permData=await sbG('permission_matrix',{f:[`role=eq.${role}`]});
     const permMap={};_permData.forEach(p=>permMap[p.module]=p);
+    // สร้าง section headers
+    const SECTION_HEADERS={
+      dashboard:'─── Inventory & Stock ─────────────────────',
+      bom:'─── Production ──────────────────────────────',
+      sales:'─── Sales ────────────────────────────────────',
+      master_mat:'─── Master Data & Inventory ─────────────────',
+      hr_checkin:'─── HR Module ────────────────────────────────',
+      import:'─── System ───────────────────────────────────',
+    };
     const rows=Object.entries(MODULE_NAMES).map(([mod,name])=>{
+      const secHdr=SECTION_HEADERS[mod]
+        ?`<tr style="background:#F1F5F9"><td colspan="8" style="font-size:10px;font-weight:700;color:#64748B;padding:3px 8px">${SECTION_HEADERS[mod]}</td></tr>`:'';
       const p=permMap[mod]||{can_view:false,can_create:false,can_edit:false,can_delete:false,can_print:false,can_approve:false};
       const chk=(key,val)=>`<td style="text-align:center"><input type="checkbox" id="perm-${mod}-${key}" ${val?'checked':''} style="width:18px;height:18px;cursor:pointer"></td>`;
-      return`<tr>
-        <td class="mn" style="color:var(--accent)">${mod}</td>
-        <td style="font-size:13px">${name}</td>
+      return secHdr+`<tr>
+        <td class="mn" style="color:var(--accent);font-size:11px">${mod}</td>
+        <td style="font-size:12px">${name}</td>
         ${chk('view',p.can_view)}${chk('create',p.can_create)}${chk('edit',p.can_edit)}${chk('delete',p.can_delete)}${chk('print',p.can_print)}${chk('approve',p.can_approve)}
       </tr>`;
     }).join('');
