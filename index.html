@@ -728,9 +728,37 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
     <button class="btn btnT sm" onclick="showIssueRM()">📤 เบิก</button>
     <button class="btn btnS sm" onclick="loadRM()">🔄</button>
         <button class="btn btnN sm" onclick="checkDupMaterials()" title="ตรวจหารหัสซ้ำ">🔍 หารหัสซ้ำ</button>
+    <div style="position:relative" id="rm-print-wrap">
+      <button class="btn btnT sm" onclick="document.getElementById('rm-print-menu').style.display=document.getElementById('rm-print-menu').style.display==='block'?'none':'block'">
+        🖨️ Print ▾
+      </button>
+      <div id="rm-print-menu" style="display:none;position:absolute;right:0;top:110%;
+        background:white;border:1px solid var(--border);border-radius:8px;
+        box-shadow:0 4px 12px rgba(0,0,0,.15);min-width:180px;z-index:999;overflow:hidden">
+        <div onclick="rmPrintAll()"
+          style="padding:9px 14px;cursor:pointer;font-size:12px;border-bottom:1px solid #F1F5F9"
+          onmouseover="this.style.background='#F1F5F9'" onmouseout="this.style.background=''">
+          📋 Print All / พิมพ์ทั้งหมด
+        </div>
+        <div onclick="rmPrintSelected()"
+          style="padding:9px 14px;cursor:pointer;font-size:12px;border-bottom:1px solid #F1F5F9"
+          onmouseover="this.style.background='#F1F5F9'" onmouseout="this.style.background=''">
+          ✅ Print Selected / เลือกพิมพ์
+        </div>
+        <div onclick="rmToggleSelect()"
+          style="padding:9px 14px;cursor:pointer;font-size:12px"
+          onmouseover="this.style.background='#F1F5F9'" onmouseout="this.style.background=''">
+          ☑️ เลือก/ยกเลิกทั้งหมด
+        </div>
+      </div>
+    </div>
   </div>
   <div class="tw"><table>
     <thead><tr>
+      <th style="width:28px;text-align:center">
+        <input type="checkbox" id="rm-chk-all" onchange="rmSelectAll(this.checked)"
+          style="cursor:pointer;width:15px;height:15px">
+      </th>
       <th style="width:36px">รูป</th>
       <th data-i18n="col_code">${pt('code')}</th><th data-i18n="col_name">Name / ชื่อ</th><th>Type</th><th data-i18n="col_unit">${pt('unit')}</th>
       <th data-i18n="col_open_bal">Balance เปิด</th><th style="color:var(--green)">รับเข้า</th>
