@@ -3875,7 +3875,7 @@ async function loadProduction(){
     const prods=window._cachedProds||[];
     if(prods.length){_bomProds=prods;}
     const statusFilter=document.getElementById('wo-status-filter')?.value||'';
-    const woFilter=statusFilter?{ord:'created_at.desc',f:[`status=eq.${statusFilter}`]}:{ord:'created_at.desc',lim:30};
+    const woFilter=statusFilter&&statusFilter!=='all'?{ord:'created_at.desc',f:[`status=eq.${statusFilter}`]}:{ord:'created_at.desc',lim:50};
     const wos=await sbG('production_plan',woFilter);
     document.getElementById('wo-list').innerHTML=wos.length?wos.map(w=>{
     const statusColor={'จองแล้ว':'var(--amber)','กำลังผลิต':'var(--accent)','เสร็จแล้ว':'var(--green)','จองแล้ว (WIP)':'var(--purple)'}[w.status]||'var(--text3)';
@@ -7404,7 +7404,9 @@ async function doFinalizeProduction(woId, ppNo, woSku, defaultKg){
   const mode      = document.getElementById('fp-pack-mode')?.value||'kg';
   // status ขึ้นกับ num_batches — ถ้า 1 batch → เสร็จสิ้น, ถ้า >1 → ต้อง confirm ทีละ batch
   // แต่ form นี้ confirm ครบแล้วให้ set เสร็จสิ้นเลย (user เลือก confirm เองจาก form)
-  const _finalStatus = 'เสร็จสิ้น';
+  // ถ้า WO มี num_batches > 1 → set "กำลังผลิต" (รอ confirm ทีละ batch)
+  // ถ้า num_batches = 1 → set "เสร็จสิ้น" ทันที
+  const _finalStatus = _nb > 1 ? 'กำลังผลิต' : 'เสร็จสิ้น';
 
   // ถ้า num_batches > 1 → แนะนำให้ใช้ batch-by-batch แทน
   const _nb = parseInt((await sbG('production_plan',{
@@ -7445,7 +7447,7 @@ async function doFinalizeProduction(woId, ppNo, woSku, defaultKg){
         await upsertFGStock(woSku, actualKg, lotNo, prodDate, expDate);
       }
       await safeUpdateWO(woId,{
-        status:'เสร็จสิ้น', actual_qty:actualKg,
+        status:_finalStatus, actual_qty:actualKg,
         lot_no:lotNo, finish_date:prodDate, note
       });
       await logA('UPDATE','production',
@@ -7496,7 +7498,7 @@ async function doFinalizeProduction(woId, ppNo, woSku, defaultKg){
       }
       const summary=uniqueEntries.map(e=>`${e.sku}:${e.jars}กระปุก`).join(', ');
       await safeUpdateWO(woId,{
-        status:'เสร็จสิ้น', actual_qty:totalKgUsed,
+        status:_finalStatus, actual_qty:totalKgUsed,
         lot_no:lotNo, finish_date:prodDate,
         note:`บรรจุ: ${summary} | ${note}`
       });
@@ -7551,7 +7553,7 @@ async function doFinalizeProduction(woId, ppNo, woSku, defaultKg){
       }
       const summary=entries.map(e=>`${e.sku}:${e.pcs}ชิ้น`).join(', ');
       await safeUpdateWO(woId,{
-        status:'เสร็จสิ้น', actual_qty:actualKg||totalKgUsed,
+        status:_finalStatus, actual_qty:actualKg||totalKgUsed,
         lot_no:lotNo, finish_date:prodDate,
         note:`บรรจุ(pcs): ${summary} รวม ${totalPcs}ชิ้น | ${note}`
       });
@@ -9402,7 +9404,11 @@ function renderRMTable(data){
     const thumb=(r.images&&r.images[0])?
       `<img src="${r.images[0]}" style="width:30px;height:30px;object-fit:cover;border-radius:3px;border:1px solid var(--border)" onerror="this.style.display='none'">`:
       `<span style="font-size:18px">${tp==='PK'?'📦':'🧱'}</span>`;
-    return`<tr style="${notInStock?'opacity:0.6;background:rgba(0,0,0,.02)':''}">
+    return`<tr style="${notInStock?'opacity:0.6;background:rgba(0,0,0,.02)':''}" data-code="${r.code}">
+      <td style="text-align:center">
+        <input type="checkbox" class="rm-row-chk" value="${r.code}"
+          style="cursor:pointer;width:15px;height:15px">
+      </td>
       <td style="text-align:center">${thumb}</td>
       <td class="mn" style="color:${tp==='PK'?'var(--orange)':'var(--accent)'};white-space:nowrap">${r.code}</td>
       <td style="font-size:13px;max-width:180px">${r.name||''}</td>
@@ -22758,6 +22764,128 @@ function psPrintRange(from, to, mode){
 document.addEventListener('click',e=>{
   const menu=document.getElementById('ps-print-menu');
   const wrap=document.getElementById('ps-print-menu-wrap');
+  if(menu&&wrap&&!wrap.contains(e.target)) menu.style.display='none';
+});
+
+
+// ════════════════════════════════════════════════════════════
+//  RM STOCK PRINT FUNCTIONS
+// ════════════════════════════════════════════════════════════
+
+function rmSelectAll(checked){
+  document.querySelectorAll('.rm-row-chk').forEach(chk=>chk.checked=checked);
+}
+
+function rmToggleSelect(){
+  document.getElementById('rm-print-menu').style.display='none';
+  const chks=document.querySelectorAll('.rm-row-chk');
+  const allChecked=[...chks].every(c=>c.checked);
+  chks.forEach(c=>c.checked=!allChecked);
+  document.getElementById('rm-chk-all').checked=!allChecked;
+}
+
+function rmPrintAll(){
+  document.getElementById('rm-print-menu').style.display='none';
+  // ใช้ _cachedRM ทั้งหมด
+  const data = window._cachedRM || [];
+  if(!data.length){ alert('No data to print'); return; }
+  rmGeneratePrint(data, 'RM & PK Stock Report — All Items');
+}
+
+function rmPrintSelected(){
+  document.getElementById('rm-print-menu').style.display='none';
+  const selected = [...document.querySelectorAll('.rm-row-chk:checked')]
+    .map(c=>c.value);
+  if(!selected.length){ alert('เลือกรายการก่อนครับ (คลิก checkbox ด้านซ้าย)'); return; }
+  const data = (window._cachedRM||[]).filter(r=>selected.includes(r.code));
+  if(!data.length){ alert('ไม่พบข้อมูลรายการที่เลือก'); return; }
+  rmGeneratePrint(data, `RM & PK Stock Report — ${selected.length} Items Selected`);
+}
+
+function rmGeneratePrint(data, title){
+  const today = new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+  const avRM = r=>Math.max(0,(+r.balance_opening||0)+(+r.qty_in||0)-(+r.qty_out||0));
+
+  // Summary
+  const rmItems = data.filter(r=>(r.type||r.code||'').startsWith('RM')||
+    !r.code?.startsWith('PK'));
+  const pkItems = data.filter(r=>(r.type||r.code||'').startsWith('PK')||
+    r.code?.startsWith('PK'));
+  const totalRM = rmItems.length;
+  const totalPK = pkItems.length;
+  const lowStock = data.filter(r=>avRM(r)<=0||(r.stock_min>0&&avRM(r)<r.stock_min)).length;
+
+  const rows = data.map(r=>{
+    const bal = avRM(r);
+    const isLow = bal<=0||(r.stock_min>0&&bal<r.stock_min);
+    const tp = r.code?.startsWith('PK')?'PK':'RM';
+    return`<tr style="background:${bal<=0?'#FFF5F5':isLow?'#FFFBEB':'white'}">
+      <td style="font-family:monospace;font-size:9pt;color:${tp==='PK'?'#D97706':'#1B5EC7'}">${r.code}</td>
+      <td style="font-size:9.5pt">${r.name||''}</td>
+      <td style="text-align:center"><span style="background:${tp==='PK'?'#FEF3C7':'#DBEAFE'};
+        color:${tp==='PK'?'#92400E':'#1E40AF'};padding:1px 6px;border-radius:4px;font-size:8.5pt">
+        ${tp}</span></td>
+      <td style="text-align:right">${r.balance_opening||0}</td>
+      <td style="text-align:right;color:#16a34a">${r.qty_in||0}</td>
+      <td style="text-align:right;color:#DC2626">${r.qty_out||0}</td>
+      <td style="text-align:right;font-weight:800;font-size:11pt;
+        color:${bal<=0?'#DC2626':isLow?'#D97706':'#1B3A5C'}">${bal.toFixed(3)}</td>
+      <td style="text-align:right;color:#6B7280">${r.unit||'kg'}</td>
+      <td style="text-align:right;color:#6B7280;font-size:8.5pt">${r.stock_min||'—'}</td>
+      <td style="text-align:center;font-size:10pt">${bal<=0?'🔴 หมด':isLow?'🟡 ต่ำ':'🟢'}</td>
+      <td style="font-size:8.5pt;color:#6B7280">${r.exp_date||r.lot_exp||'—'}</td>
+    </tr>`;
+  }).join('');
+
+  const printHtml=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+      @page{size:A4 landscape;margin:10mm}
+      body{font-family:'Sarabun',sans-serif;font-size:9.5pt}
+      h2{color:#1B3A5C;margin:0 0 4px;font-size:13pt}
+      table{width:100%;border-collapse:collapse}
+      th{background:#1B3A5C;color:white;padding:4px 6px;font-size:8.5pt;text-align:left}
+      td{padding:3px 6px;border-bottom:1px solid #E5E7EB;vertical-align:middle}
+      tfoot td{background:#EFF6FF;font-weight:700}
+      @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+    </style></head><body>
+    <h2>🧱 ${title}</h2>
+    <div style="display:flex;gap:20px;font-size:9pt;color:#6B7280;margin-bottom:10px">
+      <span>พิมพ์วันที่: ${today}</span>
+      <span>RM: ${totalRM} รายการ</span>
+      <span>PK: ${totalPK} รายการ</span>
+      <span style="color:#DC2626">🔴/🟡 ต้องเติม: ${lowStock} รายการ</span>
+    </div>
+    <table>
+      <thead><tr>
+        <th style="width:90px">รหัส</th>
+        <th>ชื่อวัสดุ</th>
+        <th style="width:40px">Type</th>
+        <th style="text-align:right;width:55px">ยก มา</th>
+        <th style="text-align:right;width:55px;color:#86efac">รับเข้า</th>
+        <th style="text-align:right;width:55px;color:#fca5a5">เบิก</th>
+        <th style="text-align:right;width:65px">คงเหลือ</th>
+        <th style="text-align:right;width:40px">หน่วย</th>
+        <th style="text-align:right;width:45px">Min</th>
+        <th style="text-align:center;width:45px">สถานะ</th>
+        <th style="width:70px">EXP</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr>
+        <td colspan="6">รวมทั้งหมด ${data.length} รายการ</td>
+        <td style="text-align:right">${data.reduce((s,r)=>s+avRM(r),0).toFixed(3)}</td>
+        <td colspan="4">🔴 หมด: ${data.filter(r=>avRM(r)<=0).length} | 🟡 ต่ำ: ${data.filter(r=>avRM(r)>0&&r.stock_min>0&&avRM(r)<r.stock_min).length}</td>
+      </tr></tfoot>
+    </table>
+    <script>window.onload=()=>window.print();<\/script>
+    </body></html>`;
+  openPreviewWindow(printHtml, title);
+}
+
+// close print menu on click outside
+document.addEventListener('click', e=>{
+  const menu=document.getElementById('rm-print-menu');
+  const wrap=document.getElementById('rm-print-wrap');
   if(menu&&wrap&&!wrap.contains(e.target)) menu.style.display='none';
 });
 
