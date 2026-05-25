@@ -5044,7 +5044,12 @@ async function printWORecord(id){
     // ตรวจชนิด WO: ถ้า sku_code ขึ้นต้น WIP → type='wip', ไม่งั้น 'fg'
     const skuCode=wo.sku_code||'';
     const docType=skuCode.startsWith('WIP')?'wip':'fg';
-    const docHtml=await buildDocHTML(docType,skuCode,wo.num_batches||1,wo.start_date,machine||'',method||'',wo.batch_kg||0,0);
+    // ถ้า user แก้ batch weight ใน modal → ใช้ค่านั้น
+    const vbrKg    = parseFloat(document.getElementById('vbr-batchkg')?.value)||0;
+    const vbrBatch = parseInt(document.getElementById('vbr-numbatch')?.value)||0;
+    const useKg    = vbrKg>0 ? vbrKg : (wo.batch_kg||0);
+    const useBatch = vbrBatch>0 ? vbrBatch : (wo.num_batches||1);
+    const docHtml=await buildDocHTML(docType,skuCode,useBatch,wo.start_date,machine||'',method||'',useKg,0);
     const fullHtml2=`<!DOCTYPE html><html><head>
       <meta charset="UTF-8"><title>Batch Record — ${skuCode}</title>
       <style>${PDOC_CSS}</style></head><body>${docHtml}</body></html>`;
@@ -13319,6 +13324,28 @@ async function viewBatchRecord(woId, ppNo){
 
     // แสดงใน modal พร้อมปุ่ม Print
     document.getElementById('mo-b').innerHTML = `
+      <!-- Batch Weight Recalculate Panel -->
+      <div style="background:#EFF6FF;border-radius:8px;padding:10px;margin-bottom:10px;
+        display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div style="font-size:12px;font-weight:600;color:#1B3A5C">
+          ⚖️ Batch Weight / น้ำหนักต่อ Batch:
+        </div>
+        <input type="number" id="vbr-batchkg" value="${wo.batch_kg||50}"
+          step="0.5" min="1" style="width:90px;font-size:13px;font-weight:700;
+          border:2px solid #2563EB;border-radius:6px;padding:4px 8px;
+          text-align:right;color:#1B3A5C">
+        <span style="font-size:11px;color:#6B7280">kg</span>
+        <input type="number" id="vbr-numbatch" value="${wo.num_batches||1}"
+          step="1" min="1" style="width:60px;font-size:13px;font-weight:700;
+          border:2px solid #6B7280;border-radius:6px;padding:4px 8px;text-align:right">
+        <span style="font-size:11px;color:#6B7280">batch</span>
+        <button class="btn btnP sm" onclick="vbrRecalc(${woId},'${skuCode}','${wo.start_date||''}','${machine||''}','${method||''}')">
+          🔄 Recalculate BOM
+        </button>
+        <span style="font-size:11px;color:#6B7280">
+          Section 1 = 100% = <b id="vbr-bkg-display">${wo.batch_kg||50}</b> kg
+        </span>
+      </div>
       <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
         <button class="btn btnP sm" onclick="printWORecord(${woId})">
           🖨️ พิมพ์ Batch Record
@@ -22916,6 +22943,29 @@ document.addEventListener('click', e=>{
   const wrap=document.getElementById('rm-print-wrap');
   if(menu&&wrap&&!wrap.contains(e.target)) menu.style.display='none';
 });
+
+
+async function vbrRecalc(woId, skuCode, startDate, machine, method){
+  const batchKg  = parseFloat(document.getElementById('vbr-batchkg')?.value)||50;
+  const numBatch = parseInt(document.getElementById('vbr-numbatch')?.value)||1;
+  const docArea  = document.getElementById('vbr-doc-area');
+  const kgDisplay= document.getElementById('vbr-bkg-display');
+  if(docArea) docArea.innerHTML='<div style="text-align:center;padding:30px"><span class="spin"></span> Recalculating...</div>';
+  if(kgDisplay) kgDisplay.textContent=batchKg;
+  try{
+    const docType = skuCode.startsWith('WIP')?'wip':'fg';
+    const docHtml = await buildDocHTML(
+      docType, skuCode, numBatch,
+      startDate||new Date().toISOString().slice(0,10),
+      machine||'', method||'',
+      batchKg,   // ← customBatchKg ที่แก้ใหม่
+      0
+    );
+    if(docArea) docArea.innerHTML=docHtml;
+  }catch(e){
+    if(docArea) docArea.innerHTML=`<div class="al ale">❌ ${e.message}</div>`;
+  }
+}
 
 // ════════════════════════════════════════════════════════════
 //  CLOCK
