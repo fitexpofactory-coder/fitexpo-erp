@@ -2827,6 +2827,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
     <div class="ftab"     onclick="srTab('weekly')">📅 Weekly</div>
     <div class="ftab"     onclick="srTab('monthly')">📆 Monthly</div>
     <div class="ftab"     onclick="srTab('balance')">⚖️ Stock Balance</div>
+    <div class="ftab"     onclick="srTab('valuation')">💰 Stock Valuation</div>
   </div>
   <div id="sr-tab-daily">
     <div class="card">
@@ -2885,6 +2886,31 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
       <div id="sr-monthly-area"><div class="al ali">Select month and click 📊</div></div>
     </div>
   </div>
+  <div id="sr-tab-valuation" style="display:none">
+    <div class="card">
+      <div class="ch">
+        <div>
+          <div class="ct">💰 Stock Valuation Report / รายงานมูลค่าสินค้าคงเหลือ</div>
+          <div style="font-size:11px;color:var(--text3)">แสดงมูลค่า stock ตามราคาที่ซื้อมา แยกตามหมวดหมู่</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <div style="display:flex;gap:4px;align-items:center">
+            <label style="font-size:11px;color:var(--text3)">📅 ณ วันที่:</label>
+            <input type="date" class="fc2 sm" id="sr-val-date" style="width:140px">
+          </div>
+          <select class="fc2 sm" id="sr-val-type" style="width:120px">
+            <option value="all">ทุกประเภท</option>
+            <option value="RM">🧱 RM</option>
+            <option value="PK">📦 PK</option>
+          </select>
+          <button class="btn btnP sm" onclick="srLoadValuation()">📊 Generate</button>
+          <button class="btn btnT sm" onclick="srPrintValuation()">🖨️ Print</button>
+        </div>
+      </div>
+      <div id="sr-val-area"><div class="al ali">เลือกวันที่แล้วกด 📊 Generate</div></div>
+    </div>
+  </div>
+
   <div id="sr-tab-balance" style="display:none">
     <div class="card">
       <div class="ch">
@@ -20705,12 +20731,12 @@ async function cleanupDupLots(sku, type='fg'){
 // ════════════════════════════════════════════════════════════
 
 function srTab(tab){
-  ['daily','weekly','monthly','balance'].forEach(t=>{
+  ['daily','weekly','monthly','balance','valuation'].forEach(t=>{
     const el=document.getElementById('sr-tab-'+t);
     if(el) el.style.display=t===tab?'':'none';
   });
   document.querySelectorAll('#sr-tabs .ftab').forEach((el,i)=>{
-    el.classList.toggle('on',['daily','weekly','monthly','balance'][i]===tab);
+    el.classList.toggle('on',['daily','weekly','monthly','balance','valuation'][i]===tab);
   });
 }
 
@@ -20725,6 +20751,8 @@ function srInit(){
   const mon=new Date(d); mon.setDate(d.getDate()-(dow-1));
   const wel=document.getElementById('sr-week-start');
   if(wel&&!wel.value) wel.value=mon.toISOString().slice(0,10);
+  const vdel=document.getElementById('sr-val-date');
+  if(vdel&&!vdel.value) vdel.value=today;
 }
 
 // ── ดึง transactions จาก activity_log + lot_entries ──────────
@@ -23029,6 +23057,273 @@ async function vbrRecalc(woId, skuCode, startDate, machine, method){
   }catch(e){
     if(docArea) docArea.innerHTML=`<div class="al ale">❌ ${e.message}</div>`;
   }
+}
+
+
+// ════════════════════════════════════════════════════════════
+//  STOCK VALUATION REPORT
+// ════════════════════════════════════════════════════════════
+
+async function srLoadValuation(){
+  const date = document.getElementById('sr-val-date')?.value || new Date().toISOString().slice(0,10);
+  const typeFilter = document.getElementById('sr-val-type')?.value || 'all';
+  const area = document.getElementById('sr-val-area');
+  if(!area) return;
+  area.innerHTML = '<span class="spin"></span> Loading...';
+
+  try{
+    const [masterMat, stockMat] = await Promise.all([
+      sbG('master_material',{
+        s:'id,code,name,unit,category,stock_min,price_per_unit',
+        ord:'category.asc,code.asc', lim:500
+      }).catch(()=>[]),
+      sbG('stock_material',{
+        s:'code,balance_opening,qty_in,qty_out',
+        ord:'code.asc', lim:500
+      }).catch(()=>[])
+    ]);
+
+    // สร้าง stock map
+    const stockMap = {};
+    stockMat.forEach(s=>{
+      stockMap[s.code] = Math.max(0,
+        (+s.balance_opening||0)+(+s.qty_in||0)-(+s.qty_out||0));
+    });
+
+    // รวมข้อมูล master + stock + price
+    let items = masterMat.map(m=>{
+      const bal   = stockMap[m.code]||0;
+      const price = parseFloat(m.price_per_unit)||0;
+      const value = bal * price;
+      const cat   = m.category||'ไม่ระบุหมวด';
+      const type  = m.code?.startsWith('PK')?'PK':'RM';
+      return { code:m.code, name:m.name||'', unit:m.unit||'kg',
+               category:cat, type, balance:bal, price, value,
+               stockMin:m.stock_min||0 };
+    }).filter(m=>m.balance>0 || m.price>0);
+
+    // filter type
+    if(typeFilter!=='all') items=items.filter(m=>m.type===typeFilter);
+
+    // group by category
+    const groups={};
+    items.forEach(m=>{
+      if(!groups[m.category]) groups[m.category]=[];
+      groups[m.category].push(m);
+    });
+
+    // render
+    const thDate = new Date(date+'T00:00:00')
+      .toLocaleDateString('th-TH',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+    const totalVal = items.reduce((s,m)=>s+m.value,0);
+    const totalItems = items.length;
+    const noPrice = items.filter(m=>!m.price).length;
+
+    let tableHtml = '';
+    let rowNum = 0;
+    Object.keys(groups).sort().forEach(cat=>{
+      const catItems = groups[cat];
+      const catVal = catItems.reduce((s,m)=>s+m.value,0);
+      tableHtml += `
+        <tr style="background:#1B3A5C">
+          <td colspan="8" style="color:white;font-weight:700;padding:5px 10px;font-size:11px">
+            📁 ${cat}
+            <span style="float:right;font-weight:400">
+              ${catItems.length} รายการ | มูลค่า: <b>฿${catVal.toLocaleString('th-TH',{minimumFractionDigits:2})}</b>
+            </span>
+          </td>
+        </tr>`;
+      catItems.forEach(m=>{
+        rowNum++;
+        const isLow = m.balance>0&&m.stockMin>0&&m.balance<m.stockMin;
+        const isEmpty = m.balance<=0;
+        tableHtml += `<tr style="background:${isEmpty?'#FFF5F5':isLow?'#FFFBEB':''}">
+          <td style="text-align:center;color:#9CA3AF;font-size:10px">${rowNum}</td>
+          <td style="font-family:monospace;font-size:10px;white-space:nowrap;
+            color:${m.type==='PK'?'#D97706':'#1B5EC7'}">${m.code}</td>
+          <td style="font-size:11px">${m.name}</td>
+          <td style="text-align:center"><span style="background:${m.type==='PK'?'#FEF3C7':'#DBEAFE'};
+            color:${m.type==='PK'?'#92400E':'#1E40AF'};padding:1px 6px;border-radius:4px;font-size:9px">
+            ${m.type}</span></td>
+          <td style="text-align:right;font-weight:700;font-size:12px;
+            color:${isEmpty?'#DC2626':isLow?'#D97706':'#1B3A5C'}">${m.balance.toFixed(3)}</td>
+          <td style="text-align:right;font-size:10px">${m.unit}</td>
+          <td style="text-align:right;color:#6B7280;font-size:11px">
+            ${m.price>0?'฿'+m.price.toLocaleString('th-TH',{minimumFractionDigits:2}):'<span style="color:#DC2626">ไม่มีราคา</span>'}
+          </td>
+          <td style="text-align:right;font-weight:700;font-size:11px;
+            color:${m.value>0?'#1B3A5C':'#9CA3AF'}">
+            ${m.value>0?'฿'+m.value.toLocaleString('th-TH',{minimumFractionDigits:2}):'—'}
+          </td>
+        </tr>`;
+      });
+      // category subtotal
+      tableHtml += `<tr style="background:#F1F5F9;font-weight:700">
+        <td colspan="4" style="padding:3px 8px;font-size:11px">
+          รวม ${cat}
+        </td>
+        <td colspan="3" style="text-align:right;font-size:11px;color:#6B7280">
+          ${catItems.length} รายการ มีราคา: ${catItems.filter(x=>x.price>0).length}
+        </td>
+        <td style="text-align:right;font-size:12px;color:#1B3A5C;font-weight:800">
+          ฿${catVal.toLocaleString('th-TH',{minimumFractionDigits:2})}
+        </td>
+      </tr>`;
+    });
+
+    // store for print
+    window._srValData = { date, thDate, typeFilter, items, groups, totalVal, totalItems, noPrice };
+
+    area.innerHTML = `
+      <!-- Summary KPIs -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
+        <div class="kpi kg" style="border-left:4px solid #1B3A5C">
+          <div class="kl">📦 รายการทั้งหมด</div>
+          <div class="kv" style="font-size:22px;color:#1B3A5C">${totalItems}</div>
+          <div class="kd">รายการ</div>
+        </div>
+        <div class="kpi kg">
+          <div class="kl">💰 มูลค่ารวม</div>
+          <div class="kv" style="font-size:18px;color:#16a34a">
+            ฿${totalVal.toLocaleString('th-TH',{minimumFractionDigits:2})}
+          </div>
+          <div class="kd">บาท</div>
+        </div>
+        <div class="kpi kr">
+          <div class="kl">⚠️ ไม่มีราคา</div>
+          <div class="kv" style="font-size:22px;color:${noPrice>0?'#DC2626':'#16a34a'}">${noPrice}</div>
+          <div class="kd">รายการ</div>
+        </div>
+        <div class="kpi">
+          <div class="kl">📁 หมวดหมู่</div>
+          <div class="kv" style="font-size:22px;color:#7C3AED">${Object.keys(groups).length}</div>
+          <div class="kd">หมวด</div>
+        </div>
+      </div>
+
+      <!-- Date notice -->
+      <div style="background:#EFF6FF;border-radius:8px;padding:8px 12px;margin-bottom:10px;
+        font-size:12px;color:#1E40AF;display:flex;align-items:center;gap:8px">
+        📅 ยอด Stock คงเหลือ ณ วันที่: <b>${thDate}</b>
+        <span style="color:#6B7280;margin-left:auto;font-size:10px">
+          * ราคาจาก master_material.price_per_unit
+        </span>
+      </div>
+
+      <!-- Table -->
+      <div class="tw">
+        <table>
+          <thead><tr style="background:#1B3A5C">
+            <th style="color:white;width:28px;text-align:center">#</th>
+            <th style="color:white;width:100px">รหัส</th>
+            <th style="color:white">ชื่อวัสดุ / Name</th>
+            <th style="color:white;width:40px">Type</th>
+            <th style="color:white;text-align:right;width:80px">คงเหลือ</th>
+            <th style="color:white;text-align:right;width:40px">หน่วย</th>
+            <th style="color:white;text-align:right;width:90px">ราคา/หน่วย</th>
+            <th style="color:white;text-align:right;width:100px">มูลค่ารวม (฿)</th>
+          </tr></thead>
+          <tbody>${tableHtml}</tbody>
+          <tfoot><tr style="background:#1B3A5C">
+            <td colspan="4" style="color:white;font-weight:700;padding:6px 8px">
+              รวมทั้งหมด — ${totalItems} รายการ
+            </td>
+            <td colspan="3" style="color:#94A3B8;text-align:right;font-size:11px">
+              ไม่มีราคา: ${noPrice} รายการ
+            </td>
+            <td style="color:white;font-weight:800;font-size:14px;text-align:right">
+              ฿${totalVal.toLocaleString('th-TH',{minimumFractionDigits:2})}
+            </td>
+          </tfoot>
+        </table>
+      </div>`;
+  }catch(e){ area.innerHTML=`<div class="al ale">❌ ${e.message}</div>`; }
+}
+
+// ── Print Valuation ───────────────────────────────────────────
+function srPrintValuation(){
+  const d = window._srValData;
+  if(!d){ alert('กด 📊 Generate ก่อนพิมพ์'); return; }
+
+  const { thDate, items, groups, totalVal, totalItems, noPrice } = d;
+  let rows = '';
+  let rowNum = 0;
+
+  Object.keys(groups).sort().forEach(cat=>{
+    const catItems = groups[cat];
+    const catVal = catItems.reduce((s,m)=>s+m.value,0);
+    rows += `<tr style="background:#1B3A5C">
+      <td colspan="8" style="color:white;font-weight:700;padding:4px 8px;font-size:9pt">
+        ${cat} — ${catItems.length} รายการ
+        <span style="float:right">฿${catVal.toLocaleString('th-TH',{minimumFractionDigits:2})}</span>
+      </td>
+    </tr>`;
+    catItems.forEach(m=>{
+      rowNum++;
+      rows += `<tr>
+        <td style="text-align:center">${rowNum}</td>
+        <td style="font-family:monospace">${m.code}</td>
+        <td>${m.name}</td>
+        <td style="text-align:center">${m.type}</td>
+        <td style="text-align:right;font-weight:700">${m.balance.toFixed(3)}</td>
+        <td style="text-align:right">${m.unit}</td>
+        <td style="text-align:right">${m.price>0?'฿'+m.price.toLocaleString('th-TH',{minimumFractionDigits:2}):'-'}</td>
+        <td style="text-align:right;font-weight:700">${m.value>0?'฿'+m.value.toLocaleString('th-TH',{minimumFractionDigits:2}):'-'}</td>
+      </tr>`;
+    });
+    rows += `<tr style="background:#E2E8F0;font-weight:700">
+      <td colspan="7" style="text-align:right">รวม ${cat}:</td>
+      <td style="text-align:right">฿${catVal.toLocaleString('th-TH',{minimumFractionDigits:2})}</td>
+    </tr>`;
+  });
+
+  const printDate = new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+  const printHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+      @page{size:A4 landscape;margin:10mm}
+      body{font-family:'Sarabun',sans-serif;font-size:9pt}
+      h2{color:#1B3A5C;margin:0 0 2px;font-size:13pt}
+      .meta{color:#6B7280;font-size:8.5pt;margin-bottom:8px}
+      table{width:100%;border-collapse:collapse}
+      th{background:#1B3A5C;color:white;padding:4px 6px;font-size:8.5pt;text-align:left}
+      td{padding:3px 6px;border-bottom:1px solid #E5E7EB;font-size:9pt}
+      tfoot td{background:#1B3A5C;color:white;font-weight:700;padding:5px 6px}
+      .summary{display:flex;gap:20px;background:#EFF6FF;padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:9pt}
+      @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+    </style></head><body>
+    <h2>💰 Stock Valuation Report / รายงานมูลค่าสินค้าคงเหลือ</h2>
+    <div class="meta">
+      <b>ยอด ณ วันที่:</b> ${thDate} &nbsp;|&nbsp;
+      <b>พิมพ์:</b> ${printDate}
+    </div>
+    <div class="summary">
+      <span>📦 รายการ: <b>${totalItems}</b></span>
+      <span>📁 หมวด: <b>${Object.keys(groups).length}</b></span>
+      <span>💰 มูลค่ารวม: <b>฿${totalVal.toLocaleString('th-TH',{minimumFractionDigits:2})}</b></span>
+      ${noPrice>0?`<span style="color:#DC2626">⚠️ ไม่มีราคา: ${noPrice} รายการ</span>`:''}
+    </div>
+    <table>
+      <thead><tr>
+        <th style="width:25px">#</th>
+        <th style="width:90px">รหัส</th>
+        <th>ชื่อวัสดุ</th>
+        <th style="width:35px">Type</th>
+        <th style="text-align:right;width:70px">คงเหลือ</th>
+        <th style="text-align:right;width:35px">หน่วย</th>
+        <th style="text-align:right;width:85px">ราคา/หน่วย (฿)</th>
+        <th style="text-align:right;width:95px">มูลค่ารวม (฿)</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr>
+        <td colspan="6">รวมทั้งหมด ${totalItems} รายการ | ${Object.keys(groups).length} หมวดหมู่</td>
+        <td style="text-align:right">ไม่มีราคา: ${noPrice}</td>
+        <td style="text-align:right;font-size:11pt">฿${totalVal.toLocaleString('th-TH',{minimumFractionDigits:2})}</td>
+      </tr></tfoot>
+    </table>
+    <script>window.onload=()=>window.print();<\/script>
+    </body></html>`;
+  openPreviewWindow(printHtml,'Stock Valuation Report');
 }
 
 // ════════════════════════════════════════════════════════════
