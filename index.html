@@ -4684,14 +4684,23 @@ async function buildDocHTML(type,code,n,dt,machine,method,customBatchKg=0,lossPc
     const rUnit  = (r.unit||'kg').toLowerCase(); // unit ของวัตถุดิบนี้
 
     if(mode==='base'){
-      // ─── Base: % ของ batchKg ─────────────────────────────
-      const pct = r.pct_of_batch>0
-        ? r.pct_of_batch
-        : (batchKg>0 ? qty0/batchKg*100 : 0);
-      qtyPerBatch = pct/100*batchKg;
-      qtyTotal    = qtyPerBatch*n;
-      pctShow     = fmt(pct,2)+'%';
-      basisLabel  = `${fmt(pct,2)}% × ${batchKg}kg`;
+      // ─── Base mode ────────────────────────────────────────
+      if(r.pct_of_batch>0){
+        // มี % ใน BOM → คำนวณจาก % × batchKg ใหม่
+        const pct=r.pct_of_batch;
+        qtyPerBatch = pct/100*batchKg;
+        qtyTotal    = qtyPerBatch*n;
+        pctShow     = fmt(pct,2)+'%';
+        basisLabel  = `${fmt(pct,2)}% × ${batchKg}kg`;
+      }else{
+        // ไม่มี % → scale qty ด้วย scaleFactor (baseBatchKg → batchKg)
+        // ป้องกัน circular: qty/batchKg*100 → qtyPerBatch = qty (ไม่ scale!)
+        qtyPerBatch = qty0 * scaleFactor;
+        qtyTotal    = qtyPerBatch * n;
+        const derivedPct = baseBatchKg>0 ? qty0/baseBatchKg*100 : 0;
+        pctShow     = fmt(derivedPct,2)+'%';
+        basisLabel  = `${fmt(qty0,4)}kg × ${fmt(scaleFactor,3)}`;
+      }
 
     }else if(mode==='unit'&&units&&units>0){
       // ─── Unit: qty ต่อ 1 ชิ้น × จำนวนชิ้นที่ได้ ──────────
