@@ -6950,77 +6950,131 @@ async function finalizeProduction(woId, ppNo){
 
 // ── Confirm single batch + deduct RM ─────────────────────────
 async function fpConfirmBatch(woId, ppNo, batchNo, numBatches, batchKg){
-  // โหลด BOM ใหม่
   const wo=(await sbG('production_plan',{f:[`id=eq.${woId}`]}))[0];
   if(!wo) return;
   const isFG=!wo.sku_code?.startsWith('WIP');
   const bomTable=isFG?'bom_master':'wip_bom';
   const bomField=isFG?'sku_code':'wip_code';
 
-  const bom=await sbG(bomTable,{f:[`${bomField}=eq.${wo.sku_code}`]}).catch(()=>[]);
-  const rmItems=bom.filter(b=>!(b.mat_code||b.rm_code||'').startsWith('PK'));
+  const [bom, stockMat, wipStock] = await Promise.all([
+    sbG(bomTable,{f:[`${bomField}=eq.${wo.sku_code}`]}).catch(()=>[]),
+    sbG('stock_material',{s:'code,qty_in,qty_out,balance_opening,unit'}).catch(()=>[]),
+    sbG('wip_stock',{s:'code,qty_produced,qty_issued'}).catch(()=>[])
+  ]);
 
-  const stockMat=await sbG('stock_material',{s:'code,qty_in,qty_out,balance_opening,unit'}).catch(()=>[]);
+  // สร้าง stock map (RM + WIP)
   const stMap={};
   stockMat.forEach(s=>stMap[s.code]={
-    avail:Math.max(0,(+s.balance_opening||0)+(+s.qty_in||0)-(+s.qty_out||0)), unit:s.unit||'kg'
+    avail:Math.max(0,(+s.balance_opening||0)+(+s.qty_in||0)-(+s.qty_out||0)),
+    unit:s.unit||'kg', isWIP:false
+  });
+  wipStock.forEach(w=>stMap[w.code]={
+    avail:Math.max(0,(+w.qty_produced||0)-(+w.qty_issued||0)),
+    unit:'kg', isWIP:true
   });
 
-  // แสดง modal แก้ไข qty ก่อน confirm
-  const batchItems = rmItems.map((b,i)=>({
-    code: b.mat_code||b.rm_code||'',
-    name: b.mat_name||b.rm_name||b.mat_code||'',
-    unit: b.unit||'kg',
-    qty:  parseFloat(b.qty_per_batch||0),
-    avail: stMap[b.mat_code||b.rm_code||'']?.avail||0
-  }));
+  // หา baseBatchKg จาก master (สำหรับ scaleFactor)
+  const masterArr=isFG
+    ? await sbG('master_product',{f:[`sku=eq.${wo.sku_code}`],s:'batch_kg'}).catch(()=>[])
+    : await sbG('wip_master',{f:[`code=eq.${wo.sku_code}`],s:'batch_kg'}).catch(()=>[]);
+  const baseBatchKgMaster=parseFloat(masterArr[0]?.batch_kg)||50;
+
+  // คำนวณ sec1Total สำหรับ scaleFactor
+  const sec1Items=bom.filter(b=>{
+    const s=(b.section||b.note||'').toLowerCase();
+    return !s.includes('fill')&&!s.includes('coat')&&!s.includes('crunch')&&
+           !(b.mat_code||b.rm_code||'').startsWith('PK');
+  });
+  const sec1Total=sec1Items.reduce((sum,b)=>{
+    const q=parseFloat(b.qty_per_batch||0);
+    const p2=parseFloat(b.pct_of_batch||0);
+    return sum+(p2>0?p2/100*baseBatchKgMaster:q);
+  },0);
+  const baseRef=sec1Total>0?sec1Total:baseBatchKgMaster;
+  const scaleFactor=batchKg/baseRef;
+
+  // สร้าง items พร้อม scale qty
+  const allItems=bom.map(b=>{
+    const code=b.mat_code||b.rm_code||'';
+    const qty0=parseFloat(b.qty_per_batch||0);
+    const pct=parseFloat(b.pct_of_batch||0);
+    // scale qty
+    const scaledQty=pct>0 ? pct/100*batchKg : qty0*scaleFactor;
+    const isWIP=code.startsWith('WIP');
+    const isPK=code.startsWith('PK');
+    const st=stMap[code]||{avail:0,unit:b.unit||'kg'};
+    return {
+      code, name:b.mat_name||b.rm_name||code,
+      unit:b.unit||'kg', qty:parseFloat(scaledQty.toFixed(4)),
+      avail:st.avail, isWIP, isPK,
+      section:(b.section||b.note||'').toLowerCase()
+    };
+  }).filter(b=>b.code&&b.qty>0);
+
+  // แยก RM/WIP (section 1) และ PK (section 3)
+  const rmWipItems=allItems.filter(b=>!b.isPK);
+  const pkItems=allItems.filter(b=>b.isPK);
+
+  const makeRows=(items,label,color)=>items.length?`
+    <div style="font-size:11px;font-weight:700;color:${color};padding:4px 0;margin-top:6px">
+      ${label}
+    </div>
+    ${items.map(b=>`<tr>
+      <td style="font-family:monospace;font-size:11px;color:${b.isWIP?'#7C3AED':b.isPK?'#D97706':'var(--accent)'}">
+        ${b.code}</td>
+      <td style="font-size:11px">${b.name}</td>
+      <td style="text-align:right;color:var(--text3)">${b.qty}</td>
+      <td style="text-align:right">
+        <input type="number" class="fc2 fb-actual"
+          data-code="${b.code}" data-isWIP="${b.isWIP||b.isPK?'false':'false'}"
+          data-table="${b.isWIP?'wip_stock':'stock_material'}"
+          value="${b.qty}" step="0.001" min="0"
+          style="width:80px;text-align:right;font-size:12px">
+      </td>
+      <td style="font-size:11px">${b.unit}</td>
+      <td style="text-align:right;font-size:11px;color:${b.avail>=b.qty?'#16a34a':'#DC2626'}">
+        ${fmt(b.avail,3)}
+      </td>
+    </tr>`).join('')}`:''
 
   openMo(`⚖️ Confirm Batch ${batchNo}/${numBatches} — ${ppNo}`,`
-    <div style="background:var(--bg3);border-radius:8px;padding:8px;margin-bottom:12px;font-size:12px">
-      <b>Batch ${batchNo}</b> of ${numBatches} | ${batchKg} kg
+    <div style="background:#EFF6FF;border-radius:8px;padding:8px;margin-bottom:10px;font-size:12px;
+      display:flex;gap:12px;flex-wrap:wrap">
+      <span><b>Batch ${batchNo}/${numBatches}</b></span>
+      <span>⚖️ ${batchKg} kg</span>
+      <span>ScaleFactor: <b>${fmt(scaleFactor,4)}×</b></span>
+      <span>Ref: ${fmt(baseRef,1)} kg</span>
     </div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">
-      ตรวจสอบและแก้ไขปริมาณได้ก่อนยืนยัน
+    <div style="font-size:11px;color:var(--text3);margin-bottom:6px">
+      ตรวจสอบและแก้ไข qty จริงได้ก่อนยืนยัน
     </div>
-    <div class="tw" style="margin-bottom:12px">
+    <div class="tw" style="margin-bottom:12px;max-height:320px;overflow-y:auto">
       <table>
         <thead><tr style="background:var(--navy)">
           <th style="color:white">Code</th>
           <th style="color:white">Name</th>
           <th style="color:white;text-align:right">BOM Qty</th>
-          <th style="color:white;text-align:right">Actual</th>
-          <th style="color:white;text-align:right">Unit</th>
-          <th style="color:white;text-align:right">Avail.</th>
+          <th style="color:white;text-align:right">จริง ✍️</th>
+          <th style="color:white">Unit</th>
+          <th style="color:white;text-align:right">คงเหลือ</th>
         </tr></thead>
         <tbody>
-        ${batchItems.map((b,i)=>`<tr>
-          <td style="font-family:monospace;font-size:11px;color:var(--accent)">${b.code}</td>
-          <td style="font-size:11px">${b.name}</td>
-          <td style="text-align:right;color:var(--text3)">${b.qty}</td>
-          <td style="text-align:right">
-            <input type="number" class="fc2 fb-actual" data-code="${b.code}"
-              data-isWIP="${b.code.startsWith('WIP')}"
-              value="${b.qty}" step="0.001" min="0"
-              style="width:80px;text-align:right;font-size:12px">
-          </td>
-          <td style="font-size:11px">${b.unit}</td>
-          <td style="text-align:right;font-size:11px;
-            color:${b.avail>=b.qty?'var(--green)':'var(--red)'}">
-            ${fmt(b.avail,3)}
-          </td>
-        </tr>`).join('')}
+          ${makeRows(rmWipItems,'🧱 RM / WIP (ตัดทันที)','#1B3A5C')}
+          ${makeRows(pkItems,'📦 PK / Packaging (ตัดพร้อม RM)','#D97706')}
         </tbody>
       </table>
     </div>
+    ${!allItems.length?'<div class="al ali">⚠️ ไม่พบ BOM — ตรวจสอบ wip_bom หรือ bom_master</div>':''}
     <button class="btn btnP" style="width:100%;padding:12px"
       onclick="fpDoDeductBatch(${woId},'${ppNo}',${batchNo},${numBatches},${batchKg})">
-      ✅ Deduct RM Stock — Batch ${batchNo}
+      ✅ Deduct Stock — Batch ${batchNo}
     </button>
     <button class="btn btnS" style="width:100%;margin-top:6px"
       onclick="closeMo();finalizeProduction(${woId},'${ppNo}')">← Back</button>
     <div id="fb-msg" style="margin-top:8px"></div>
   `);
 }
+
 
 // ── Execute RM deduction for batch ────────────────────────────
 async function fpDoDeductBatch(woId, ppNo, batchNo, numBatches, batchKg){
@@ -7031,7 +7085,7 @@ async function fpDoDeductBatch(woId, ppNo, batchNo, numBatches, batchKg){
     if(qty>0) items.push({
       code: inp.dataset.code,
       qty,
-      isWIP: inp.dataset.isWIP==='true'
+      table: inp.dataset.table||'stock_material'  // stock_material or wip_stock
     });
   });
   if(!items.length){msgEl('fb-msg','No items to deduct','e');return;}
@@ -7043,14 +7097,15 @@ async function fpDoDeductBatch(woId, ppNo, batchNo, numBatches, batchKg){
   let ok=0,errs=[];
   for(const m of items){
     try{
-      if(m.isWIP){
+      const tbl=m.table||'stock_material';
+      if(tbl==='wip_stock'){
         const s=(await sbG('wip_stock',{f:[`code=eq.${m.code}`]}).catch(()=>[]))[0];
         if(s) await sbU('wip_stock',{qty_issued:Number(s.qty_issued||0)+m.qty},`code=eq.${m.code}`);
-        else errs.push(`${m.code}: not found`);
+        else errs.push(`${m.code}: no wip_stock record`);
       }else{
         const s=(await sbG('stock_material',{f:[`code=eq.${m.code}`]}).catch(()=>[]))[0];
         if(s) await sbU('stock_material',{qty_out:Number(s.qty_out||0)+m.qty},`code=eq.${m.code}`);
-        else errs.push(`${m.code}: not found`);
+        else errs.push(`${m.code}: no stock_material record`);
       }
       ok++;
     }catch(e){errs.push(`${m.code}: ${e.message}`);}
