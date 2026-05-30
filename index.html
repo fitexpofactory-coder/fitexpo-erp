@@ -15585,6 +15585,50 @@ async function buildHolidayHTML(yr){
 }
 
 
+function prptBuildLogTable(logs){
+  return `<table style="min-width:900px;width:100%;border-collapse:collapse">
+    <thead><tr style="background:#1B3A5C">
+      <th style="color:white;padding:4px 8px">เวลา</th>
+      <th style="color:white;padding:4px 8px">WO</th>
+      <th style="color:white;padding:4px 8px">สินค้า</th>
+      <th style="color:white;padding:4px 8px;text-align:center">กะ</th>
+      <th style="color:white;padding:4px 8px">เครื่อง</th>
+      <th style="color:white;padding:4px 8px;text-align:right">ผลิต</th>
+      <th style="color:white;padding:4px 8px;text-align:right">OEE%</th>
+      <th style="color:white;padding:4px 8px;width:90px">Action</th>
+    </tr></thead>
+    <tbody>
+    ${logs.map(l=>{
+      const oeeC=l.oee_pct>=85?'#16a34a':l.oee_pct>=65?'#D97706':'#DC2626';
+      const startT=l.start_time?new Date(l.start_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'—';
+      const isWIP=l.sku_code?.startsWith('WIP');
+      return`<tr style="border-bottom:1px solid #F1F5F9">
+        <td style="padding:4px 8px;font-size:11px;white-space:nowrap">${l.plan_date||''} ${startT}</td>
+        <td style="padding:4px 8px;font-family:monospace;font-size:11px;color:#1B5EC7">${l.pp_no||'—'}</td>
+        <td style="padding:4px 8px;font-size:11px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+          <span style="background:${isWIP?'#EDE9FE':'#DBEAFE'};color:${isWIP?'#7C3AED':'#1E40AF'};
+            padding:1px 4px;border-radius:3px;font-size:9px;margin-right:3px">${isWIP?'WIP':'FG'}</span>
+          ${l.product_name||l.sku_code||'—'}
+        </td>
+        <td style="padding:4px 8px;text-align:center">${l.shift==='morning'?'🌤️':l.shift==='afternoon'?'🌇':'🌙'}</td>
+        <td style="padding:4px 8px;font-size:11px">${l.machine_code||'—'}</td>
+        <td style="padding:4px 8px;text-align:right;font-weight:700">${l.actual_qty||'—'}</td>
+        <td style="padding:4px 8px;text-align:right;font-weight:800;color:${oeeC}">
+          ${l.oee_pct?fmt(l.oee_pct,1)+'%':'—'}</td>
+        <td style="padding:2px 4px;white-space:nowrap">
+          <button onclick="prptEditEntry(${l.id})" title="แก้ไข"
+            style="border:none;background:#EFF6FF;color:#2563EB;border-radius:3px;padding:3px 7px;font-size:11px;cursor:pointer;margin-right:2px">✏️</button>
+          <button onclick="prptViewEntry(${l.id})" title="รายละเอียด"
+            style="border:none;background:#F0FDF4;color:#16a34a;border-radius:3px;padding:3px 7px;font-size:11px;cursor:pointer;margin-right:2px">👁</button>
+          <button onclick="prptViewSteps(${l.id},'${l.pp_no||''}')" title="ขั้นตอนการผลิต 🔧"
+            style="border:none;background:#EDE9FE;color:#7C3AED;border-radius:3px;padding:3px 8px;font-size:12px;cursor:pointer;font-weight:bold">🔧</button>
+        </td>
+      </tr>`;
+    }).join('')}
+    </tbody>
+  </table>`;
+}
+
 // ════════════════════════════════════════════════════════════
 //  PRODUCTION STEPS
 // ════════════════════════════════════════════════════════════
@@ -23507,7 +23551,28 @@ async function prptLoadLog(){
       logs.filter(l=>!l.sku_code?.startsWith('WIP'));
 
     if(!filtered.length){
-      area.innerHTML=`<div class="al ali">ไม่มีบันทึกการผลิตวันที่ ${date}</div>`;
+      // ลอง load ล่าสุด 20 รายการ
+      const recent = await sbG('production_log',{
+        ord:'created_at.desc', lim:20
+      }).catch(()=>[]);
+      if(recent.length){
+        area.innerHTML=`
+          <div style="background:#FFF7ED;border-radius:8px;padding:10px;margin-bottom:10px;font-size:12px;color:#92400E">
+            ⚠️ ไม่มีบันทึกวันที่ <b>${date}</b> — แสดง 20 รายการล่าสุดแทน
+          </div>
+          <div style="font-size:11px;color:#6B7280;margin-bottom:8px">
+            กด <b>+ บันทึกใหม่</b> เพื่อเพิ่มข้อมูล หรือเลือกวันที่อื่น
+          </div>`;
+        // append table with recent
+        const tbl = document.createElement('div');
+        tbl.className = 'tw'; tbl.style.overflowX='auto';
+        tbl.innerHTML = prptBuildLogTable(recent);
+        area.appendChild(tbl);
+      }else{
+        area.innerHTML=`<div class="al ali">
+          ยังไม่มีบันทึกการผลิต — กด <b>+ บันทึกใหม่</b> เพื่อเพิ่มข้อมูล
+        </div>`;
+      }
       return;
     }
     // KPI
@@ -23532,8 +23597,8 @@ async function prptLoadLog(){
           <div class="kv" style="color:${avgOEE>=85?'#16a34a':avgOEE>=65?'#D97706':'#DC2626'}">
             ${avgOEE>0?fmt(avgOEE,1)+'%':'—'}</div></div>
       </div>
-      <div class="tw">
-        <table>
+      <div class="tw" style="overflow-x:auto">
+        <table style="min-width:900px">
           <thead><tr style="background:#1B3A5C">
             <th style="color:white">เวลา</th>
             <th style="color:white">WO / PP No.</th>
@@ -23549,7 +23614,7 @@ async function prptLoadLog(){
             <th style="color:white;text-align:right">Avail%</th>
             <th style="color:white;text-align:right">Perf%</th>
             <th style="color:white;text-align:right">Qual%</th>
-            <th style="color:white;width:60px"></th>
+            <th style="color:white;width:85px;white-space:nowrap">Action</th>
           </tr></thead>
           <tbody>
           ${filtered.map(l=>{
@@ -23577,13 +23642,13 @@ async function prptLoadLog(){
               <td style="text-align:right;font-size:11px">${l.availability_pct?fmt(l.availability_pct,1)+'%':'—'}</td>
               <td style="text-align:right;font-size:11px">${l.performance_pct?fmt(l.performance_pct,1)+'%':'—'}</td>
               <td style="text-align:right;font-size:11px">${l.quality_pct?fmt(l.quality_pct,1)+'%':'—'}</td>
-              <td style="white-space:nowrap">
-                <button onclick="prptEditEntry(${l.id})"
-                  style="border:none;background:#EFF6FF;color:#2563EB;border-radius:3px;padding:2px 6px;font-size:9px;cursor:pointer">✏️</button>
-                <button onclick="prptViewEntry(${l.id})"
-                  style="border:none;background:#F0FDF4;color:#16a34a;border-radius:3px;padding:2px 6px;font-size:9px;cursor:pointer">👁</button>
-                <button onclick="prptViewSteps(${l.id},'${l.pp_no||''}')"
-                  style="border:none;background:#EDE9FE;color:#7C3AED;border-radius:3px;padding:2px 6px;font-size:9px;cursor:pointer">🔧</button>
+              <td style="white-space:nowrap;padding:2px 4px">
+                <button onclick="prptEditEntry(${l.id})" title="แก้ไข"
+                  style="border:none;background:#EFF6FF;color:#2563EB;border-radius:3px;padding:3px 7px;font-size:11px;cursor:pointer;margin-right:2px">✏️</button>
+                <button onclick="prptViewEntry(${l.id})" title="ดูรายละเอียด"
+                  style="border:none;background:#F0FDF4;color:#16a34a;border-radius:3px;padding:3px 7px;font-size:11px;cursor:pointer;margin-right:2px">👁</button>
+                <button onclick="prptViewSteps(${l.id},'${l.pp_no||''}')" title="ขั้นตอนการผลิต"
+                  style="border:none;background:#EDE9FE;color:#7C3AED;border-radius:3px;padding:3px 7px;font-size:12px;cursor:pointer;font-weight:bold">🔧</button>
               </td>
             </tr>`;
           }).join('')}
