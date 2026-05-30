@@ -597,6 +597,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
         <div class="rni" onclick="nav('forecast')" data-page="forecast">📈 Forecast & Plan</div>
         <div class="rni" onclick="nav('stock-deduct')" data-page="stock-deduct">✂️ Deduct Stock</div>
         <div class="rni" onclick="nav('prod-schedule')" data-page="prod-schedule">📆 Production Schedule</div>
+        <div class="rni" onclick="nav('prod-report')" data-page="prod-report">📊 Production Report</div>
       </div>
     </div>
     <div class="rg">
@@ -3020,6 +3021,86 @@ CREATE INDEX IF NOT EXISTS idx_pbp_date ON prod_batch_plan(plan_date);</pre>
     </div>
   </div>
 </div>
+
+<div id="pg-prod-report" class="pg">
+  <!-- Tabs -->
+  <div class="ftabs mb3" id="prpt-tabs">
+    <div class="ftab on" onclick="prptTab('log')">📋 Daily Log</div>
+    <div class="ftab" onclick="prptTab('summary')">📊 Summary Report</div>
+    <div class="ftab" onclick="prptTab('oee')">⚡ OEE Summary</div>
+  </div>
+
+  <!-- Daily Log Tab -->
+  <div id="prpt-tab-log">
+    <div class="card">
+      <div class="ch">
+        <div class="ct">📋 Production Log / บันทึกการผลิต</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <input type="date" class="fc2 sm" id="prpt-log-date" style="width:140px">
+          <select class="fc2 sm" id="prpt-log-shift" style="width:110px">
+            <option value="">ทุกกะ</option>
+            <option value="morning">🌤️ เช้า</option>
+            <option value="afternoon">🌇 บ่าย</option>
+            <option value="night">🌙 ดึก</option>
+          </select>
+          <select class="fc2 sm" id="prpt-log-type" style="width:110px">
+            <option value="all">WIP + FG</option>
+            <option value="wip">🏭 WIP</option>
+            <option value="fg">📦 FG</option>
+          </select>
+          <button class="btn btnP sm" onclick="prptLoadLog()">🔍 ค้นหา</button>
+          <button class="btn btnS sm" onclick="prptNewEntry()">+ บันทึกใหม่</button>
+          <button class="btn btnT sm" onclick="prptPrintLog()">🖨️ Print</button>
+        </div>
+      </div>
+      <div id="prpt-log-area"><div class="al ali">เลือกวันที่แล้วกด 🔍</div></div>
+    </div>
+  </div>
+
+  <!-- Summary Report Tab -->
+  <div id="prpt-tab-summary" style="display:none">
+    <div class="card">
+      <div class="ch">
+        <div class="ct">📊 Production Summary Report</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <div class="ftabs" style="margin:0">
+            <div class="ftab on" id="prpt-sum-week" onclick="prptSumPeriod('week')">สัปดาห์</div>
+            <div class="ftab" id="prpt-sum-month" onclick="prptSumPeriod('month')">เดือน</div>
+            <div class="ftab" id="prpt-sum-year" onclick="prptSumPeriod('year')">ปี</div>
+          </div>
+          <input type="date" class="fc2 sm" id="prpt-sum-from" style="width:130px">
+          <span style="font-size:11px">—</span>
+          <input type="date" class="fc2 sm" id="prpt-sum-to" style="width:130px">
+          <button class="btn btnP sm" onclick="prptLoadSummary()">📊 Generate</button>
+          <button class="btn btnT sm" onclick="prptPrintSummary()">🖨️ Print</button>
+        </div>
+      </div>
+      <div id="prpt-sum-area"><div class="al ali">เลือกช่วงเวลาแล้วกด 📊</div></div>
+    </div>
+  </div>
+
+  <!-- OEE Summary Tab -->
+  <div id="prpt-tab-oee" style="display:none">
+    <div class="card">
+      <div class="ch">
+        <div class="ct">⚡ OEE Performance Summary</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <div class="ftabs" style="margin:0">
+            <div class="ftab on" id="prpt-oee-week"  onclick="prptOEEPeriod('week')">สัปดาห์</div>
+            <div class="ftab" id="prpt-oee-month" onclick="prptOEEPeriod('month')">เดือน</div>
+            <div class="ftab" id="prpt-oee-year"  onclick="prptOEEPeriod('year')">ปี</div>
+          </div>
+          <input type="date" class="fc2 sm" id="prpt-oee-from" style="width:130px">
+          <span style="font-size:11px">—</span>
+          <input type="date" class="fc2 sm" id="prpt-oee-to" style="width:130px">
+          <button class="btn btnP sm" onclick="prptLoadOEE()">📊 Generate</button>
+          <button class="btn btnT sm" onclick="prptPrintOEE()">🖨️ Print</button>
+        </div>
+      </div>
+      <div id="prpt-oee-area"><div class="al ali">เลือกช่วงเวลาแล้วกด 📊</div></div>
+    </div>
+  </div>
+</div>
 </main>
 </div>
   </div><!-- /wrap -->
@@ -3058,11 +3139,11 @@ const RM={
     'inv-locations','inv-assign','inv-count','inv-sessions','inv-sheet',
     'hr-checkin','hr-attendance','hr-leave','hr-ot','hr-approve','hr-report',
     'hr-employees','hr-holidays','hr-payroll','hr-payslip','hr-diligence',
-    'import','permissions','actlog','users','pm','weigh','forecast','stock-report','stock-deduct','prod-schedule'],
+    'import','permissions','actlog','users','pm','weigh','forecast','stock-report','stock-deduct','prod-schedule','prod-report'],
   production:['dashboard','rm','wip-stock','fg','bom-mgr','production','prod-plan',
     'wip-prod','print-docs','oee-log','oee-dashboard','machines',
     'inv-locations','inv-assign','inv-count','inv-sessions','inv-sheet',
-    'hr-checkin','hr-leave','hr-ot','pm','weigh','forecast','stock-report','stock-deduct','prod-schedule'],
+    'hr-checkin','hr-leave','hr-ot','pm','weigh','forecast','stock-report','stock-deduct','prod-schedule','prod-report'],
   sales:['dashboard','fg','so','hr-checkin','hr-leave','hr-ot','forecast'],
   qc:['dashboard','rm','wip-stock','fg','print-docs','oee-log','oee-dashboard',
     'inv-locations','inv-assign','inv-count','inv-sessions','inv-sheet',
@@ -3261,7 +3342,8 @@ function loadPage(id){
     'weigh':()=>{wtInit();},
     'stock-report':()=>{srInit();},
     'stock-deduct':()=>{sdInit();},
-    'prod-schedule':()=>{psInit();}
+    'prod-schedule':()=>{psInit();},
+    'prod-report':()=>{prptInit();}
   };
   if(fn[id]) fn[id]();
   // re-apply translations หลัง page load
@@ -23324,6 +23406,780 @@ function srPrintValuation(){
     <script>window.onload=()=>window.print();<\/script>
     </body></html>`;
   openPreviewWindow(printHtml,'Stock Valuation Report');
+}
+
+
+// ════════════════════════════════════════════════════════════
+//  PRODUCTION REPORT SYSTEM
+// ════════════════════════════════════════════════════════════
+let _prptPeriod='week', _prptOEEPeriod='week';
+
+// ── Init ─────────────────────────────────────────────────────
+function prptInit(){
+  const today = new Date().toISOString().slice(0,10);
+  const el = document.getElementById('prpt-log-date');
+  if(el&&!el.value) el.value=today;
+  // set default ranges
+  prptSumPeriod('week');
+  prptOEEPeriod('week');
+  prptLoadLog();
+}
+
+function prptTab(tab){
+  ['log','summary','oee'].forEach(t=>{
+    const el=document.getElementById('prpt-tab-'+t);
+    if(el) el.style.display=t===tab?'':'none';
+  });
+  document.querySelectorAll('#prpt-tabs .ftab').forEach((el,i)=>{
+    el.classList.toggle('on',['log','summary','oee'][i]===tab);
+  });
+}
+
+// ── Period helpers ────────────────────────────────────────────
+function prptGetRange(period, fromId, toId){
+  const today=new Date();
+  let from,to;
+  if(period==='week'){
+    const dow=today.getDay()||7;
+    from=new Date(today.getFullYear(),today.getMonth(),today.getDate()-(dow-1));
+    to  =new Date(from.getFullYear(),from.getMonth(),from.getDate()+6);
+  }else if(period==='month'){
+    from=new Date(today.getFullYear(),today.getMonth(),1);
+    to  =new Date(today.getFullYear(),today.getMonth()+1,0);
+  }else{
+    from=new Date(today.getFullYear(),0,1);
+    to  =new Date(today.getFullYear(),11,31);
+  }
+  const df=el=>el?.value||from.toISOString().slice(0,10);
+  const dt=el=>el?.value||to.toISOString().slice(0,10);
+  const fEl=document.getElementById(fromId), tEl=document.getElementById(toId);
+  if(fEl&&!fEl.value) fEl.value=from.toISOString().slice(0,10);
+  if(tEl&&!tEl.value) tEl.value=to.toISOString().slice(0,10);
+  return{ from:fEl?.value||from.toISOString().slice(0,10),
+          to:  tEl?.value||to.toISOString().slice(0,10) };
+}
+
+function prptSumPeriod(p){
+  _prptPeriod=p;
+  ['week','month','year'].forEach(x=>{
+    const btn=document.getElementById('prpt-sum-'+x);
+    if(btn) btn.classList.toggle('on',x===p);
+  });
+  const r=prptGetRange(p,'prpt-sum-from','prpt-sum-to');
+}
+
+function prptOEEPeriod(p){
+  _prptOEEPeriod=p;
+  ['week','month','year'].forEach(x=>{
+    const btn=document.getElementById('prpt-oee-'+x);
+    if(btn) btn.classList.toggle('on',x===p);
+  });
+  prptGetRange(p,'prpt-oee-from','prpt-oee-to');
+}
+
+// ════════════════════════════════════════════════════════════
+//  DAILY LOG
+// ════════════════════════════════════════════════════════════
+async function prptLoadLog(){
+  const date  = document.getElementById('prpt-log-date')?.value;
+  const shift = document.getElementById('prpt-log-shift')?.value||'';
+  const type  = document.getElementById('prpt-log-type')?.value||'all';
+  const area  = document.getElementById('prpt-log-area');
+  if(!date||!area) return;
+  area.innerHTML='<span class="spin"></span> Loading...';
+  try{
+    const filters=[`plan_date=eq.${date}`];
+    if(shift) filters.push(`shift=eq.${shift}`);
+    const logs=await sbG('production_log',{
+      f:filters, ord:'start_time.asc', lim:100
+    }).catch(()=>[]);
+
+    // filter WIP/FG
+    const filtered=type==='all'?logs:
+      type==='wip'?logs.filter(l=>l.sku_code?.startsWith('WIP')):
+      logs.filter(l=>!l.sku_code?.startsWith('WIP'));
+
+    if(!filtered.length){
+      area.innerHTML=`<div class="al ali">ไม่มีบันทึกการผลิตวันที่ ${date}</div>`;
+      return;
+    }
+    // KPI
+    const totBatch=filtered.length;
+    const totMin  =filtered.reduce((s,l)=>s+(l.total_minutes||0),0);
+    const totOut  =filtered.reduce((s,l)=>s+(l.actual_qty||0),0);
+    const avgOEE  =filtered.filter(l=>l.oee_pct>0).reduce((s,l,_,a)=>s+l.oee_pct/a.length,0);
+
+    const thDate=new Date(date+'T00:00:00').toLocaleDateString('th-TH',
+      {weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+    area.innerHTML=`
+      <div style="font-weight:700;color:#1B3A5C;margin-bottom:10px">${thDate}</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
+        <div class="kpi kg"><div class="kl">🏭 Batches</div>
+          <div class="kv" style="color:#1B3A5C">${totBatch}</div></div>
+        <div class="kpi kg"><div class="kl">⏱️ รวม (นาที)</div>
+          <div class="kv" style="color:#2563EB">${totMin}</div></div>
+        <div class="kpi kg"><div class="kl">📦 Output</div>
+          <div class="kv" style="color:#16a34a">${fmt(totOut,0)}</div></div>
+        <div class="kpi kg"><div class="kl">⚡ OEE เฉลี่ย</div>
+          <div class="kv" style="color:${avgOEE>=85?'#16a34a':avgOEE>=65?'#D97706':'#DC2626'}">
+            ${avgOEE>0?fmt(avgOEE,1)+'%':'—'}</div></div>
+      </div>
+      <div class="tw">
+        <table>
+          <thead><tr style="background:#1B3A5C">
+            <th style="color:white">เวลา</th>
+            <th style="color:white">WO / PP No.</th>
+            <th style="color:white">สินค้า</th>
+            <th style="color:white;text-align:center">กะ</th>
+            <th style="color:white">เครื่อง</th>
+            <th style="color:white;text-align:right">Batch</th>
+            <th style="color:white;text-align:right">แผน</th>
+            <th style="color:white;text-align:right">ผลิตได้</th>
+            <th style="color:white;text-align:right">ดี</th>
+            <th style="color:white;text-align:right">เสีย</th>
+            <th style="color:white;text-align:right">OEE%</th>
+            <th style="color:white;text-align:right">Avail%</th>
+            <th style="color:white;text-align:right">Perf%</th>
+            <th style="color:white;text-align:right">Qual%</th>
+            <th style="color:white;width:60px"></th>
+          </tr></thead>
+          <tbody>
+          ${filtered.map(l=>{
+            const isWIP=l.sku_code?.startsWith('WIP');
+            const oeeColor=l.oee_pct>=85?'#16a34a':l.oee_pct>=65?'#D97706':'#DC2626';
+            const startT=l.start_time?new Date(l.start_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'—';
+            return`<tr>
+              <td style="font-size:11px;white-space:nowrap">${startT}</td>
+              <td style="font-family:monospace;font-size:11px;color:#1B5EC7">${l.pp_no||'—'}</td>
+              <td style="font-size:12px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                <span style="background:${isWIP?'#EDE9FE':'#DBEAFE'};color:${isWIP?'#7C3AED':'#1E40AF'};
+                  padding:1px 5px;border-radius:3px;font-size:9px;margin-right:4px">${isWIP?'WIP':'FG'}</span>
+                ${l.product_name||l.sku_code||'—'}
+              </td>
+              <td style="text-align:center;font-size:11px">
+                ${l.shift==='morning'?'🌤️':l.shift==='afternoon'?'🌇':l.shift==='night'?'🌙':'—'}
+              </td>
+              <td style="font-family:monospace;font-size:11px">${l.machine_code||'—'}</td>
+              <td style="text-align:right;font-size:11px">${l.batch_no||'—'}</td>
+              <td style="text-align:right;color:#6B7280">${l.plan_qty||'—'}</td>
+              <td style="text-align:right;font-weight:700">${l.actual_qty||'—'}</td>
+              <td style="text-align:right;color:#16a34a">${l.good_qty||'—'}</td>
+              <td style="text-align:right;color:#DC2626">${(l.reject_qty||0)+(l.rework_qty||0)||'—'}</td>
+              <td style="text-align:right;font-weight:800;color:${oeeColor}">${l.oee_pct?fmt(l.oee_pct,1)+'%':'—'}</td>
+              <td style="text-align:right;font-size:11px">${l.availability_pct?fmt(l.availability_pct,1)+'%':'—'}</td>
+              <td style="text-align:right;font-size:11px">${l.performance_pct?fmt(l.performance_pct,1)+'%':'—'}</td>
+              <td style="text-align:right;font-size:11px">${l.quality_pct?fmt(l.quality_pct,1)+'%':'—'}</td>
+              <td style="white-space:nowrap">
+                <button onclick="prptEditEntry(${l.id})"
+                  style="border:none;background:#EFF6FF;color:#2563EB;border-radius:3px;padding:2px 6px;font-size:9px;cursor:pointer">✏️</button>
+                <button onclick="prptViewEntry(${l.id})"
+                  style="border:none;background:#F0FDF4;color:#16a34a;border-radius:3px;padding:2px 6px;font-size:9px;cursor:pointer">👁</button>
+              </td>
+            </tr>`;
+          }).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div style="font-size:11px;color:#6B7280;margin-top:6px">${filtered.length} รายการ</div>`;
+    window._prptLogData={date,thDate,filtered};
+  }catch(e){ area.innerHTML=`<div class="al ale">❌ ${e.message}</div>`; }
+}
+
+// ── New Entry / Edit ──────────────────────────────────────────
+async function prptNewEntry(){
+  const today=new Date().toISOString().slice(0,10);
+  const wos=await sbG('production_plan',{
+    f:['status=neq.cancelled'],s:'id,pp_no,sku_code,product_name,batch_kg,num_batches',
+    ord:'pp_no.desc',lim:50}).catch(()=>[]);
+  const machines=await sbG('machines',{s:'code,name',ord:'code.asc'}).catch(()=>[]);
+  const woOpts=wos.map(w=>`<option value="${w.pp_no}" data-sku="${w.sku_code}"
+    data-name="${w.product_name||w.sku_code}">${w.pp_no} — ${w.product_name||w.sku_code}</option>`).join('');
+  const machOpts=machines.map(m=>`<option value="${m.code}">${m.code} — ${m.name||''}</option>`).join('');
+
+  openMo('📝 บันทึกผลการผลิต',`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fgrp">
+        <label class="flbl">Work Order</label>
+        <select class="fc2" id="pne-wo"><option value="">— เลือก WO —</option>${woOpts}</select>
+      </div>
+      <div class="fgrp">
+        <label class="flbl">กะ / Shift</label>
+        <select class="fc2" id="pne-shift">
+          <option value="morning">🌤️ เช้า</option>
+          <option value="afternoon">🌇 บ่าย</option>
+          <option value="night">🌙 ดึก</option>
+        </select>
+      </div>
+      <div class="fgrp">
+        <label class="flbl">เวลาเริ่ม</label>
+        <input type="datetime-local" class="fc2" id="pne-start">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">เวลาสิ้นสุด</label>
+        <input type="datetime-local" class="fc2" id="pne-end">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">Batch No.</label>
+        <input type="number" class="fc2" id="pne-batch" value="1" min="1">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">เครื่องจักร</label>
+        <select class="fc2" id="pne-machine"><option value="">— เลือก —</option>${machOpts}</select>
+      </div>
+      <div class="fgrp">
+        <label class="flbl">แผนผลิต (หน่วย)</label>
+        <input type="number" class="fc2" id="pne-plan" placeholder="0">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">ผลิตได้จริง (หน่วย)</label>
+        <input type="number" class="fc2" id="pne-actual" placeholder="0" oninput="pneCalcQuality()">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">ดี / QC Pass</label>
+        <input type="number" class="fc2" id="pne-good" placeholder="0" oninput="pneCalcQuality()">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">Reject (ทิ้ง)</label>
+        <input type="number" class="fc2" id="pne-reject" placeholder="0" oninput="pneCalcQuality()">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">Planned Time (นาที)</label>
+        <input type="number" class="fc2" id="pne-planned" placeholder="480" oninput="pneCalcOEE()">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">Run Time (นาที)</label>
+        <input type="number" class="fc2" id="pne-runtime" placeholder="0" oninput="pneCalcOEE()">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">Downtime (นาที)</label>
+        <input type="number" class="fc2" id="pne-downtime" placeholder="0" oninput="pneCalcOEE()">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">สาเหตุ Downtime</label>
+        <input type="text" class="fc2" id="pne-reason" placeholder="หยุดเพราะ...">
+      </div>
+    </div>
+    <!-- OEE Preview -->
+    <div id="pne-oee-preview" style="background:#F5F3FF;border-radius:8px;padding:10px;
+      margin:10px 0;font-size:12px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+      <div style="text-align:center"><div style="color:#7C3AED;font-size:9px">Availability</div>
+        <div style="font-weight:800;font-size:16px" id="pne-avail">—</div></div>
+      <div style="text-align:center"><div style="color:#7C3AED;font-size:9px">Performance</div>
+        <div style="font-weight:800;font-size:16px" id="pne-perf">—</div></div>
+      <div style="text-align:center"><div style="color:#7C3AED;font-size:9px">Quality</div>
+        <div style="font-weight:800;font-size:16px" id="pne-qual">—</div></div>
+      <div style="text-align:center"><div style="color:#7C3AED;font-size:9px">OEE</div>
+        <div style="font-weight:800;font-size:18px" id="pne-oee" style="color:#7C3AED">—</div></div>
+    </div>
+    <div class="fgrp">
+      <label class="flbl">หมายเหตุ / Note</label>
+      <input type="text" class="fc2" id="pne-note" placeholder="หมายเหตุ...">
+    </div>
+    <div id="pne-msg"></div>
+    <button class="btn btnP" style="width:100%;margin-top:10px;padding:12px"
+      onclick="prptSaveEntry()">💾 บันทึกผลการผลิต</button>
+  `);
+  // set default datetime
+  const now=new Date().toISOString().slice(0,16);
+  document.getElementById('pne-start').value=now;
+}
+
+function pneCalcOEE(){
+  const planned=parseFloat(document.getElementById('pne-planned')?.value)||0;
+  const runtime=parseFloat(document.getElementById('pne-runtime')?.value)||0;
+  const actual =parseFloat(document.getElementById('pne-actual')?.value)||0;
+  const good   =parseFloat(document.getElementById('pne-good')?.value)||0;
+  if(!planned||!runtime) return;
+  const avail=Math.min(100,runtime/planned*100);
+  const perf=actual&&planned?Math.min(100,actual/(planned>0?planned:actual)*100):100;
+  const qual=actual>0?Math.min(100,good/actual*100):0;
+  const oee =avail*perf*qual/10000;
+  document.getElementById('pne-avail').textContent=fmt(avail,1)+'%';
+  document.getElementById('pne-perf').textContent=fmt(perf,1)+'%';
+  document.getElementById('pne-qual').textContent=fmt(qual,1)+'%';
+  document.getElementById('pne-oee').textContent=fmt(oee,1)+'%';
+  document.getElementById('pne-oee').style.color=oee>=85?'#16a34a':oee>=65?'#D97706':'#DC2626';
+}
+
+function pneCalcQuality(){ pneCalcOEE(); }
+
+async function prptSaveEntry(){
+  const woPP=document.getElementById('pne-wo')?.value;
+  if(!woPP){ msgEl('pne-msg','เลือก Work Order ก่อน','e'); return; }
+  const sel=document.querySelector('#pne-wo option:checked');
+  const skuCode=sel?.dataset.sku||'';
+  const prodName=sel?.dataset.name||'';
+  const startTime=document.getElementById('pne-start')?.value;
+  const endTime=document.getElementById('pne-end')?.value;
+  const shift=document.getElementById('pne-shift')?.value||'morning';
+  const batchNo=parseInt(document.getElementById('pne-batch')?.value)||1;
+  const machine=document.getElementById('pne-machine')?.value||'';
+  const planned=parseFloat(document.getElementById('pne-planned')?.value)||0;
+  const actual=parseFloat(document.getElementById('pne-actual')?.value)||0;
+  const good=parseFloat(document.getElementById('pne-good')?.value)||0;
+  const reject=parseFloat(document.getElementById('pne-reject')?.value)||0;
+  const plannedMin=parseFloat(document.getElementById('pne-planned')?.value)||480;
+  const runtime=parseFloat(document.getElementById('pne-runtime')?.value)||0;
+  const downtime=parseFloat(document.getElementById('pne-downtime')?.value)||0;
+  const reason=document.getElementById('pne-reason')?.value||'';
+  const note=document.getElementById('pne-note')?.value||'';
+
+  const avail=plannedMin>0?Math.min(100,runtime/plannedMin*100):0;
+  const perf=planned>0?Math.min(100,actual/planned*100):100;
+  const qual=actual>0?Math.min(100,good/actual*100):100;
+  const oee=avail*perf*qual/10000;
+  const totalMin=runtime+downtime;
+
+  msgEl('pne-msg','<span class="spin"></span> Saving...','i');
+  try{
+    await sbP('production_log',{
+      pp_no:woPP, sku_code:skuCode, product_name:prodName,
+      batch_no:batchNo,
+      plan_date:startTime?.slice(0,10)||new Date().toISOString().slice(0,10),
+      start_time:startTime?new Date(startTime).toISOString():null,
+      end_time:endTime?new Date(endTime).toISOString():null,
+      total_minutes:totalMin, shift,
+      machine_code:machine,
+      planned_production_min:plannedMin,
+      run_time_min:runtime, downtime_min:downtime,
+      downtime_reason:reason,
+      plan_qty:planned, actual_qty:actual,
+      good_qty:good, reject_qty:reject,
+      yield_pct:actual>0?good/actual*100:0,
+      availability_pct:avail, performance_pct:perf,
+      quality_pct:qual, oee_pct:oee,
+      note, recorded_by:CU?.full_name||'', status:'completed'
+    });
+    await logA('CREATE','production',`บันทึกผลผลิต ${woPP} Batch${batchNo}: ${actual} units OEE:${fmt(oee,1)}%`,woPP);
+    msgEl('pne-msg','✅ บันทึกเรียบร้อย','s');
+    setTimeout(()=>{ closeMo(); prptLoadLog(); },600);
+  }catch(e){ msgEl('pne-msg','❌ '+e.message,'e'); }
+}
+
+async function prptViewEntry(id){
+  const l=(await sbG('production_log',{f:[`id=eq.${id}`]}).catch(()=>[]))[0];
+  if(!l) return;
+  const oeeColor=l.oee_pct>=85?'#16a34a':l.oee_pct>=65?'#D97706':'#DC2626';
+  const startT=l.start_time?new Date(l.start_time).toLocaleString('th-TH'):'—';
+  const endT=l.end_time?new Date(l.end_time).toLocaleString('th-TH'):'—';
+  openMo(`📋 Production Record — ${l.pp_no}`,`
+    <table style="width:100%;font-size:12px;border-collapse:collapse">
+      ${[['Work Order',l.pp_no],['SKU',l.sku_code],['สินค้า',l.product_name],
+         ['วันที่',l.plan_date],['กะ',l.shift],['เครื่อง',l.machine_code],
+         ['Batch No.',l.batch_no],['เวลาเริ่ม',startT],['เวลาสิ้นสุด',endT],
+         ['แผน (units)',l.plan_qty],['ผลิตได้',l.actual_qty],['ดี/QC Pass',l.good_qty],
+         ['Reject',l.reject_qty||0],['Yield%',l.yield_pct?fmt(l.yield_pct,1)+'%':'—'],
+         ['Planned Min',l.planned_production_min||'—'],['Run Time',l.run_time_min||'—'],
+         ['Downtime',l.downtime_min||'—'],['Downtime Reason',l.downtime_reason||'—'],
+       ].map(([k,v])=>`<tr style="border-bottom:1px solid #F1F5F9">
+         <td style="padding:4px 8px;color:#6B7280;white-space:nowrap">${k}</td>
+         <td style="padding:4px 8px;font-weight:600">${v||'—'}</td>
+       </tr>`).join('')}
+    </table>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px;
+      background:#F5F3FF;border-radius:8px;padding:10px">
+      ${[['Avail.',l.availability_pct],['Perf.',l.performance_pct],
+         ['Quality',l.quality_pct],['OEE',l.oee_pct]].map(([k,v])=>`
+        <div style="text-align:center">
+          <div style="font-size:9px;color:#7C3AED">${k}</div>
+          <div style="font-weight:800;font-size:18px;color:${v>=85?'#16a34a':v>=65?'#D97706':'#DC2626'}">
+            ${v?fmt(v,1)+'%':'—'}
+          </div>
+        </div>`).join('')}
+    </div>
+    ${l.note?`<div style="margin-top:8px;font-size:11px;color:#6B7280">📝 ${l.note}</div>`:''}
+    <button class="btn btnP" style="width:100%;margin-top:10px" onclick="prptPrintEntry(${id})">
+      🖨️ Print This Record
+    </button>`);
+}
+
+async function prptEditEntry(id){
+  // Simple: เปิด OEE log form ด้วย record นี้
+  const l=(await sbG('production_log',{f:[`id=eq.${id}`]}).catch(()=>[]))[0];
+  if(!l){ alert('ไม่พบบันทึก'); return; }
+  openMo(`✏️ แก้ไขบันทึก — ${l.pp_no}`,`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fgrp"><label class="flbl">ผลิตได้จริง</label>
+        <input type="number" class="fc2" id="ped-actual" value="${l.actual_qty||0}"></div>
+      <div class="fgrp"><label class="flbl">ดี / QC Pass</label>
+        <input type="number" class="fc2" id="ped-good" value="${l.good_qty||0}"></div>
+      <div class="fgrp"><label class="flbl">Reject</label>
+        <input type="number" class="fc2" id="ped-reject" value="${l.reject_qty||0}"></div>
+      <div class="fgrp"><label class="flbl">Downtime (นาที)</label>
+        <input type="number" class="fc2" id="ped-downtime" value="${l.downtime_min||0}"></div>
+      <div class="fgrp"><label class="flbl">สาเหตุ Downtime</label>
+        <input type="text" class="fc2" id="ped-reason" value="${l.downtime_reason||''}"></div>
+      <div class="fgrp"><label class="flbl">OEE% (คำนวณใหม่)</label>
+        <input type="number" class="fc2" id="ped-oee" value="${fmt(l.oee_pct||0,1)}" step="0.1"></div>
+    </div>
+    <div class="fgrp"><label class="flbl">หมายเหตุ</label>
+      <input type="text" class="fc2" id="ped-note" value="${l.note||''}"></div>
+    <div id="ped-msg"></div>
+    <button class="btn btnP" style="width:100%;margin-top:10px"
+      onclick="prptUpdateEntry(${id})">💾 บันทึก</button>`);
+}
+
+async function prptUpdateEntry(id){
+  const actual=parseFloat(document.getElementById('ped-actual')?.value)||0;
+  const good  =parseFloat(document.getElementById('ped-good')?.value)||0;
+  const reject=parseFloat(document.getElementById('ped-reject')?.value)||0;
+  const dt    =parseFloat(document.getElementById('ped-downtime')?.value)||0;
+  const reason=document.getElementById('ped-reason')?.value||'';
+  const oee   =parseFloat(document.getElementById('ped-oee')?.value)||0;
+  const note  =document.getElementById('ped-note')?.value||'';
+  msgEl('ped-msg','<span class="spin"></span> Saving...','i');
+  try{
+    const qual=actual>0?good/actual*100:0;
+    await sbU('production_log',{
+      actual_qty:actual,good_qty:good,reject_qty:reject,
+      yield_pct:qual, downtime_min:dt, downtime_reason:reason,
+      quality_pct:qual, oee_pct:oee, note
+    },`id=eq.${id}`);
+    msgEl('ped-msg','✅ Updated','s');
+    setTimeout(()=>{ closeMo(); prptLoadLog(); },500);
+  }catch(e){ msgEl('ped-msg','❌ '+e.message,'e'); }
+}
+
+// ════════════════════════════════════════════════════════════
+//  SUMMARY REPORT
+// ════════════════════════════════════════════════════════════
+async function prptLoadSummary(){
+  const from=document.getElementById('prpt-sum-from')?.value;
+  const to  =document.getElementById('prpt-sum-to')?.value;
+  const area=document.getElementById('prpt-sum-area');
+  if(!from||!to||!area) return;
+  area.innerHTML='<span class="spin"></span> Loading...';
+  try{
+    const logs=await sbG('production_log',{
+      f:[`plan_date=gte.${from}`,`plan_date=lte.${to}`],
+      ord:'plan_date.asc,start_time.asc', lim:500
+    }).catch(()=>[]);
+    if(!logs.length){area.innerHTML='<div class="al ali">ไม่มีข้อมูล</div>';return;}
+
+    // Group by date
+    const byDate={};
+    logs.forEach(l=>{
+      if(!byDate[l.plan_date]) byDate[l.plan_date]={
+        date:l.plan_date,batches:0,planQty:0,actualQty:0,
+        goodQty:0,rejectQty:0,downtime:0,oeeSum:0,oeeCount:0
+      };
+      const d=byDate[l.plan_date];
+      d.batches++;
+      d.planQty+=(l.plan_qty||0);
+      d.actualQty+=(l.actual_qty||0);
+      d.goodQty+=(l.good_qty||0);
+      d.rejectQty+=(l.reject_qty||0);
+      d.downtime+=(l.downtime_min||0);
+      if(l.oee_pct>0){ d.oeeSum+=l.oee_pct; d.oeeCount++; }
+    });
+
+    const dates=Object.values(byDate).sort((a,b)=>a.date.localeCompare(b.date));
+    const totBatch=dates.reduce((s,d)=>s+d.batches,0);
+    const totActual=dates.reduce((s,d)=>s+d.actualQty,0);
+    const totGood=dates.reduce((s,d)=>s+d.goodQty,0);
+    const totReject=dates.reduce((s,d)=>s+d.rejectQty,0);
+    const avgOEE=dates.filter(d=>d.oeeCount>0).reduce((s,d,_,a)=>s+d.oeeSum/d.oeeCount/a.length,0);
+
+    const tFrom=new Date(from+'T00:00:00').toLocaleDateString('th-TH',{month:'short',day:'numeric'});
+    const tTo  =new Date(to  +'T00:00:00').toLocaleDateString('th-TH',{year:'numeric',month:'short',day:'numeric'});
+
+    area.innerHTML=`
+      <div style="font-weight:700;color:#1B3A5C;margin-bottom:10px">${tFrom} – ${tTo}</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px">
+        ${[['🏭 Batches',totBatch,'#1B3A5C'],['📦 ผลิตได้',totActual,'#2563EB'],
+           ['✅ ดี/Pass',totGood,'#16a34a'],['❌ Reject',totReject,'#DC2626'],
+           ['⚡ OEE เฉลี่ย',avgOEE>0?fmt(avgOEE,1)+'%':'—',avgOEE>=85?'#16a34a':avgOEE>=65?'#D97706':'#DC2626']]
+          .map(([l,v,c])=>`<div class="kpi kg"><div class="kl">${l}</div>
+            <div class="kv" style="color:${c}">${v}</div></div>`).join('')}
+      </div>
+      <div class="tw">
+        <table>
+          <thead><tr style="background:#1B3A5C">
+            <th style="color:white">วันที่</th>
+            <th style="color:white;text-align:right">Batches</th>
+            <th style="color:white;text-align:right">แผน</th>
+            <th style="color:white;text-align:right">ผลิตได้</th>
+            <th style="color:white;text-align:right">ดี%</th>
+            <th style="color:white;text-align:right">Reject</th>
+            <th style="color:white;text-align:right">Downtime (นาที)</th>
+            <th style="color:white;text-align:right">OEE%</th>
+          </tr></thead>
+          <tbody>
+          ${dates.map(d=>{
+            const yld=d.actualQty>0?d.goodQty/d.actualQty*100:0;
+            const oeeAvg=d.oeeCount>0?d.oeeSum/d.oeeCount:0;
+            const thD=new Date(d.date+'T00:00:00').toLocaleDateString('th-TH',{weekday:'short',month:'short',day:'numeric'});
+            return`<tr>
+              <td style="font-weight:600">${thD}</td>
+              <td style="text-align:right">${d.batches}</td>
+              <td style="text-align:right;color:#6B7280">${d.planQty||'—'}</td>
+              <td style="text-align:right;font-weight:700">${d.actualQty}</td>
+              <td style="text-align:right;color:${yld>=95?'#16a34a':yld>=85?'#D97706':'#DC2626'}">
+                ${d.actualQty>0?fmt(yld,1)+'%':'—'}</td>
+              <td style="text-align:right;color:#DC2626">${d.rejectQty||0}</td>
+              <td style="text-align:right;color:${d.downtime>60?'#DC2626':'#6B7280'}">${d.downtime||0}</td>
+              <td style="text-align:right;font-weight:700;
+                color:${oeeAvg>=85?'#16a34a':oeeAvg>=65?'#D97706':'#DC2626'}">
+                ${oeeAvg>0?fmt(oeeAvg,1)+'%':'—'}</td>
+            </tr>`;
+          }).join('')}
+          <tr style="background:#EFF6FF;font-weight:700">
+            <td>รวม (${dates.length} วัน)</td>
+            <td style="text-align:right">${totBatch}</td>
+            <td></td>
+            <td style="text-align:right">${totActual}</td>
+            <td style="text-align:right">${totActual>0?fmt(totGood/totActual*100,1)+'%':'—'}</td>
+            <td style="text-align:right;color:#DC2626">${totReject}</td>
+            <td style="text-align:right">${dates.reduce((s,d)=>s+d.downtime,0)}</td>
+            <td style="text-align:right;color:${avgOEE>=85?'#16a34a':avgOEE>=65?'#D97706':'#DC2626'}">
+              ${avgOEE>0?fmt(avgOEE,1)+'%':'—'}</td>
+          </tr>
+          </tbody>
+        </table>
+      </div>`;
+    window._prptSumData={from,to,tFrom,tTo,dates,totBatch,totActual,totGood,totReject,avgOEE,logs};
+  }catch(e){ area.innerHTML=`<div class="al ale">❌ ${e.message}</div>`; }
+}
+
+// ════════════════════════════════════════════════════════════
+//  OEE SUMMARY
+// ════════════════════════════════════════════════════════════
+async function prptLoadOEE(){
+  const from=document.getElementById('prpt-oee-from')?.value;
+  const to  =document.getElementById('prpt-oee-to')?.value;
+  const area=document.getElementById('prpt-oee-area');
+  if(!from||!to||!area) return;
+  area.innerHTML='<span class="spin"></span> Loading...';
+  try{
+    const logs=await sbG('production_log',{
+      f:[`plan_date=gte.${from}`,`plan_date=lte.${to}`,`oee_pct=gt.0`],
+      ord:'plan_date.asc', lim:500
+    }).catch(()=>[]);
+    if(!logs.length){area.innerHTML='<div class="al ali">ไม่มีข้อมูล OEE</div>';return;}
+
+    // Group by machine
+    const byMachine={};
+    logs.forEach(l=>{
+      const m=l.machine_code||'ไม่ระบุ';
+      if(!byMachine[m]) byMachine[m]={machine:m,count:0,oeeSum:0,availSum:0,perfSum:0,qualSum:0,downtime:0};
+      const d=byMachine[m];
+      d.count++;
+      d.oeeSum+=l.oee_pct||0;
+      d.availSum+=l.availability_pct||0;
+      d.perfSum+=l.performance_pct||0;
+      d.qualSum+=l.quality_pct||0;
+      d.downtime+=l.downtime_min||0;
+    });
+
+    const machines=Object.values(byMachine).sort((a,b)=>b.oeeSum/b.count-(a.oeeSum/a.count));
+    const avgOEE=logs.reduce((s,l)=>s+(l.oee_pct||0),0)/logs.length;
+
+    area.innerHTML=`
+      <div style="font-size:12px;color:#6B7280;margin-bottom:10px">
+        ${from} — ${to} | ${logs.length} รายการ | OEE เฉลี่ยรวม:
+        <b style="color:${avgOEE>=85?'#16a34a':avgOEE>=65?'#D97706':'#DC2626'};font-size:14px">
+          ${fmt(avgOEE,1)}%
+        </b>
+      </div>
+      <div class="tw">
+        <table>
+          <thead><tr style="background:#1B3A5C">
+            <th style="color:white">เครื่องจักร</th>
+            <th style="color:white;text-align:right">Batches</th>
+            <th style="color:white;text-align:right">Availability%</th>
+            <th style="color:white;text-align:right">Performance%</th>
+            <th style="color:white;text-align:right">Quality%</th>
+            <th style="color:white;text-align:right">OEE%</th>
+            <th style="color:white;text-align:right">Downtime (นาที)</th>
+          </tr></thead>
+          <tbody>
+          ${machines.map(m=>{
+            const oee=m.oeeSum/m.count, av=m.availSum/m.count,
+                  pe=m.perfSum/m.count, qu=m.qualSum/m.count;
+            return`<tr>
+              <td style="font-family:monospace;font-size:12px">${m.machine}</td>
+              <td style="text-align:right">${m.count}</td>
+              <td style="text-align:right;color:${av>=85?'#16a34a':av>=65?'#D97706':'#DC2626'}">${fmt(av,1)}%</td>
+              <td style="text-align:right;color:${pe>=85?'#16a34a':pe>=65?'#D97706':'#DC2626'}">${fmt(pe,1)}%</td>
+              <td style="text-align:right;color:${qu>=95?'#16a34a':qu>=85?'#D97706':'#DC2626'}">${fmt(qu,1)}%</td>
+              <td style="text-align:right;font-weight:800;
+                color:${oee>=85?'#16a34a':oee>=65?'#D97706':'#DC2626'}">${fmt(oee,1)}%</td>
+              <td style="text-align:right;color:${m.downtime>120?'#DC2626':'#6B7280'}">${m.downtime}</td>
+            </tr>`;
+          }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+    window._prptOEEData={from,to,machines,avgOEE,logs};
+  }catch(e){ area.innerHTML=`<div class="al ale">❌ ${e.message}</div>`; }
+}
+
+// ════════════════════════════════════════════════════════════
+//  PRINT FUNCTIONS
+// ════════════════════════════════════════════════════════════
+function prptPrintLog(){
+  const d=window._prptLogData;
+  if(!d){alert('กด 🔍 ค้นหาก่อนพิมพ์');return;}
+  const rows=d.filtered.map((l,i)=>{
+    const oeeColor=l.oee_pct>=85?'green':l.oee_pct>=65?'orange':'red';
+    const startT=l.start_time?new Date(l.start_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'—';
+    return`<tr>
+      <td>${i+1}</td><td>${startT}</td><td>${l.pp_no}</td>
+      <td>${l.product_name||l.sku_code}</td><td>${l.shift||'—'}</td>
+      <td>${l.machine_code||'—'}</td><td style="text-align:right">${l.plan_qty||'—'}</td>
+      <td style="text-align:right;font-weight:700">${l.actual_qty||'—'}</td>
+      <td style="text-align:right">${l.good_qty||'—'}</td>
+      <td style="text-align:right;color:red">${l.reject_qty||0}</td>
+      <td style="text-align:right;color:${oeeColor};font-weight:700">${l.oee_pct?fmt(l.oee_pct,1)+'%':'—'}</td>
+      <td>${l.note||''}</td>
+    </tr>`;
+  }).join('');
+  const printDate=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+  openPreviewWindow(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>@page{size:A4 landscape;margin:10mm}body{font-family:'Sarabun',sans-serif;font-size:9pt}
+    h2{color:#1B3A5C;margin:0 0 4px}table{width:100%;border-collapse:collapse}
+    th{background:#1B3A5C;color:white;padding:3px 6px;font-size:8pt}
+    td{padding:3px 6px;border-bottom:1px solid #E5E7EB;font-size:9pt}
+    @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style>
+    </head><body>
+    <h2>📋 Production Daily Log Report</h2>
+    <p style="color:#6B7280;font-size:9pt;margin:0 0 8px">
+      วันที่: <b>${d.thDate}</b> | พิมพ์: ${printDate} | รวม ${d.filtered.length} รายการ</p>
+    <table><thead><tr>
+      <th>#</th><th>เวลา</th><th>WO</th><th>สินค้า</th><th>กะ</th>
+      <th>เครื่อง</th><th style="text-align:right">แผน</th>
+      <th style="text-align:right">ผลิต</th><th style="text-align:right">ดี</th>
+      <th style="text-align:right">Reject</th><th style="text-align:right">OEE%</th>
+      <th>Note</th>
+    </tr></thead><tbody>${rows}</tbody></table>
+    <script>window.onload=()=>window.print();<\/script></body></html>`,
+    'Production Log');
+}
+
+function prptPrintSummary(){
+  const d=window._prptSumData;
+  if(!d){alert('กด 📊 Generate ก่อนพิมพ์');return;}
+  const rows=d.dates.map(dt=>{
+    const yld=dt.actualQty>0?dt.goodQty/dt.actualQty*100:0;
+    const oee=dt.oeeCount>0?dt.oeeSum/dt.oeeCount:0;
+    const thD=new Date(dt.date+'T00:00:00').toLocaleDateString('th-TH',{weekday:'short',month:'short',day:'numeric'});
+    return`<tr><td>${thD}</td><td style="text-align:right">${dt.batches}</td>
+      <td style="text-align:right">${dt.planQty||'—'}</td>
+      <td style="text-align:right;font-weight:700">${dt.actualQty}</td>
+      <td style="text-align:right">${dt.actualQty>0?fmt(yld,1)+'%':'—'}</td>
+      <td style="text-align:right;color:red">${dt.rejectQty||0}</td>
+      <td style="text-align:right">${dt.downtime||0}</td>
+      <td style="text-align:right;font-weight:700;color:${oee>=85?'green':oee>=65?'orange':'red'}">
+        ${oee>0?fmt(oee,1)+'%':'—'}</td>
+    </tr>`;
+  }).join('');
+  const printDate=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+  openPreviewWindow(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>@page{size:A4;margin:12mm}body{font-family:'Sarabun',sans-serif;font-size:10pt}
+    h2{color:#1B3A5C;margin:0 0 4px}table{width:100%;border-collapse:collapse}
+    th{background:#1B3A5C;color:white;padding:4px 8px;font-size:9pt}
+    td{padding:3px 8px;border-bottom:1px solid #E5E7EB}
+    tfoot td{background:#DBEAFE;font-weight:700}
+    @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style>
+    </head><body>
+    <h2>📊 Production Summary Report</h2>
+    <p style="color:#6B7280;font-size:9pt;margin:0 0 8px">
+      ช่วง: <b>${d.tFrom} – ${d.tTo}</b> | พิมพ์: ${printDate}</p>
+    <table><thead><tr>
+      <th>วันที่</th><th style="text-align:right">Batches</th>
+      <th style="text-align:right">แผน</th><th style="text-align:right">ผลิต</th>
+      <th style="text-align:right">ดี%</th><th style="text-align:right">Reject</th>
+      <th style="text-align:right">Downtime</th><th style="text-align:right">OEE%</th>
+    </tr></thead><tbody>${rows}</tbody>
+    <tfoot><tr>
+      <td>รวม ${d.dates.length} วัน</td>
+      <td style="text-align:right">${d.totBatch}</td><td></td>
+      <td style="text-align:right">${d.totActual}</td>
+      <td style="text-align:right">${d.totActual>0?fmt(d.totGood/d.totActual*100,1)+'%':'—'}</td>
+      <td style="text-align:right">${d.totReject}</td>
+      <td style="text-align:right">${d.dates.reduce((s,dt)=>s+dt.downtime,0)}</td>
+      <td style="text-align:right">${d.avgOEE>0?fmt(d.avgOEE,1)+'%':'—'}</td>
+    </tr></tfoot></table>
+    <script>window.onload=()=>window.print();<\/script></body></html>`,
+    'Production Summary');
+}
+
+function prptPrintOEE(){
+  const d=window._prptOEEData;
+  if(!d){alert('กด 📊 Generate ก่อนพิมพ์');return;}
+  const rows=d.machines.map(m=>{
+    const oee=m.oeeSum/m.count,av=m.availSum/m.count,pe=m.perfSum/m.count,qu=m.qualSum/m.count;
+    return`<tr><td style="font-family:monospace">${m.machine}</td>
+      <td style="text-align:right">${m.count}</td>
+      <td style="text-align:right">${fmt(av,1)}%</td>
+      <td style="text-align:right">${fmt(pe,1)}%</td>
+      <td style="text-align:right">${fmt(qu,1)}%</td>
+      <td style="text-align:right;font-weight:700;color:${oee>=85?'green':oee>=65?'orange':'red'}">${fmt(oee,1)}%</td>
+      <td style="text-align:right">${m.downtime}</td>
+    </tr>`;
+  }).join('');
+  const printDate=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+  openPreviewWindow(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>@page{size:A4;margin:12mm}body{font-family:'Sarabun',sans-serif;font-size:10pt}
+    h2{color:#1B3A5C}table{width:100%;border-collapse:collapse}
+    th{background:#1B3A5C;color:white;padding:4px 8px}td{padding:4px 8px;border-bottom:1px solid #E5E7EB}
+    @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style>
+    </head><body>
+    <h2>⚡ OEE Performance Summary</h2>
+    <p style="color:#6B7280;font-size:9pt;margin:0 0 8px">
+      ช่วง: <b>${d.from} – ${d.to}</b> | OEE รวม: <b>${fmt(d.avgOEE,1)}%</b> | พิมพ์: ${printDate}</p>
+    <table><thead><tr>
+      <th>เครื่องจักร</th><th style="text-align:right">Batches</th>
+      <th style="text-align:right">Availability%</th><th style="text-align:right">Performance%</th>
+      <th style="text-align:right">Quality%</th><th style="text-align:right">OEE%</th>
+      <th style="text-align:right">Downtime (นาที)</th>
+    </tr></thead><tbody>${rows}</tbody></table>
+    <script>window.onload=()=>window.print();<\/script></body></html>`,
+    'OEE Summary');
+}
+
+async function prptPrintEntry(id){
+  const l=(await sbG('production_log',{f:[`id=eq.${id}`]}).catch(()=>[]))[0];
+  if(!l) return;
+  const printDate=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+  openPreviewWindow(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>@page{size:A4;margin:15mm}body{font-family:'Sarabun',sans-serif;font-size:10pt}
+    h2{color:#1B3A5C}table{width:100%;border-collapse:collapse}
+    td{padding:5px 8px;border-bottom:1px solid #E5E7EB}
+    .kpi{display:inline-block;text-align:center;border:2px solid #7C3AED;border-radius:8px;padding:8px 16px;margin:4px}
+    @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style>
+    </head><body>
+    <h2>📋 Production Record — ${l.pp_no}</h2>
+    <p style="color:#6B7280;font-size:9pt;margin:0 0 10px">พิมพ์: ${printDate}</p>
+    <table>
+      ${[['Work Order',l.pp_no],['SKU',l.sku_code],['สินค้า',l.product_name],
+        ['วันที่ผลิต',l.plan_date],['กะ',l.shift],['เครื่องจักร',l.machine_code],
+        ['Batch No.',l.batch_no],['เวลาเริ่ม',l.start_time?new Date(l.start_time).toLocaleString('th-TH'):'—'],
+        ['เวลาสิ้นสุด',l.end_time?new Date(l.end_time).toLocaleString('th-TH'):'—'],
+        ['แผนผลิต',l.plan_qty],['ผลิตได้จริง',l.actual_qty],
+        ['ดี/QC Pass',l.good_qty],['Reject',l.reject_qty||0],
+        ['Run Time (นาที)',l.run_time_min],['Downtime (นาที)',l.downtime_min],
+        ['สาเหตุ Downtime',l.downtime_reason||'—'],['หมายเหตุ',l.note||'—'],
+        ['บันทึกโดย',l.recorded_by||'—']
+      ].map(([k,v])=>`<tr><td style="color:#6B7280;width:35%">${k}</td><td><b>${v||'—'}</b></td></tr>`).join('')}
+    </table>
+    <div style="margin-top:16px;text-align:center">
+      ${[['Availability',l.availability_pct],['Performance',l.performance_pct],
+         ['Quality',l.quality_pct],['OEE',l.oee_pct]].map(([k,v])=>`
+        <div class="kpi" style="border-color:${v>=85?'green':v>=65?'orange':'red'}">
+          <div style="font-size:9pt;color:#7C3AED">${k}</div>
+          <div style="font-size:20pt;font-weight:800;color:${v>=85?'green':v>=65?'orange':'red'}">
+            ${v?fmt(v,1)+'%':'—'}
+          </div>
+        </div>`).join('')}
+    </div>
+    <script>window.onload=()=>window.print();<\/script></body></html>`,
+    `Production Record ${l.pp_no}`);
 }
 
 // ════════════════════════════════════════════════════════════
