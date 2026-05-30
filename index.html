@@ -23575,6 +23575,8 @@ async function prptLoadLog(){
                   style="border:none;background:#EFF6FF;color:#2563EB;border-radius:3px;padding:2px 6px;font-size:9px;cursor:pointer">✏️</button>
                 <button onclick="prptViewEntry(${l.id})"
                   style="border:none;background:#F0FDF4;color:#16a34a;border-radius:3px;padding:2px 6px;font-size:9px;cursor:pointer">👁</button>
+                <button onclick="prptViewSteps(${l.id},'${l.pp_no||''}')"
+                  style="border:none;background:#EDE9FE;color:#7C3AED;border-radius:3px;padding:2px 6px;font-size:9px;cursor:pointer">🔧</button>
               </td>
             </tr>`;
           }).join('')}
@@ -23789,7 +23791,10 @@ async function prptViewEntry(id){
         </div>`).join('')}
     </div>
     ${l.note?`<div style="margin-top:8px;font-size:11px;color:#6B7280">📝 ${l.note}</div>`:''}
-    <button class="btn btnP" style="width:100%;margin-top:10px" onclick="prptPrintEntry(${id})">
+    <button class="btn btnN" style="width:100%;margin-top:8px" onclick="prptViewSteps(${id},'${l.pp_no||''}')">
+      🔧 ขั้นตอนการผลิต / Production Steps
+    </button>
+    <button class="btn btnP" style="width:100%;margin-top:6px" onclick="prptPrintEntry(${id})">
       🖨️ Print This Record
     </button>`);
 }
@@ -24180,6 +24185,589 @@ async function prptPrintEntry(id){
     </div>
     <script>window.onload=()=>window.print();<\/script></body></html>`,
     `Production Record ${l.pp_no}`);
+}
+
+
+// ════════════════════════════════════════════════════════════
+//  PRODUCTION STEPS — บันทึกรายละเอียดขั้นตอนการผลิต
+// ════════════════════════════════════════════════════════════
+
+const STEP_NAMES = [
+  '🧪 ผสมส่วนผสม / Mixing',
+  '⚙️ ขึ้นรูป / Forming',
+  '✂️ ตัด / Cutting',
+  '🍫 เคลือบ / Coating',
+  '📦 บรรจุ / Packing',
+  '🔥 อบ / Baking',
+  '❄️ แช่เย็น / Cooling',
+  '🔍 ตรวจสอบ / QC Inspection',
+  '🏷️ ติดฉลาก / Labeling',
+  '📋 อื่นๆ / Other'
+];
+
+let _stepsTableOK = null;
+
+async function checkStepsTable(){
+  if(_stepsTableOK !== null) return _stepsTableOK;
+  try{
+    await sbG('prod_log_steps',{lim:1,s:'id'});
+    _stepsTableOK = true;
+  }catch(e){
+    _stepsTableOK = false;
+  }
+  return _stepsTableOK;
+}
+
+// ── View / Manage Steps ─────────────────────────────────────
+async function prptViewSteps(logId, ppNo){
+  const ok = await checkStepsTable();
+  if(!ok){
+    openMo('🔧 Production Steps — SQL Required', `
+      <div style="background:#FFF7ED;border-radius:8px;padding:12px;margin-bottom:12px">
+        <div style="font-size:12px;color:#92400E;font-weight:700;margin-bottom:8px">
+          ⚠️ ต้องสร้าง table ก่อนใช้งาน
+        </div>
+        <button class="btn btnS sm" onclick="navigator.clipboard.writeText(document.getElementById('steps-sql').textContent).then(()=>alert('Copied!'))">📋 Copy SQL</button>
+        <pre id="steps-sql" style="background:#1e293b;color:#e2e8f0;padding:10px;border-radius:6px;
+          font-size:9px;overflow-x:auto;white-space:pre-wrap;margin-top:8px">${`CREATE TABLE IF NOT EXISTS prod_log_steps (
+  id BIGSERIAL PRIMARY KEY,
+  log_id INTEGER,
+  pp_no TEXT,
+  step_no INTEGER DEFAULT 1,
+  step_name TEXT,
+  start_time TIMESTAMPTZ,
+  end_time TIMESTAMPTZ,
+  duration_min NUMERIC,
+  workers INTEGER DEFAULT 1,
+  input_qty NUMERIC DEFAULT 0,
+  output_qty NUMERIC DEFAULT 0,
+  defect_qty NUMERIC DEFAULT 0,
+  defect_reason TEXT,
+  downtime_min NUMERIC DEFAULT 0,
+  downtime_reason TEXT,
+  note TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS prod_log_step_materials (
+  id BIGSERIAL PRIMARY KEY,
+  step_id INTEGER,
+  log_id INTEGER,
+  pp_no TEXT,
+  step_name TEXT,
+  material_code TEXT,
+  material_name TEXT,
+  planned_qty NUMERIC DEFAULT 0,
+  used_qty NUMERIC DEFAULT 0,
+  remaining_qty NUMERIC DEFAULT 0,
+  waste_qty NUMERIC DEFAULT 0,
+  unit TEXT DEFAULT 'kg',
+  note TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE prod_log_steps ENABLE ROW LEVEL SECURITY;
+ALTER TABLE prod_log_step_materials ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "allow_all_steps" ON prod_log_steps FOR ALL TO anon,authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all_mats" ON prod_log_step_materials FOR ALL TO anon,authenticated USING (true) WITH CHECK (true);
+GRANT ALL ON prod_log_steps TO anon,authenticated;
+GRANT ALL ON prod_log_step_materials TO anon,authenticated;
+GRANT USAGE,SELECT ON SEQUENCE prod_log_steps_id_seq TO anon,authenticated;
+GRANT USAGE,SELECT ON SEQUENCE prod_log_step_materials_id_seq TO anon,authenticated;`}</pre>
+      </div>`);
+    return;
+  }
+
+  const [steps, mats] = await Promise.all([
+    sbG('prod_log_steps',{f:[`log_id=eq.${logId}`],ord:'step_no.asc'}).catch(()=>[]),
+    sbG('prod_log_step_materials',{f:[`log_id=eq.${logId}`],ord:'step_id.asc'}).catch(()=>[])
+  ]);
+
+  const matsByStep = {};
+  mats.forEach(m=>{ if(!matsByStep[m.step_id]) matsByStep[m.step_id]=[]; matsByStep[m.step_id].push(m); });
+
+  openMo(`🔧 Production Steps — ${ppNo}`, `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:12px;color:#6B7280">${steps.length} ขั้นตอน | ${mats.length} รายการวัสดุ</div>
+      <button class="btn btnP sm" onclick="prptAddStep(${logId},'${ppNo}')">+ เพิ่มขั้นตอน</button>
+    </div>
+
+    <div id="steps-list">
+      ${steps.length?steps.map(s=>`
+        <div style="border:1px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden">
+          <!-- Step Header -->
+          <div style="background:#1B3A5C;color:white;padding:8px 12px;
+            display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <span style="background:rgba(255,255,255,.2);border-radius:4px;
+                padding:2px 6px;font-size:10px;margin-right:8px">#${s.step_no}</span>
+              <b style="font-size:12px">${s.step_name}</b>
+            </div>
+            <div style="display:flex;gap:4px">
+              <button onclick="prptEditStep(${s.id})"
+                style="border:none;background:rgba(255,255,255,.15);color:white;
+                border-radius:4px;padding:3px 8px;font-size:10px;cursor:pointer">✏️</button>
+              <button onclick="prptAddStepMaterial(${s.id},${logId},'${ppNo}','${s.step_name}')"
+                style="border:none;background:rgba(255,255,255,.15);color:white;
+                border-radius:4px;padding:3px 8px;font-size:10px;cursor:pointer">+ วัสดุ</button>
+            </div>
+          </div>
+          <!-- Step Details -->
+          <div style="padding:10px 12px;font-size:11px">
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px">
+              <div style="background:#F1F5F9;border-radius:6px;padding:6px;text-align:center">
+                <div style="color:#6B7280;font-size:9px">⏱️ เวลา</div>
+                <div style="font-weight:700">${s.duration_min||'—'} นาที</div>
+                <div style="color:#9CA3AF;font-size:9px">
+                  ${s.start_time?new Date(s.start_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'—'}–
+                  ${s.end_time?new Date(s.end_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'—'}
+                </div>
+              </div>
+              <div style="background:#F0FDF4;border-radius:6px;padding:6px;text-align:center">
+                <div style="color:#6B7280;font-size:9px">👤 พนักงาน</div>
+                <div style="font-weight:700;color:#16a34a">${s.workers||'—'} คน</div>
+              </div>
+              <div style="background:#EFF6FF;border-radius:6px;padding:6px;text-align:center">
+                <div style="color:#6B7280;font-size:9px">📦 Output</div>
+                <div style="font-weight:700;color:#2563EB">${s.output_qty||'—'}</div>
+                <div style="color:#9CA3AF;font-size:9px">Input: ${s.input_qty||'—'}</div>
+              </div>
+              <div style="background:${s.defect_qty>0?'#FEF2F2':'#F9FAFB'};border-radius:6px;padding:6px;text-align:center">
+                <div style="color:#6B7280;font-size:9px">⚠️ Defect</div>
+                <div style="font-weight:700;color:${s.defect_qty>0?'#DC2626':'#6B7280'}">${s.defect_qty||0}</div>
+                ${s.defect_reason?`<div style="color:#DC2626;font-size:9px">${s.defect_reason}</div>`:''}
+              </div>
+            </div>
+            ${s.downtime_min>0?`<div style="background:#FEF3C7;border-radius:4px;padding:4px 8px;font-size:10px;color:#92400E">
+              ⏸ Downtime: <b>${s.downtime_min} นาที</b>${s.downtime_reason?' — '+s.downtime_reason:''}
+            </div>`:''}
+            ${s.note?`<div style="color:#6B7280;font-size:10px;margin-top:4px">📝 ${s.note}</div>`:''}
+
+            <!-- Materials for this step -->
+            ${(matsByStep[s.id]||[]).length?`
+              <div style="margin-top:8px;border-top:1px solid #F1F5F9;padding-top:6px">
+                <div style="font-size:10px;font-weight:700;color:#7C3AED;margin-bottom:4px">
+                  📦 วัสดุที่ใช้
+                </div>
+                <table style="width:100%;border-collapse:collapse;font-size:10px">
+                  <thead><tr style="background:#F5F3FF">
+                    <th style="padding:3px 6px;text-align:left">รหัส/ชื่อ</th>
+                    <th style="padding:3px 6px;text-align:right">แผน</th>
+                    <th style="padding:3px 6px;text-align:right;color:#16a34a">ใช้จริง</th>
+                    <th style="padding:3px 6px;text-align:right;color:#2563EB">เหลือ</th>
+                    <th style="padding:3px 6px;text-align:right;color:#DC2626">เสีย</th>
+                    <th style="padding:3px 6px">หน่วย</th>
+                  </tr></thead>
+                  <tbody>
+                  ${(matsByStep[s.id]||[]).map(m=>`<tr>
+                    <td style="padding:3px 6px">
+                      <span style="font-family:monospace;color:#7C3AED">${m.material_code}</span>
+                      <span style="color:#374151"> ${m.material_name||''}</span>
+                    </td>
+                    <td style="text-align:right;padding:3px 6px;color:#6B7280">${m.planned_qty||'—'}</td>
+                    <td style="text-align:right;padding:3px 6px;font-weight:600;color:#16a34a">${m.used_qty||0}</td>
+                    <td style="text-align:right;padding:3px 6px;color:#2563EB">${m.remaining_qty||0}</td>
+                    <td style="text-align:right;padding:3px 6px;color:#DC2626">${m.waste_qty||0}</td>
+                    <td style="padding:3px 6px;color:#6B7280">${m.unit||'kg'}</td>
+                  </tr>`).join('')}
+                  </tbody>
+                </table>
+              </div>`:'<div style="color:#9CA3AF;font-size:10px;margin-top:4px">ยังไม่มีวัสดุ — กด "+ วัสดุ"</div>'}
+          </div>
+        </div>`).join('') :
+        `<div class="al ali">ยังไม่มีขั้นตอน — กด + เพิ่มขั้นตอน</div>`}
+    </div>
+
+    <div id="step-msg" style="margin-top:8px"></div>
+    <button class="btn btnT" style="width:100%;margin-top:8px"
+      onclick="prptPrintSteps(${logId},'${ppNo}')">🖨️ Print Step Report</button>
+  `);
+}
+
+// ── Add Step ─────────────────────────────────────────────────
+function prptAddStep(logId, ppNo){
+  const stepOpts = STEP_NAMES.map((n,i)=>`<option value="${n}">${n}</option>`).join('');
+  const now = new Date().toISOString().slice(0,16);
+  openMo(`➕ เพิ่มขั้นตอน — ${ppNo}`, `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fgrp" style="grid-column:1/-1">
+        <label class="flbl">ขั้นตอน / Step</label>
+        <select class="fc2" id="ns-name">
+          ${stepOpts}
+          <option value="">— กำหนดเอง —</option>
+        </select>
+      </div>
+      <div class="fgrp" style="grid-column:1/-1" id="ns-custom-wrap" style="display:none">
+        <label class="flbl">ชื่อขั้นตอน (กำหนดเอง)</label>
+        <input type="text" class="fc2" id="ns-custom-name" placeholder="ชื่อขั้นตอน...">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">เวลาเริ่ม</label>
+        <input type="datetime-local" class="fc2" id="ns-start" value="${now}">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">เวลาสิ้นสุด</label>
+        <input type="datetime-local" class="fc2" id="ns-end" onchange="nsCalcDuration()">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">⏱️ ระยะเวลา (นาที)</label>
+        <input type="number" class="fc2" id="ns-duration" placeholder="0">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">👤 จำนวนพนักงาน</label>
+        <input type="number" class="fc2" id="ns-workers" value="1" min="1">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">📥 Input (หน่วย/kg)</label>
+        <input type="number" class="fc2" id="ns-input" placeholder="0" step="0.01">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">📦 Output (หน่วย/kg)</label>
+        <input type="number" class="fc2" id="ns-output" placeholder="0" step="0.01">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">⚠️ Defect (หน่วย)</label>
+        <input type="number" class="fc2" id="ns-defect" placeholder="0" step="0.01">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">สาเหตุ Defect</label>
+        <input type="text" class="fc2" id="ns-defect-reason" placeholder="สาเหตุ...">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">⏸ Downtime (นาที)</label>
+        <input type="number" class="fc2" id="ns-downtime" placeholder="0">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">สาเหตุ Downtime</label>
+        <input type="text" class="fc2" id="ns-downtime-reason" placeholder="สาเหตุ...">
+      </div>
+      <div class="fgrp" style="grid-column:1/-1">
+        <label class="flbl">หมายเหตุ</label>
+        <input type="text" class="fc2" id="ns-note" placeholder="หมายเหตุ...">
+      </div>
+    </div>
+    <div id="ns-msg"></div>
+    <button class="btn btnP" style="width:100%;margin-top:10px"
+      onclick="nsSaveStep(${logId},'${ppNo}')">💾 บันทึกขั้นตอน</button>
+  `);
+  document.getElementById('ns-name').onchange=function(){
+    const wrap=document.getElementById('ns-custom-wrap');
+    if(wrap) wrap.style.display=this.value?'none':'';
+  };
+}
+
+function nsCalcDuration(){
+  const s=document.getElementById('ns-start')?.value;
+  const e=document.getElementById('ns-end')?.value;
+  if(s&&e){
+    const diff=(new Date(e)-new Date(s))/60000;
+    const dur=document.getElementById('ns-duration');
+    if(dur&&diff>0) dur.value=Math.round(diff);
+  }
+}
+
+async function nsSaveStep(logId, ppNo){
+  const nameSelect=document.getElementById('ns-name')?.value;
+  const nameCustom=document.getElementById('ns-custom-name')?.value;
+  const stepName = nameSelect||nameCustom||'ไม่ระบุ';
+  const start=document.getElementById('ns-start')?.value;
+  const end=document.getElementById('ns-end')?.value;
+  const dur=parseFloat(document.getElementById('ns-duration')?.value)||0;
+  const workers=parseInt(document.getElementById('ns-workers')?.value)||1;
+  const input=parseFloat(document.getElementById('ns-input')?.value)||0;
+  const output=parseFloat(document.getElementById('ns-output')?.value)||0;
+  const defect=parseFloat(document.getElementById('ns-defect')?.value)||0;
+  const defectReason=document.getElementById('ns-defect-reason')?.value||'';
+  const downtime=parseFloat(document.getElementById('ns-downtime')?.value)||0;
+  const downtimeReason=document.getElementById('ns-downtime-reason')?.value||'';
+  const note=document.getElementById('ns-note')?.value||'';
+
+  // หา step_no ถัดไป
+  const existing=await sbG('prod_log_steps',{f:[`log_id=eq.${logId}`],s:'step_no',
+    ord:'step_no.desc',lim:1}).catch(()=>[]);
+  const stepNo=(existing[0]?.step_no||0)+1;
+
+  msgEl('ns-msg','<span class="spin"></span> Saving...','i');
+  try{
+    await sbP('prod_log_steps',{
+      log_id:logId, pp_no:ppNo, step_no:stepNo,
+      step_name:stepName,
+      start_time:start?new Date(start).toISOString():null,
+      end_time:end?new Date(end).toISOString():null,
+      duration_min:dur||null, workers,
+      input_qty:input, output_qty:output,
+      defect_qty:defect, defect_reason:defectReason,
+      downtime_min:downtime, downtime_reason:downtimeReason, note
+    });
+    msgEl('ns-msg','✅ บันทึกขั้นตอนเรียบร้อย','s');
+    setTimeout(()=>{ closeMo(); prptViewSteps(logId,ppNo); },500);
+  }catch(e){ msgEl('ns-msg','❌ '+e.message,'e'); }
+}
+
+// ── Edit Step ────────────────────────────────────────────────
+async function prptEditStep(stepId){
+  const s=(await sbG('prod_log_steps',{f:[`id=eq.${stepId}`]}).catch(()=>[]))[0];
+  if(!s) return;
+  const toLocal=dt=>dt?new Date(dt).toISOString().slice(0,16):'';
+  openMo(`✏️ แก้ไขขั้นตอน — ${s.step_name}`, `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fgrp" style="grid-column:1/-1">
+        <label class="flbl">ชื่อขั้นตอน</label>
+        <input type="text" class="fc2" id="es-name" value="${s.step_name||''}">
+      </div>
+      <div class="fgrp"><label class="flbl">เวลาเริ่ม</label>
+        <input type="datetime-local" class="fc2" id="es-start" value="${toLocal(s.start_time)}"></div>
+      <div class="fgrp"><label class="flbl">เวลาสิ้นสุด</label>
+        <input type="datetime-local" class="fc2" id="es-end" value="${toLocal(s.end_time)}"></div>
+      <div class="fgrp"><label class="flbl">ระยะเวลา (นาที)</label>
+        <input type="number" class="fc2" id="es-duration" value="${s.duration_min||0}"></div>
+      <div class="fgrp"><label class="flbl">พนักงาน</label>
+        <input type="number" class="fc2" id="es-workers" value="${s.workers||1}"></div>
+      <div class="fgrp"><label class="flbl">Input</label>
+        <input type="number" class="fc2" id="es-input" value="${s.input_qty||0}" step="0.01"></div>
+      <div class="fgrp"><label class="flbl">Output</label>
+        <input type="number" class="fc2" id="es-output" value="${s.output_qty||0}" step="0.01"></div>
+      <div class="fgrp"><label class="flbl">Defect</label>
+        <input type="number" class="fc2" id="es-defect" value="${s.defect_qty||0}" step="0.01"></div>
+      <div class="fgrp"><label class="flbl">สาเหตุ Defect</label>
+        <input type="text" class="fc2" id="es-defect-reason" value="${s.defect_reason||''}"></div>
+      <div class="fgrp"><label class="flbl">Downtime (นาที)</label>
+        <input type="number" class="fc2" id="es-downtime" value="${s.downtime_min||0}"></div>
+      <div class="fgrp"><label class="flbl">สาเหตุ Downtime</label>
+        <input type="text" class="fc2" id="es-downtime-reason" value="${s.downtime_reason||''}"></div>
+      <div class="fgrp" style="grid-column:1/-1"><label class="flbl">หมายเหตุ</label>
+        <input type="text" class="fc2" id="es-note" value="${s.note||''}"></div>
+    </div>
+    <div id="es-msg"></div>
+    <button class="btn btnP" style="width:100%;margin-top:10px" onclick="esSaveStep(${stepId},${s.log_id},'${s.pp_no}')">
+      💾 บันทึก
+    </button>`);
+}
+
+async function esSaveStep(stepId, logId, ppNo){
+  const f=id=>document.getElementById(id)?.value;
+  msgEl('es-msg','<span class="spin"></span> Saving...','i');
+  try{
+    await sbU('prod_log_steps',{
+      step_name:f('es-name'),
+      start_time:f('es-start')?new Date(f('es-start')).toISOString():null,
+      end_time:f('es-end')?new Date(f('es-end')).toISOString():null,
+      duration_min:parseFloat(f('es-duration'))||0,
+      workers:parseInt(f('es-workers'))||1,
+      input_qty:parseFloat(f('es-input'))||0,
+      output_qty:parseFloat(f('es-output'))||0,
+      defect_qty:parseFloat(f('es-defect'))||0,
+      defect_reason:f('es-defect-reason')||'',
+      downtime_min:parseFloat(f('es-downtime'))||0,
+      downtime_reason:f('es-downtime-reason')||'',
+      note:f('es-note')||''
+    },`id=eq.${stepId}`);
+    msgEl('es-msg','✅ Updated','s');
+    setTimeout(()=>{ closeMo(); prptViewSteps(logId,ppNo); },400);
+  }catch(e){ msgEl('es-msg','❌ '+e.message,'e'); }
+}
+
+// ── Add Material to Step ────────────────────────────────────
+async function prptAddStepMaterial(stepId, logId, ppNo, stepName){
+  // Load material list
+  const mats=await sbG('master_material',{
+    s:'id,code,name,unit,category',ord:'code.asc',lim:300
+  }).catch(()=>[]);
+  const matOpts=mats.map(m=>`<option value="${m.code}" data-name="${m.name||''}"
+    data-unit="${m.unit||'kg'}">${m.code} — ${m.name||''}</option>`).join('');
+
+  openMo(`📦 วัสดุที่ใช้ — ${stepName}`, `
+    <div style="background:#F5F3FF;border-radius:6px;padding:8px;margin-bottom:10px;font-size:11px">
+      ขั้นตอน: <b>${stepName}</b>
+    </div>
+    <div class="fgrp">
+      <label class="flbl">วัสดุ / Material</label>
+      <select class="fc2" id="nm-mat" onchange="nmAutoFill()">
+        <option value="">— เลือกวัสดุ —</option>${matOpts}
+        <option value="__custom__">— กรอกเอง —</option>
+      </select>
+    </div>
+    <div id="nm-custom-wrap" style="display:none">
+      <div class="fgrp"><label class="flbl">รหัสวัสดุ</label>
+        <input type="text" class="fc2" id="nm-code" placeholder="RM-xxx"></div>
+      <div class="fgrp"><label class="flbl">ชื่อวัสดุ</label>
+        <input type="text" class="fc2" id="nm-name" placeholder="ชื่อวัสดุ"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">
+      <div class="fgrp"><label class="flbl">แผน (ตามสูตร)</label>
+        <input type="number" class="fc2" id="nm-planned" placeholder="0" step="0.001"></div>
+      <div class="fgrp"><label class="flbl">ใช้จริง</label>
+        <input type="number" class="fc2" id="nm-used" placeholder="0" step="0.001"
+          oninput="nmCalcWaste()"></div>
+      <div class="fgrp"><label class="flbl">เหลือ / Remaining</label>
+        <input type="number" class="fc2" id="nm-remaining" placeholder="0" step="0.001"
+          oninput="nmCalcWaste()"></div>
+      <div class="fgrp"><label class="flbl">เสีย / Waste</label>
+        <input type="number" class="fc2" id="nm-waste" placeholder="คำนวณอัตโนมัติ"
+          step="0.001" style="color:#DC2626"></div>
+      <div class="fgrp"><label class="flbl">หน่วย</label>
+        <select class="fc2" id="nm-unit">
+          <option value="kg">kg</option>
+          <option value="g">g</option>
+          <option value="L">L</option>
+          <option value="pcs">pcs</option>
+          <option value="roll">roll</option>
+          <option value="box">box</option>
+        </select></div>
+      <div class="fgrp"><label class="flbl">หมายเหตุ</label>
+        <input type="text" class="fc2" id="nm-note" placeholder="..."></div>
+    </div>
+    <div id="nm-msg"></div>
+    <button class="btn btnP" style="width:100%;margin-top:10px"
+      onclick="nmSaveMaterial(${stepId},${logId},'${ppNo}','${stepName}')">
+      💾 บันทึกวัสดุ
+    </button>`);
+  document.getElementById('nm-mat').onchange=nmAutoFill;
+}
+
+function nmAutoFill(){
+  const sel=document.getElementById('nm-mat');
+  const opt=sel?.options[sel.selectedIndex];
+  const wrap=document.getElementById('nm-custom-wrap');
+  if(opt?.value==='__custom__'){ if(wrap) wrap.style.display=''; return; }
+  if(wrap) wrap.style.display='none';
+  const unit=document.getElementById('nm-unit');
+  if(unit&&opt?.dataset.unit) unit.value=opt.dataset.unit;
+}
+
+function nmCalcWaste(){
+  const used=parseFloat(document.getElementById('nm-used')?.value)||0;
+  const rem =parseFloat(document.getElementById('nm-remaining')?.value)||0;
+  // waste = used - rem (if makes sense)
+  const waste=document.getElementById('nm-waste');
+  // ให้ user กรอกเอง — แค่แนะนำ
+}
+
+async function nmSaveMaterial(stepId, logId, ppNo, stepName){
+  const sel=document.getElementById('nm-mat');
+  const opt=sel?.options[sel?.selectedIndex];
+  const isCustom=sel?.value==='__custom__';
+  const code=isCustom?document.getElementById('nm-code')?.value:sel?.value;
+  const name=isCustom?document.getElementById('nm-name')?.value:(opt?.dataset.name||'');
+  if(!code){ msgEl('nm-msg','เลือกวัสดุก่อน','e'); return; }
+
+  const planned=parseFloat(document.getElementById('nm-planned')?.value)||0;
+  const used=parseFloat(document.getElementById('nm-used')?.value)||0;
+  const remaining=parseFloat(document.getElementById('nm-remaining')?.value)||0;
+  const waste=parseFloat(document.getElementById('nm-waste')?.value)||(used-remaining>0?used-remaining:0);
+  const unit=document.getElementById('nm-unit')?.value||'kg';
+  const note=document.getElementById('nm-note')?.value||'';
+
+  msgEl('nm-msg','<span class="spin"></span> Saving...','i');
+  try{
+    await sbP('prod_log_step_materials',{
+      step_id:stepId, log_id:logId, pp_no:ppNo,
+      step_name:stepName, material_code:code, material_name:name,
+      planned_qty:planned, used_qty:used,
+      remaining_qty:remaining, waste_qty:waste,
+      unit, note
+    });
+    msgEl('nm-msg','✅ บันทึกวัสดุเรียบร้อย','s');
+    setTimeout(()=>{ closeMo(); prptViewSteps(logId,ppNo); },500);
+  }catch(e){ msgEl('nm-msg','❌ '+e.message,'e'); }
+}
+
+// ── Print Step Report ─────────────────────────────────────────
+async function prptPrintSteps(logId, ppNo){
+  const [log, steps, mats] = await Promise.all([
+    sbG('production_log',{f:[`id=eq.${logId}`]}).catch(()=>[]),
+    sbG('prod_log_steps',{f:[`log_id=eq.${logId}`],ord:'step_no.asc'}).catch(()=>[]),
+    sbG('prod_log_step_materials',{f:[`log_id=eq.${logId}`],ord:'step_id.asc,id.asc'}).catch(()=>[])
+  ]);
+  const l=log[0]||{};
+  const matsByStep={};
+  mats.forEach(m=>{ if(!matsByStep[m.step_id]) matsByStep[m.step_id]=[]; matsByStep[m.step_id].push(m); });
+
+  const printDate=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+  const stepRows=steps.map(s=>{
+    const mList=(matsByStep[s.id]||[]);
+    const matTable=mList.length?`
+      <table style="width:100%;border-collapse:collapse;font-size:8.5pt;margin-top:6px">
+        <tr style="background:#F5F3FF">
+          <th style="padding:2px 6px;text-align:left">รหัส</th>
+          <th style="padding:2px 6px;text-align:left">ชื่อวัสดุ</th>
+          <th style="padding:2px 6px;text-align:right">แผน</th>
+          <th style="padding:2px 6px;text-align:right">ใช้จริง</th>
+          <th style="padding:2px 6px;text-align:right">เหลือ</th>
+          <th style="padding:2px 6px;text-align:right">เสีย</th>
+          <th style="padding:2px 6px">หน่วย</th>
+        </tr>
+        ${mList.map(m=>`<tr style="border-bottom:1px solid #E5E7EB">
+          <td style="padding:2px 6px;font-family:monospace">${m.material_code}</td>
+          <td style="padding:2px 6px">${m.material_name||''}</td>
+          <td style="padding:2px 6px;text-align:right">${m.planned_qty||'—'}</td>
+          <td style="padding:2px 6px;text-align:right;font-weight:600;color:green">${m.used_qty||0}</td>
+          <td style="padding:2px 6px;text-align:right;color:navy">${m.remaining_qty||0}</td>
+          <td style="padding:2px 6px;text-align:right;color:red">${m.waste_qty||0}</td>
+          <td style="padding:2px 6px">${m.unit||'kg'}</td>
+        </tr>`).join('')}
+      </table>`:''  ;
+    const startT=s.start_time?new Date(s.start_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'—';
+    const endT=s.end_time?new Date(s.end_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'—';
+    return`
+      <div style="border:1px solid #CBD5E1;border-radius:6px;margin-bottom:10px;overflow:hidden;page-break-inside:avoid">
+        <div style="background:#1B3A5C;color:white;padding:6px 10px">
+          <b>#${s.step_no} ${s.step_name}</b>
+          <span style="float:right;font-size:8.5pt">${startT} – ${endT} (${s.duration_min||0} นาที)</span>
+        </div>
+        <div style="padding:8px 10px">
+          <table style="width:100%;border-collapse:collapse;font-size:9pt">
+            <tr>
+              <td style="width:25%;color:#6B7280">👤 พนักงาน:</td>
+              <td>${s.workers||'—'} คน</td>
+              <td style="width:25%;color:#6B7280">📥 Input:</td>
+              <td>${s.input_qty||'—'}</td>
+            </tr>
+            <tr>
+              <td style="color:#6B7280">📦 Output:</td>
+              <td style="font-weight:700;color:navy">${s.output_qty||'—'}</td>
+              <td style="color:#6B7280">⚠️ Defect:</td>
+              <td style="color:red">${s.defect_qty||0}${s.defect_reason?' ('+s.defect_reason+')':''}</td>
+            </tr>
+            ${s.downtime_min>0?`<tr>
+              <td style="color:#6B7280">⏸ Downtime:</td>
+              <td colspan="3" style="color:orange">${s.downtime_min} นาที${s.downtime_reason?' — '+s.downtime_reason:''}</td>
+            </tr>`:''}
+            ${s.note?`<tr><td style="color:#6B7280">📝 Note:</td><td colspan="3">${s.note}</td></tr>`:''}
+          </table>
+          ${matTable}
+        </div>
+      </div>`;
+  }).join('');
+
+  const totWorkers=steps.reduce((s,x)=>s+(x.workers||0),0);
+  const totOutput=steps.reduce((s,x)=>s+(x.output_qty||0),0);
+  const totDefect=steps.reduce((s,x)=>s+(x.defect_qty||0),0);
+  const totDowntime=steps.reduce((s,x)=>s+(x.downtime_min||0),0);
+  const totWaste=mats.reduce((s,m)=>s+(m.waste_qty||0),0);
+
+  openPreviewWindow(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>@page{size:A4;margin:12mm}body{font-family:'Sarabun',sans-serif;font-size:10pt}
+    h2{color:#1B3A5C;margin:0 0 2px}
+    @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style>
+    </head><body>
+    <h2>🔧 Production Step Report</h2>
+    <table style="width:100%;border-collapse:collapse;font-size:9pt;margin-bottom:10px">
+      <tr>
+        <td><b>WO:</b> ${ppNo}</td>
+        <td><b>สินค้า:</b> ${l.product_name||l.sku_code||'—'}</td>
+        <td><b>วันที่:</b> ${l.plan_date||'—'}</td>
+        <td><b>พิมพ์:</b> ${printDate}</td>
+      </tr>
+      <tr>
+        <td><b>รวมขั้นตอน:</b> ${steps.length}</td>
+        <td><b>Output รวม:</b> ${totOutput}</td>
+        <td><b>Defect รวม:</b> <span style="color:red">${totDefect}</span></td>
+        <td><b>Downtime รวม:</b> <span style="color:orange">${totDowntime} นาที</span></td>
+      </tr>
+    </table>
+    ${stepRows||'<div style="color:gray">ยังไม่มีข้อมูลขั้นตอน</div>'}
+    <script>window.onload=()=>window.print();<\/script>
+    </body></html>`, `Steps Report ${ppNo}`);
 }
 
 // ════════════════════════════════════════════════════════════
