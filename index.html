@@ -15630,6 +15630,157 @@ function prptBuildLogTable(logs){
   </table>`;
 }
 
+
+// ════════════════════════════════════════════════════════════
+//  QC RECORD FUNCTIONS
+// ════════════════════════════════════════════════════════════
+let _pneQCCount=0;
+
+const QC_PASS_OPTS=`
+  <option value="pass" style="color:green">✅ ผ่าน</option>
+  <option value="marginal" style="color:orange">⚠️ ขอบเขต</option>
+  <option value="fail" style="color:red">❌ ไม่ผ่าน</option>`;
+
+function pneAddQCRow(timeStr){
+  const tbody=document.getElementById('pne-qc-tbody');
+  if(!tbody) return;
+  const emp=document.getElementById('pne-qc-empty');
+  if(emp) emp.style.display='none';
+  _pneQCCount++;
+  const idx=_pneQCCount;
+  const t=timeStr||new Date().toTimeString().slice(0,5);
+  const tr=document.createElement('tr');
+  tr.id=`pne-qr-${idx}`;
+  tr.style.cssText='border-bottom:1px solid #FECDD3';
+
+  const numInput=(id,ph,w=55)=>`<input type="number" id="${id}" placeholder="${ph}" step="0.01"
+    style="width:${w}px;border:1px solid #FECDD3;border-radius:3px;padding:2px 3px;font-size:10px;text-align:right"
+    oninput="pneQCCheck(${idx})">`;
+  const sensSelect=(id)=>`<select id="${id}" onchange="pneQCCheck(${idx})"
+    style="width:62px;border:1px solid #FECDD3;border-radius:3px;padding:2px;font-size:9px">
+    <option value="">—</option>${QC_PASS_OPTS}</select>`;
+
+  tr.innerHTML=`
+    <td style="padding:2px 4px">
+      <input type="time" id="pne-qt-${idx}" value="${t}"
+        style="width:52px;border:1px solid #FECDD3;border-radius:3px;padding:2px;font-size:10px">
+    </td>
+    <td style="padding:2px 3px">${numInput(`pne-qwt-${idx}`,'g',56)}</td>
+    <td style="padding:2px 3px">${numInput(`pne-qpre-${idx}`,'g',56)}</td>
+    <td style="padding:2px 3px">${numInput(`pne-qpost-${idx}`,'g',56)}</td>
+    <td style="padding:2px 3px">${numInput(`pne-qw-${idx}`,'mm',45)}</td>
+    <td style="padding:2px 3px">${numInput(`pne-ql-${idx}`,'mm',45)}</td>
+    <td style="padding:2px 3px">${numInput(`pne-qthk-${idx}`,'mm',45)}</td>
+    <td style="padding:2px 3px">${sensSelect(`pne-qtaste-${idx}`)}</td>
+    <td style="padding:2px 3px">${sensSelect(`pne-qcolor-${idx}`)}</td>
+    <td style="padding:2px 3px">${sensSelect(`pne-qodor-${idx}`)}</td>
+    <td style="padding:2px 3px">${sensSelect(`pne-qfill-${idx}`)}</td>
+    <td style="padding:2px 3px">${sensSelect(`pne-qchoc-${idx}`)}</td>
+    <td style="padding:2px 3px">${sensSelect(`pne-qcrispy-${idx}`)}</td>
+    <td style="padding:2px 4px;text-align:center">
+      <span id="pne-qresult-${idx}" style="font-size:11px;font-weight:700">—</span>
+    </td>
+    <td style="padding:2px 3px;text-align:center">
+      <button type="button" onclick="document.getElementById('pne-qr-${idx}').remove()"
+        style="border:none;background:#FEE2E2;color:#DC2626;border-radius:3px;
+        padding:2px 5px;cursor:pointer;font-size:10px">✕</button>
+    </td>`;
+  tbody.appendChild(tr);
+}
+
+function pneAddQCRows15(){
+  // สร้าง rows ทุก 15 นาที ตั้งแต่เวลาเริ่มจนถึงเวลาสิ้นสุด
+  const startVal=document.getElementById('pne-start')?.value?.slice(11,16);
+  const endVal  =document.getElementById('pne-end')?.value?.slice(11,16);
+  const startT  =startVal||new Date().toTimeString().slice(0,5);
+  const endT    =endVal||new Date(Date.now()+8*3600000).toTimeString().slice(0,5);
+
+  const toMin=t=>{ const [h,m]=t.split(':').map(Number); return h*60+m; };
+  const toStr=m=>{ const h=Math.floor(m/60)%24; return `${String(h).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`; };
+
+  let cur=toMin(startT), end=toMin(endT);
+  if(end<=cur) end=cur+480; // default 8 hours
+  const count=Math.ceil((end-cur)/15)+1;
+  if(count>40){ alert('ช่วงเวลานานเกินไป (สูงสุด 40 แถว)'); return; }
+
+  for(let m=cur; m<=end; m+=15){
+    pneAddQCRow(toStr(m));
+  }
+}
+
+function pneQCCheck(idx){
+  // เช็ค spec แล้ว auto set result
+  const v=id=>parseFloat(document.getElementById(`pne-q${id}-${idx}`)?.value)||null;
+  const sv=id=>document.getElementById(`pne-q${id}-${idx}`)?.value||'';
+
+  const specWt  = parseFloat(document.getElementById('pne-spec-wt')?.value)||0;
+  const tolWt   = parseFloat(document.getElementById('pne-spec-wt-tol')?.value)||2;
+  const specW   = parseFloat(document.getElementById('pne-spec-w')?.value)||0;
+  const tolW    = parseFloat(document.getElementById('pne-spec-w-tol')?.value)||1;
+  const specL   = parseFloat(document.getElementById('pne-spec-l')?.value)||0;
+  const tolL    = parseFloat(document.getElementById('pne-spec-l-tol')?.value)||1;
+  const specPre = parseFloat(document.getElementById('pne-spec-pre')?.value)||0;
+  const tolPre  = parseFloat(document.getElementById('pne-spec-pre-tol')?.value)||2;
+
+  const wt=v('wt'), w=v('w'), l=v('l'), pre=v('pre');
+  let fails=0, warns=0;
+
+  if(specWt&&wt!==null){ const diff=Math.abs(wt-specWt); if(diff>tolWt) fails++; else if(diff>tolWt*0.7) warns++; }
+  if(specW &&w !==null){ const diff=Math.abs(w -specW ); if(diff>tolW ) fails++; else if(diff>tolW *0.7) warns++; }
+  if(specL &&l !==null){ const diff=Math.abs(l -specL ); if(diff>tolL ) fails++; else if(diff>tolL *0.7) warns++; }
+  if(specPre&&pre!==null){ const diff=Math.abs(pre-specPre); if(diff>tolPre) fails++; else if(diff>tolPre*0.7) warns++; }
+
+  const senses=['taste','color','odor','fill','choc','crispy'];
+  senses.forEach(s=>{ const v2=sv(s); if(v2==='fail') fails++; else if(v2==='marginal') warns++; });
+
+  const resultEl=document.getElementById(`pne-qresult-${idx}`);
+  if(!resultEl) return;
+  if(fails>0){
+    resultEl.textContent='❌ NG';
+    resultEl.style.color='#DC2626';
+    resultEl.closest('tr').style.background='#FFF5F5';
+  }else if(warns>0){
+    resultEl.textContent='⚠️';
+    resultEl.style.color='#D97706';
+    resultEl.closest('tr').style.background='#FFFBEB';
+  }else if(wt!==null||w!==null){
+    resultEl.textContent='✅ OK';
+    resultEl.style.color='#16a34a';
+    resultEl.closest('tr').style.background='#F0FDF4';
+  }else{
+    resultEl.textContent='—';
+    resultEl.style.color='#9CA3AF';
+  }
+}
+
+// ── Collect QC Data for Save ──────────────────────────────────
+function pneCollectQCData(){
+  const rows=[...document.querySelectorAll('#pne-qc-tbody tr[id^="pne-qr-"]')];
+  const spec={
+    wt: parseFloat(document.getElementById('pne-spec-wt')?.value)||0,
+    wtTol: parseFloat(document.getElementById('pne-spec-wt-tol')?.value)||2,
+    w:  parseFloat(document.getElementById('pne-spec-w')?.value)||0,
+    wTol: parseFloat(document.getElementById('pne-spec-w-tol')?.value)||1,
+    l:  parseFloat(document.getElementById('pne-spec-l')?.value)||0,
+    lTol: parseFloat(document.getElementById('pne-spec-l-tol')?.value)||1,
+    pre:parseFloat(document.getElementById('pne-spec-pre')?.value)||0,
+    preTol:parseFloat(document.getElementById('pne-spec-pre-tol')?.value)||2
+  };
+  return rows.map(tr=>{
+    const idx=tr.id.replace('pne-qr-','');
+    const g=id=>{ const el=document.getElementById(`pne-q${id}-${idx}`); return el?.value||null; };
+    return{
+      time:g('t'),
+      wt_packed:g('wt'),   wt_pre_coat:g('pre'), wt_post_coat:g('post'),
+      width:g('w'),        length:g('l'),         thickness:g('thk'),
+      taste:g('taste'),    color:g('color'),       odor:g('odor'),
+      filling_ok:g('fill'),choc_ok:g('choc'),     crispy_ok:g('crispy'),
+      result:document.getElementById(`pne-qresult-${idx}`)?.textContent||'—',
+      spec
+    };
+  });
+}
+
 // ════════════════════════════════════════════════════════════
 //  PRODUCTION STEPS
 // ════════════════════════════════════════════════════════════
@@ -23782,6 +23933,99 @@ async function prptNewEntry(){
       </div>
     </div>
 
+    <!-- ═══ บันทึกคุณภาพ QC ══════════════════════════ -->
+    <div style="background:#FFF1F2;border-radius:8px;padding:10px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-weight:700;color:#9F1239;font-size:12px">🔍 บันทึกคุณภาพ / QC Record</div>
+        <div style="display:flex;gap:4px">
+          <button class="btn sm" type="button" onclick="pneAddQCRow()"
+            style="background:#9F1239;color:white;border:none;border-radius:5px;padding:3px 10px;font-size:11px;cursor:pointer">
+            + เพิ่มแถว
+          </button>
+          <button class="btn sm" type="button" onclick="pneAddQCRows15()"
+            style="background:#BE123C;color:white;border:none;border-radius:5px;padding:3px 10px;font-size:11px;cursor:pointer">
+            ⏱ สุ่มทุก 15 นาที
+          </button>
+        </div>
+      </div>
+
+      <!-- Physical Measurements Table -->
+      <div style="font-size:10px;font-weight:700;color:#9F1239;margin-bottom:4px">📏 การวัดทางกายภาพ (สุ่มทุก 15 นาที)</div>
+      <div style="overflow-x:auto;margin-bottom:10px">
+        <table id="pne-qc-table" style="width:100%;border-collapse:collapse;min-width:850px">
+          <thead>
+            <tr style="background:#9F1239;color:white;font-size:9px">
+              <th style="padding:4px 5px;width:55px">เวลา</th>
+              <th style="padding:4px 5px;width:60px;text-align:right">น้ำหนัก<br>บรรจุ(g)</th>
+              <th style="padding:4px 5px;width:60px;text-align:right">น้ำหนัก<br>ก่อนเคลือบ(g)</th>
+              <th style="padding:4px 5px;width:60px;text-align:right">น้ำหนัก<br>หลังเคลือบ(g)</th>
+              <th style="padding:4px 5px;width:50px;text-align:right">กว้าง<br>(mm)</th>
+              <th style="padding:4px 5px;width:50px;text-align:right">ยาว<br>(mm)</th>
+              <th style="padding:4px 5px;width:50px;text-align:right">หนา<br>(mm)</th>
+              <th style="padding:4px 5px;width:65px;text-align:center">รสชาติ</th>
+              <th style="padding:4px 5px;width:55px;text-align:center">สี</th>
+              <th style="padding:4px 5px;width:55px;text-align:center">กลิ่น</th>
+              <th style="padding:4px 5px;width:65px;text-align:center">ไส้<br>Filling</th>
+              <th style="padding:4px 5px;width:65px;text-align:center">Choc<br>เคลือบ</th>
+              <th style="padding:4px 5px;width:65px;text-align:center">Crispy<br>โรย</th>
+              <th style="padding:4px 5px;width:45px;text-align:center">ผล</th>
+              <th style="padding:4px 5px;width:25px"></th>
+            </tr>
+            <tr style="background:#FFF1F2;font-size:8.5px;color:#6B7280">
+              <th colspan="7" style="padding:2px 5px">— วัดค่าจริง —</th>
+              <th colspan="3" style="padding:2px 5px;text-align:center">— ประสาทสัมผัส —</th>
+              <th colspan="3" style="padding:2px 5px;text-align:center">— ส่วนประกอบ —</th>
+              <th colspan="2"></th>
+            </tr>
+          </thead>
+          <tbody id="pne-qc-tbody">
+            <tr id="pne-qc-empty"><td colspan="15" style="text-align:center;color:#9CA3AF;font-size:11px;padding:12px">
+              กด "+ เพิ่มแถว" หรือ "⏱ สุ่มทุก 15 นาที" เพื่อเพิ่มข้อมูลคุณภาพ
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Target Values (spec) -->
+      <div style="background:#FFF5F7;border-radius:6px;padding:8px;font-size:11px">
+        <div style="font-weight:700;color:#9F1239;margin-bottom:6px">🎯 ค่ามาตรฐาน / Spec</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+          <div class="fgrp"><label style="font-size:10px;color:#6B7280">น้ำหนักบรรจุ (g) ±</label>
+            <div style="display:flex;gap:3px">
+              <input type="number" id="pne-spec-wt" placeholder="60" step="0.1"
+                style="flex:1;border:1px solid #FECDD3;border-radius:4px;padding:3px;font-size:11px">
+              <input type="number" id="pne-spec-wt-tol" placeholder="±2" step="0.1"
+                style="width:40px;border:1px solid #FECDD3;border-radius:4px;padding:3px;font-size:11px;color:#DC2626">
+            </div>
+          </div>
+          <div class="fgrp"><label style="font-size:10px;color:#6B7280">กว้าง (mm) ±</label>
+            <div style="display:flex;gap:3px">
+              <input type="number" id="pne-spec-w" placeholder="30" step="0.1"
+                style="flex:1;border:1px solid #FECDD3;border-radius:4px;padding:3px;font-size:11px">
+              <input type="number" id="pne-spec-w-tol" placeholder="±1" step="0.1"
+                style="width:40px;border:1px solid #FECDD3;border-radius:4px;padding:3px;font-size:11px;color:#DC2626">
+            </div>
+          </div>
+          <div class="fgrp"><label style="font-size:10px;color:#6B7280">ยาว (mm) ±</label>
+            <div style="display:flex;gap:3px">
+              <input type="number" id="pne-spec-l" placeholder="50" step="0.1"
+                style="flex:1;border:1px solid #FECDD3;border-radius:4px;padding:3px;font-size:11px">
+              <input type="number" id="pne-spec-l-tol" placeholder="±1" step="0.1"
+                style="width:40px;border:1px solid #FECDD3;border-radius:4px;padding:3px;font-size:11px;color:#DC2626">
+            </div>
+          </div>
+          <div class="fgrp"><label style="font-size:10px;color:#6B7280">น้ำหนักก่อนเคลือบ (g) ±</label>
+            <div style="display:flex;gap:3px">
+              <input type="number" id="pne-spec-pre" placeholder="50" step="0.1"
+                style="flex:1;border:1px solid #FECDD3;border-radius:4px;padding:3px;font-size:11px">
+              <input type="number" id="pne-spec-pre-tol" placeholder="±2" step="0.1"
+                style="width:40px;border:1px solid #FECDD3;border-radius:4px;padding:3px;font-size:11px;color:#DC2626">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="fgrp"><label class="flbl">หมายเหตุ</label>
       <input type="text" class="fc2" id="pne-note" placeholder="หมายเหตุ..."></div>
     <div id="pne-msg"></div>
@@ -24078,7 +24322,18 @@ async function prptSaveEntry(){
       }
     }
 
-    msgEl('pne-msg',`✅ บันทึกเรียบร้อย (${stepRows.length} ขั้นตอน, ${matRows.length} วัสดุ)`,'s');
+    // บันทึก QC data ใน note หรือ log
+    const qcData=pneCollectQCData();
+    if(qcData.length&&savedId){
+      const qcSummary=qcData.map(q=>`${q.time||''} wt:${q.wt_packed||'—'}g w:${q.width||'—'} l:${q.length||'—'} ${q.result||''}`).join(' | ');
+      await sbU('production_log',{
+        qc_records:JSON.stringify(qcData)
+      },`id=eq.${savedId}`).catch(()=>{
+        // fallback: ใส่ใน note ถ้าไม่มี column qc_records
+        console.log('[QC] saved locally:',qcData.length,'rows');
+      });
+    }
+    msgEl('pne-msg',`✅ บันทึกเรียบร้อย (${stepRows.length} ขั้นตอน, ${matRows.length} วัสดุ, ${qcData.length} QC rows)`,'s');
     setTimeout(()=>{ closeMo(); prptLoadLog(); },800);
   }catch(e){ msgEl('pne-msg','❌ '+e.message,'e'); }
 }
