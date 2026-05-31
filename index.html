@@ -23858,8 +23858,14 @@ async function prptNewEntry(){
             <option value="afternoon">🌇 บ่าย</option>
             <option value="night">🌙 ดึก</option>
           </select></div>
-        <div class="fgrp"><label class="flbl">Batch No.</label>
-          <input type="number" class="fc2" id="pne-batch" value="1" min="1"></div>
+        <div class="fgrp">
+          <label class="flbl">Batch / แบทที่</label>
+          <select class="fc2" id="pne-batch">
+            <option value="1">Batch 1 (เลือก WO ก่อน)</option>
+          </select>
+          <div id="pne-batch-info" style="font-size:10px;margin-top:2px"></div>
+          <div id="pne-batch-kg-info" style="font-size:10px;color:#6B7280"></div>
+        </div>
         <div class="fgrp"><label class="flbl">เครื่องจักรหลัก</label>
           <select class="fc2" id="pne-machine">${machOpts}</select></div>
         <div class="fgrp"><label class="flbl">เวลาเริ่ม</label>
@@ -24042,10 +24048,16 @@ async function prptNewEntry(){
     <div class="fgrp"><label class="flbl">หมายเหตุ</label>
       <input type="text" class="fc2" id="pne-note" placeholder="หมายเหตุ..."></div>
     <div id="pne-msg"></div>
-    <button class="btn btnP" style="width:100%;margin-top:10px;padding:12px;font-size:13px"
-      type="button" onclick="prptSaveEntry()">
-      💾 บันทึกผลการผลิต (รวมทุกขั้นตอน)
-    </button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
+      <button class="btn btnS" style="padding:12px;font-size:13px"
+        type="button" onclick="prptPreviewEntry()">
+        👁 ตรวจสอบก่อนบันทึก
+      </button>
+      <button class="btn btnP" style="padding:12px;font-size:13px"
+        type="button" onclick="prptConfirmSave()">
+        💾 ยืนยันบันทึก
+      </button>
+    </div>
   `,{wide:true});
 
   // init select2-style mat opts cache
@@ -24054,9 +24066,51 @@ async function prptNewEntry(){
 
 let _pneStepCount=0, _pneMatCount=0;
 
-function pneLoadWO(){
+async function pneLoadWO(){
   const sel=document.getElementById('pne-wo');
   const opt=sel?.options[sel.selectedIndex];
+  if(!opt?.value) return;
+  const ppNo=opt.value;
+
+  // โหลด WO detail เพื่อดู num_batches
+  const wo=(await sbG('production_plan',{f:[`pp_no=eq.${ppNo}`],
+    s:'id,pp_no,num_batches,batch_kg,sku_code,product_name'}).catch(()=>[]))[0];
+  const nb=parseInt(wo?.num_batches)||1;
+
+  // โหลด batches ที่บันทึกไปแล้ว
+  const logged=await sbG('production_log',{f:[`pp_no=eq.${ppNo}`],
+    s:'batch_no'}).catch(()=>[]);
+  const loggedNos=new Set(logged.map(l=>parseInt(l.batch_no)||0));
+
+  // อัปเดต batch selector
+  const batchSel=document.getElementById('pne-batch');
+  if(batchSel){
+    if(nb>1){
+      batchSel.innerHTML='';
+      for(let i=1;i<=nb;i++){
+        const done=loggedNos.has(i);
+        const opt2=document.createElement('option');
+        opt2.value=i;
+        opt2.textContent=`Batch ${i}/${nb}${done?' ✅ บันทึกแล้ว':''}`;
+        if(done) opt2.style.color='#16a34a';
+        // เลือก batch แรกที่ยังไม่ได้บันทึก
+        if(!done&&!batchSel.value) batchSel.value=i;
+        batchSel.appendChild(opt2);
+      }
+      // wrap ใน div บอก status
+      const info=document.getElementById('pne-batch-info');
+      if(info){
+        const doneCount=loggedNos.size;
+        info.innerHTML=`<span style="font-size:10px;color:${doneCount>=nb?'#16a34a':'#D97706'}">
+          บันทึกแล้ว ${doneCount}/${nb} Batch${doneCount>=nb?' ✅ ครบแล้ว':''}</span>`;
+      }
+    }else{
+      batchSel.innerHTML='<option value="1">Batch 1/1</option>';
+    }
+  }
+  // แสดง batch_kg
+  const bkgEl=document.getElementById('pne-batch-kg-info');
+  if(bkgEl&&wo) bkgEl.textContent=`${wo.batch_kg||50} kg/batch`;
 }
 
 function pneAddStepRow(){
@@ -24229,7 +24283,66 @@ function pneCalcOEE(){
 
 function pneCalcQuality(){ pneCalcOEE(); }
 
+// ── Preview before save ──────────────────────────────────────
+async function prptPreviewEntry(){
+  const woPP=document.getElementById('pne-wo')?.value;
+  const batchNo=document.getElementById('pne-batch')?.value;
+  const actual=document.getElementById('pne-actual')?.value||0;
+  const good=document.getElementById('pne-good')?.value||0;
+  const oeeEl=document.getElementById('pne-oee-oee');
+  const oee=oeeEl?.textContent||'—';
+  const stepRows=[...document.querySelectorAll('#pne-step-tbody tr[id^="pne-sr-"]')];
+  const matRows=[...document.querySelectorAll('#pne-mat-tbody tr[id^="pne-mr-"]')];
+  const qcRows=[...document.querySelectorAll('#pne-qc-tbody tr[id^="pne-qr-"]')];
+  const ngQC=qcRows.filter(r=>r.querySelector('[id^="pne-qresult-"]')?.textContent?.includes('❌')).length;
+
+  if(!woPP){ alert('เลือก Work Order ก่อนครับ'); return; }
+
+  const confirm_html=`
+    <div style="background:#EFF6FF;border-radius:8px;padding:12px;margin-bottom:12px;font-size:12px">
+      <div style="font-weight:700;color:#1B3A5C;font-size:14px;margin-bottom:8px">
+        📋 สรุปข้อมูลที่จะบันทึก
+      </div>
+      <table style="width:100%;font-size:12px;border-collapse:collapse">
+        <tr><td style="padding:3px 8px;color:#6B7280;width:40%">Work Order</td>
+            <td style="font-weight:700;color:#1B3A5C">${woPP}</td></tr>
+        <tr><td style="padding:3px 8px;color:#6B7280">Batch</td>
+            <td style="font-weight:700">${batchNo||'1'}</td></tr>
+        <tr><td style="padding:3px 8px;color:#6B7280">ผลิตได้</td>
+            <td style="font-weight:700;color:#2563EB">${actual} หน่วย</td></tr>
+        <tr><td style="padding:3px 8px;color:#6B7280">QC Pass</td>
+            <td style="font-weight:700;color:#16a34a">${good} หน่วย</td></tr>
+        <tr><td style="padding:3px 8px;color:#6B7280">OEE</td>
+            <td style="font-weight:700;color:#7C3AED">${oee}</td></tr>
+        <tr><td style="padding:3px 8px;color:#6B7280">ขั้นตอน</td>
+            <td>${stepRows.length} ขั้นตอน</td></tr>
+        <tr><td style="padding:3px 8px;color:#6B7280">วัสดุ</td>
+            <td>${matRows.length} รายการ</td></tr>
+        <tr><td style="padding:3px 8px;color:#6B7280">QC Samples</td>
+            <td>${qcRows.length} แถว ${ngQC>0?`<span style="color:#DC2626">⚠️ NG: ${ngQC}</span>`:''}</td></tr>
+      </table>
+    </div>
+    <div style="font-size:12px;color:#6B7280;margin-bottom:12px">
+      ตรวจสอบข้อมูลด้านบนแล้ว กด ✅ ยืนยันบันทึก หรือ ✏️ กลับแก้ไข
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <button class="btn btnS" style="padding:10px" onclick="closeMo()">
+        ✏️ กลับแก้ไข
+      </button>
+      <button class="btn btnP" style="padding:10px;font-size:13px" onclick="prptSaveEntry()">
+        ✅ ยืนยันบันทึก
+      </button>
+    </div>`;
+
+  openMo('✅ ยืนยันการบันทึก', confirm_html);
+}
+
+function prptConfirmSave(){
+  prptPreviewEntry();
+}
+
 async function prptSaveEntry(){
+
   const woPP=document.getElementById('pne-wo')?.value;
   if(!woPP){ msgEl('pne-msg','เลือก Work Order ก่อน','e'); return; }
   msgEl('pne-msg','<span class="spin"></span> กำลังบันทึก...','i');
@@ -24393,48 +24506,109 @@ async function prptViewEntry(id){
 }
 
 async function prptEditEntry(id){
-  // Simple: เปิด OEE log form ด้วย record นี้
   const l=(await sbG('production_log',{f:[`id=eq.${id}`]}).catch(()=>[]))[0];
   if(!l){ alert('ไม่พบบันทึก'); return; }
-  openMo(`✏️ แก้ไขบันทึก — ${l.pp_no}`,`
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="fgrp"><label class="flbl">ผลิตได้จริง</label>
-        <input type="number" class="fc2" id="ped-actual" value="${l.actual_qty||0}"></div>
-      <div class="fgrp"><label class="flbl">ดี / QC Pass</label>
-        <input type="number" class="fc2" id="ped-good" value="${l.good_qty||0}"></div>
-      <div class="fgrp"><label class="flbl">Reject</label>
+  const toLocal=dt=>dt?new Date(dt).toISOString().slice(0,16):'';
+  openMo(`✏️ แก้ไขบันทึก — ${l.pp_no} Batch ${l.batch_no||1}`,`
+    <div style="background:#EFF6FF;border-radius:8px;padding:8px;margin-bottom:10px;font-size:11px">
+      <b>${l.product_name||l.sku_code}</b> | ${l.plan_date||''} | กะ: ${l.shift||'—'}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="fgrp"><label class="flbl">🕐 เวลาเริ่ม</label>
+        <input type="datetime-local" class="fc2" id="ped-start" value="${toLocal(l.start_time)}"></div>
+      <div class="fgrp"><label class="flbl">🕐 เวลาสิ้นสุด</label>
+        <input type="datetime-local" class="fc2" id="ped-end" value="${toLocal(l.end_time)}"></div>
+      <div class="fgrp"><label class="flbl">กะ</label>
+        <select class="fc2" id="ped-shift">
+          <option value="morning" ${l.shift==='morning'?'selected':''}>🌤️ เช้า</option>
+          <option value="afternoon" ${l.shift==='afternoon'?'selected':''}>🌇 บ่าย</option>
+          <option value="night" ${l.shift==='night'?'selected':''}>🌙 ดึก</option>
+        </select></div>
+      <div class="fgrp"><label class="flbl">เครื่องจักร</label>
+        <input type="text" class="fc2" id="ped-machine" value="${l.machine_code||''}"></div>
+      <div class="fgrp"><label class="flbl">📥 แผนผลิต</label>
+        <input type="number" class="fc2" id="ped-plan" value="${l.plan_qty||0}"></div>
+      <div class="fgrp"><label class="flbl">📦 ผลิตได้จริง</label>
+        <input type="number" class="fc2" id="ped-actual" value="${l.actual_qty||0}" oninput="pedCalcOEE()"></div>
+      <div class="fgrp"><label class="flbl">✅ ดี / QC Pass</label>
+        <input type="number" class="fc2" id="ped-good" value="${l.good_qty||0}" oninput="pedCalcOEE()"></div>
+      <div class="fgrp"><label class="flbl">❌ Reject</label>
         <input type="number" class="fc2" id="ped-reject" value="${l.reject_qty||0}"></div>
-      <div class="fgrp"><label class="flbl">Downtime (นาที)</label>
+      <div class="fgrp"><label class="flbl">⏱ Planned Time (นาที)</label>
+        <input type="number" class="fc2" id="ped-planned" value="${l.planned_production_min||480}" oninput="pedCalcOEE()"></div>
+      <div class="fgrp"><label class="flbl">▶ Run Time (นาที)</label>
+        <input type="number" class="fc2" id="ped-runtime" value="${l.run_time_min||0}" oninput="pedCalcOEE()"></div>
+      <div class="fgrp"><label class="flbl">⏸ Downtime (นาที)</label>
         <input type="number" class="fc2" id="ped-downtime" value="${l.downtime_min||0}"></div>
       <div class="fgrp"><label class="flbl">สาเหตุ Downtime</label>
         <input type="text" class="fc2" id="ped-reason" value="${l.downtime_reason||''}"></div>
-      <div class="fgrp"><label class="flbl">OEE% (คำนวณใหม่)</label>
-        <input type="number" class="fc2" id="ped-oee" value="${fmt(l.oee_pct||0,1)}" step="0.1"></div>
     </div>
-    <div class="fgrp"><label class="flbl">หมายเหตุ</label>
+    <!-- OEE recalc preview -->
+    <div id="ped-oee-preview" style="background:#F5F3FF;border-radius:6px;padding:8px;margin:8px 0;
+      display:grid;grid-template-columns:repeat(4,1fr);gap:6px;font-size:11px">
+      <div style="text-align:center"><div style="color:#7C3AED;font-size:9px">Availability</div>
+        <div id="ped-avail" style="font-weight:800">${fmt(l.availability_pct||0,1)}%</div></div>
+      <div style="text-align:center"><div style="color:#7C3AED;font-size:9px">Performance</div>
+        <div id="ped-perf" style="font-weight:800">${fmt(l.performance_pct||0,1)}%</div></div>
+      <div style="text-align:center"><div style="color:#7C3AED;font-size:9px">Quality</div>
+        <div id="ped-qual" style="font-weight:800">${fmt(l.quality_pct||0,1)}%</div></div>
+      <div style="text-align:center"><div style="color:#7C3AED;font-size:9px">OEE</div>
+        <div id="ped-oee" style="font-weight:800;font-size:15px;color:#7C3AED">${fmt(l.oee_pct||0,1)}%</div></div>
+    </div>
+    <div class="fgrp"><label class="flbl">📝 หมายเหตุ</label>
       <input type="text" class="fc2" id="ped-note" value="${l.note||''}"></div>
     <div id="ped-msg"></div>
-    <button class="btn btnP" style="width:100%;margin-top:10px"
-      onclick="prptUpdateEntry(${id})">💾 บันทึก</button>`);
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
+      <button class="btn btnS" onclick="closeMo()">✕ ยกเลิก</button>
+      <button class="btn btnP" onclick="prptUpdateEntry(${id})">💾 บันทึกการแก้ไข</button>
+    </div>
+    <button class="btn btnN sm" style="width:100%;margin-top:6px"
+      onclick="prptViewSteps(${id},'${l.pp_no}')">🔧 แก้ไขขั้นตอนการผลิต</button>`);
+}
+
+function pedCalcOEE(){
+  const v=id=>parseFloat(document.getElementById(id)?.value)||0;
+  const planned=v('ped-planned'), runtime=v('ped-runtime');
+  const actual=v('ped-actual'), good=v('ped-good');
+  if(!planned) return;
+  const avail=Math.min(100,runtime/planned*100);
+  const perf=planned>0?Math.min(100,actual/planned*100):100;
+  const qual=actual>0?Math.min(100,good/actual*100):100;
+  const oee=avail*perf*qual/10000;
+  document.getElementById('ped-avail').textContent=fmt(avail,1)+'%';
+  document.getElementById('ped-perf').textContent=fmt(perf,1)+'%';
+  document.getElementById('ped-qual').textContent=fmt(qual,1)+'%';
+  const oeeEl=document.getElementById('ped-oee');
+  oeeEl.textContent=fmt(oee,1)+'%';
+  oeeEl.style.color=oee>=85?'#16a34a':oee>=65?'#D97706':'#DC2626';
 }
 
 async function prptUpdateEntry(id){
-  const actual=parseFloat(document.getElementById('ped-actual')?.value)||0;
-  const good  =parseFloat(document.getElementById('ped-good')?.value)||0;
-  const reject=parseFloat(document.getElementById('ped-reject')?.value)||0;
-  const dt    =parseFloat(document.getElementById('ped-downtime')?.value)||0;
-  const reason=document.getElementById('ped-reason')?.value||'';
-  const oee   =parseFloat(document.getElementById('ped-oee')?.value)||0;
-  const note  =document.getElementById('ped-note')?.value||'';
+  const v=eid=>document.getElementById(eid)?.value||'';
+  const n=eid=>parseFloat(document.getElementById(eid)?.value)||0;
+  const actual=n('ped-actual'), good=n('ped-good'), reject=n('ped-reject');
+  const planned=n('ped-planned'), runtime=n('ped-runtime'), dt=n('ped-downtime');
+  const avail=planned>0?Math.min(100,runtime/planned*100):0;
+  const perf=planned>0?Math.min(100,actual/planned*100):100;
+  const qual=actual>0?Math.min(100,good/actual*100):100;
+  const oee=avail*perf*qual/10000;
+  const startV=v('ped-start'), endV=v('ped-end');
   msgEl('ped-msg','<span class="spin"></span> Saving...','i');
   try{
-    const qual=actual>0?good/actual*100:0;
     await sbU('production_log',{
-      actual_qty:actual,good_qty:good,reject_qty:reject,
-      yield_pct:qual, downtime_min:dt, downtime_reason:reason,
-      quality_pct:qual, oee_pct:oee, note
+      start_time:startV?new Date(startV).toISOString():null,
+      end_time:endV?new Date(endV).toISOString():null,
+      shift:v('ped-shift'), machine_code:v('ped-machine'),
+      plan_qty:n('ped-plan'), actual_qty:actual,
+      good_qty:good, reject_qty:reject,
+      planned_production_min:planned, run_time_min:runtime,
+      downtime_min:dt, downtime_reason:v('ped-reason'),
+      yield_pct:qual, availability_pct:avail,
+      performance_pct:perf, quality_pct:qual, oee_pct:oee,
+      note:v('ped-note')
     },`id=eq.${id}`);
-    msgEl('ped-msg','✅ Updated','s');
+    msgEl('ped-msg','✅ อัปเดตเรียบร้อย','s');
+    await logA('UPDATE','production',`แก้ไขบันทึก log#${id}`,`log:${id}`);
     setTimeout(()=>{ closeMo(); prptLoadLog(); },500);
   }catch(e){ msgEl('ped-msg','❌ '+e.message,'e'); }
 }
