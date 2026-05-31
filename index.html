@@ -15586,6 +15586,21 @@ async function buildHolidayHTML(yr){
 }
 
 
+async function prptDeleteEntry(id, ppNo){
+  if(!confirm(`ลบบันทึกการผลิต ${ppNo} (ID:${id}) ?\n\nข้อมูลที่จะถูกลบ:\n• บันทึกหลัก production_log\n• ขั้นตอนการผลิต prod_log_steps\n• วัสดุที่ใช้ prod_log_step_materials\n• ข้อมูล QC\n\nไม่สามารถกู้คืนได้!`)) return;
+  try{
+    // ลบ materials + QC ก่อน
+    await sbD('prod_log_step_materials',`log_id=eq.${id}`).catch(()=>{});
+    // ลบ steps
+    await sbD('prod_log_steps',`log_id=eq.${id}`).catch(()=>{});
+    // ลบ production_log
+    await sbD('production_log',`id=eq.${id}`);
+    await logA('DELETE','production',`ลบบันทึกการผลิต log#${id} ${ppNo}`,ppNo);
+    // reload
+    prptLoadLog();
+  }catch(e){ alert('❌ ลบไม่สำเร็จ: '+e.message); }
+}
+
 function prptBuildLogTable(logs){
   return `<table style="min-width:900px;width:100%;border-collapse:collapse">
     <thead><tr style="background:#1B3A5C">
@@ -24449,16 +24464,21 @@ async function prptSaveEntry(){
       }
     }
 
-    // บันทึก QC data ใน note หรือ log
+    // บันทึก QC data ใน prod_log_step_materials (step_id=0, step_name='__QC__')
     const qcData=pneCollectQCData();
-    if(qcData.length&&savedId){
-      const qcSummary=qcData.map(q=>`${q.time||''} wt:${q.wt_packed||'—'}g w:${q.width||'—'} l:${q.length||'—'} ${q.result||''}`).join(' | ');
-      await sbU('production_log',{
-        qc_records:JSON.stringify(qcData)
-      },`id=eq.${savedId}`).catch(()=>{
-        // fallback: ใส่ใน note ถ้าไม่มี column qc_records
-        console.log('[QC] saved locally:',qcData.length,'rows');
-      });
+    const stepsOK2=await checkStepsTable();
+    if(qcData.length&&savedId&&stepsOK2){
+      // ลบ QC rows เก่าก่อน (ถ้ามี)
+      await sbD('prod_log_step_materials',`log_id=eq.${savedId}&step_name=eq.__QC__`).catch(()=>{});
+      // insert ใหม่
+      for(const q of qcData){
+        await sbP('prod_log_step_materials',{
+          step_id:0, log_id:savedId, pp_no:woPP, step_name:'__QC__',
+          material_code:q.time||'',
+          material_name:JSON.stringify(q),
+          planned_qty:0, used_qty:0, remaining_qty:0, waste_qty:0, unit:'qc'
+        }).catch(()=>{});
+      }
     }
     msgEl('pne-msg',`✅ บันทึกเรียบร้อย (${stepRows.length} ขั้นตอน, ${matRows.length} วัสดุ, ${qcData.length} QC rows)`,'s');
     setTimeout(()=>{ closeMo(); prptLoadLog(); },800);
@@ -24516,8 +24536,13 @@ async function prptEditEntry(id){
     `<option value="${i+1}" ${parseInt(l.batch_no)===i+1?'selected':''}>Batch ${i+1}/${nb}</option>`
   ).join('');
   // โหลด QC data จาก note หรือ qc_records
+  // โหลด QC data จาก prod_log_step_materials
+  const allMatsEdit=await sbG('prod_log_step_materials',{
+    f:[`log_id=eq.${id}`], lim:500}).catch(()=>[]);
+  const qcRawEdit=allMatsEdit.filter(m=>m.step_name==='__QC__');
   let qcRows=[];
-  try{ if(l.qc_records) qcRows=JSON.parse(l.qc_records); }catch(e){}
+  qcRawEdit.forEach(r=>{ try{ qcRows.push(JSON.parse(r.material_name||'{}')); }catch(e){} });
+  if(!qcRows.length){ try{ if(l.qc_records) qcRows=JSON.parse(l.qc_records); }catch(e){} }
   const toLocal=dt=>dt?new Date(dt).toISOString().slice(0,16):'';
 
   openMo(`✏️ แก้ไขบันทึก — ${l.pp_no}`,`
@@ -24831,8 +24856,19 @@ async function prptUpdateEntry(id){
       performance_pct:perf, quality_pct:qual, oee_pct:oee,
       note:v('ped-note')
     };
-    if(qcData.length) updateData.qc_records=JSON.stringify(qcData);
     await sbU('production_log', updateData, `id=eq.${id}`);
+    // บันทึก QC data
+    const stepsOKed=await checkStepsTable();
+    if(qcData.length&&stepsOKed){
+      await sbD('prod_log_step_materials',`log_id=eq.${id}&step_name=eq.__QC__`).catch(()=>{});
+      for(const q of qcData){
+        await sbP('prod_log_step_materials',{
+          step_id:0, log_id:id, pp_no:updateData.pp_no||'', step_name:'__QC__',
+          material_code:q.time||'', material_name:JSON.stringify(q),
+          planned_qty:0,used_qty:0,remaining_qty:0,waste_qty:0,unit:'qc'
+        }).catch(()=>{});
+      }
+    }
     msgEl('ped-msg',`✅ อัปเดตเรียบร้อย (QC: ${qcData.length} แถว)`,'s');
     await logA('UPDATE','production',`แก้ไขบันทึก log#${id} Batch${batchNo}`,`log:${id}`);
     setTimeout(()=>{ closeMo(); prptLoadLog(); },500);
@@ -25141,14 +25177,19 @@ function prptPrintOEE(){
 }
 
 async function prptPrintEntry(id){
-  const [logArr, steps, mats] = await Promise.all([
+  const [logArr, steps, allMats] = await Promise.all([
     sbG('production_log',{f:[`id=eq.${id}`]}).catch(()=>[]),
     sbG('prod_log_steps',{f:[`log_id=eq.${id}`],ord:'step_no.asc'}).catch(()=>[]),
-    sbG('prod_log_step_materials',{f:[`log_id=eq.${id}`],ord:'step_id.asc'}).catch(()=>[])
+    sbG('prod_log_step_materials',{f:[`log_id=eq.${id}`],ord:'step_id.asc,id.asc'}).catch(()=>[])
   ]);
   const l=logArr[0]||{};
+  // แยก QC rows ออกจาก materials จริง
+  const mats=allMats.filter(m=>m.step_name!=='__QC__');
+  const qcRawRows=allMats.filter(m=>m.step_name==='__QC__');
   let qcRows=[];
-  try{ if(l.qc_records) qcRows=JSON.parse(l.qc_records); }catch(e){}
+  qcRawRows.forEach(r=>{ try{ qcRows.push(JSON.parse(r.material_name||'{}')); }catch(e){} });
+  // fallback: ลอง parse จาก qc_records field ถ้ามี
+  if(!qcRows.length){ try{ if(l.qc_records) qcRows=JSON.parse(l.qc_records); }catch(e){} }
 
   const printDate=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
   const oeeColor=c=>c>=85?'green':c>=65?'orange':'red';
