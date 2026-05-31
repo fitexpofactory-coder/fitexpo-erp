@@ -23813,6 +23813,19 @@ async function prptLoadLog(){
 }
 
 // ── New Entry / Edit ──────────────────────────────────────────
+const STEP_NAMES = [
+  '🧪 ผสมส่วนผสม / Mixing',
+  '⚙️ ขึ้นรูป / Forming',
+  '✂️ ตัด / Cutting',
+  '🍫 เคลือบ / Coating',
+  '📦 บรรจุ / Packing',
+  '🔥 อบ / Baking',
+  '❄️ แช่เย็น / Cooling',
+  '🔍 ตรวจสอบ / QC Inspection',
+  '🏷️ ติดฉลาก / Labeling',
+  '📋 อื่นๆ / Other'
+];
+
 async function prptNewEntry(){
   const today=new Date().toISOString().slice(0,10);
   const nowDT=new Date().toISOString().slice(0,16);
@@ -24246,7 +24259,7 @@ async function prptSaveEntry(){
 
   msgEl('pne-msg','<span class="spin"></span> Saving...','i');
   try{
-    await sbP('production_log',{
+    const savedLog = await sbP('production_log',{
       pp_no:woPP, sku_code:skuCode, product_name:prodName,
       batch_no:batchNo,
       plan_date:startTime?.slice(0,10)||new Date().toISOString().slice(0,10),
@@ -24264,6 +24277,7 @@ async function prptSaveEntry(){
       quality_pct:qual, oee_pct:oee,
       note, recorded_by:CU?.full_name||'', status:'completed'
     });
+    const savedId = Array.isArray(savedLog) ? (savedLog[0]?.id||0) : (savedLog?.id||0);
     await logA('CREATE','production',`บันทึกผลผลิต ${woPP} Batch${batchNo}: ${actual} units OEE:${fmt(oee,1)}%`,woPP);
 
     // บันทึก Steps
@@ -24771,18 +24785,7 @@ async function prptPrintEntry(id){
 //  PRODUCTION STEPS — บันทึกรายละเอียดขั้นตอนการผลิต
 // ════════════════════════════════════════════════════════════
 
-const STEP_NAMES = [
-  '🧪 ผสมส่วนผสม / Mixing',
-  '⚙️ ขึ้นรูป / Forming',
-  '✂️ ตัด / Cutting',
-  '🍫 เคลือบ / Coating',
-  '📦 บรรจุ / Packing',
-  '🔥 อบ / Baking',
-  '❄️ แช่เย็น / Cooling',
-  '🔍 ตรวจสอบ / QC Inspection',
-  '🏷️ ติดฉลาก / Labeling',
-  '📋 อื่นๆ / Other'
-];
+
 
 let _stepsTableOK = null;
 
