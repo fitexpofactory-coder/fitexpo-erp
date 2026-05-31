@@ -24508,63 +24508,263 @@ async function prptViewEntry(id){
 async function prptEditEntry(id){
   const l=(await sbG('production_log',{f:[`id=eq.${id}`]}).catch(()=>[]))[0];
   if(!l){ alert('ไม่พบบันทึก'); return; }
+  // โหลด batch list ของ WO
+  const wo=(await sbG('production_plan',{
+    f:[`pp_no=eq.${l.pp_no}`],s:'num_batches'}).catch(()=>[]))[0];
+  const nb=parseInt(wo?.num_batches)||1;
+  const batchOpts=Array.from({length:nb},(_,i)=>
+    `<option value="${i+1}" ${parseInt(l.batch_no)===i+1?'selected':''}>Batch ${i+1}/${nb}</option>`
+  ).join('');
+  // โหลด QC data จาก note หรือ qc_records
+  let qcRows=[];
+  try{ if(l.qc_records) qcRows=JSON.parse(l.qc_records); }catch(e){}
   const toLocal=dt=>dt?new Date(dt).toISOString().slice(0,16):'';
-  openMo(`✏️ แก้ไขบันทึก — ${l.pp_no} Batch ${l.batch_no||1}`,`
+
+  openMo(`✏️ แก้ไขบันทึก — ${l.pp_no}`,`
+    <!-- Header info -->
     <div style="background:#EFF6FF;border-radius:8px;padding:8px;margin-bottom:10px;font-size:11px">
-      <b>${l.product_name||l.sku_code}</b> | ${l.plan_date||''} | กะ: ${l.shift||'—'}
+      <b>${l.product_name||l.sku_code}</b> | ${l.plan_date||''}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <div class="fgrp"><label class="flbl">🕐 เวลาเริ่ม</label>
-        <input type="datetime-local" class="fc2" id="ped-start" value="${toLocal(l.start_time)}"></div>
-      <div class="fgrp"><label class="flbl">🕐 เวลาสิ้นสุด</label>
-        <input type="datetime-local" class="fc2" id="ped-end" value="${toLocal(l.end_time)}"></div>
-      <div class="fgrp"><label class="flbl">กะ</label>
-        <select class="fc2" id="ped-shift">
-          <option value="morning" ${l.shift==='morning'?'selected':''}>🌤️ เช้า</option>
-          <option value="afternoon" ${l.shift==='afternoon'?'selected':''}>🌇 บ่าย</option>
-          <option value="night" ${l.shift==='night'?'selected':''}>🌙 ดึก</option>
-        </select></div>
-      <div class="fgrp"><label class="flbl">เครื่องจักร</label>
-        <input type="text" class="fc2" id="ped-machine" value="${l.machine_code||''}"></div>
-      <div class="fgrp"><label class="flbl">📥 แผนผลิต</label>
-        <input type="number" class="fc2" id="ped-plan" value="${l.plan_qty||0}"></div>
-      <div class="fgrp"><label class="flbl">📦 ผลิตได้จริง</label>
-        <input type="number" class="fc2" id="ped-actual" value="${l.actual_qty||0}" oninput="pedCalcOEE()"></div>
-      <div class="fgrp"><label class="flbl">✅ ดี / QC Pass</label>
-        <input type="number" class="fc2" id="ped-good" value="${l.good_qty||0}" oninput="pedCalcOEE()"></div>
-      <div class="fgrp"><label class="flbl">❌ Reject</label>
-        <input type="number" class="fc2" id="ped-reject" value="${l.reject_qty||0}"></div>
-      <div class="fgrp"><label class="flbl">⏱ Planned Time (นาที)</label>
-        <input type="number" class="fc2" id="ped-planned" value="${l.planned_production_min||480}" oninput="pedCalcOEE()"></div>
-      <div class="fgrp"><label class="flbl">▶ Run Time (นาที)</label>
-        <input type="number" class="fc2" id="ped-runtime" value="${l.run_time_min||0}" oninput="pedCalcOEE()"></div>
-      <div class="fgrp"><label class="flbl">⏸ Downtime (นาที)</label>
-        <input type="number" class="fc2" id="ped-downtime" value="${l.downtime_min||0}"></div>
-      <div class="fgrp"><label class="flbl">สาเหตุ Downtime</label>
-        <input type="text" class="fc2" id="ped-reason" value="${l.downtime_reason||''}"></div>
+
+    <!-- Tabs -->
+    <div class="ftabs mb3" id="ped-tabs" style="font-size:11px">
+      <div class="ftab on" onclick="pedTab('main')">📋 ข้อมูลหลัก</div>
+      <div class="ftab" onclick="pedTab('qc')">🔍 QC / ขนาด</div>
     </div>
-    <!-- OEE recalc preview -->
-    <div id="ped-oee-preview" style="background:#F5F3FF;border-radius:6px;padding:8px;margin:8px 0;
-      display:grid;grid-template-columns:repeat(4,1fr);gap:6px;font-size:11px">
-      <div style="text-align:center"><div style="color:#7C3AED;font-size:9px">Availability</div>
-        <div id="ped-avail" style="font-weight:800">${fmt(l.availability_pct||0,1)}%</div></div>
-      <div style="text-align:center"><div style="color:#7C3AED;font-size:9px">Performance</div>
-        <div id="ped-perf" style="font-weight:800">${fmt(l.performance_pct||0,1)}%</div></div>
-      <div style="text-align:center"><div style="color:#7C3AED;font-size:9px">Quality</div>
-        <div id="ped-qual" style="font-weight:800">${fmt(l.quality_pct||0,1)}%</div></div>
-      <div style="text-align:center"><div style="color:#7C3AED;font-size:9px">OEE</div>
-        <div id="ped-oee" style="font-weight:800;font-size:15px;color:#7C3AED">${fmt(l.oee_pct||0,1)}%</div></div>
+
+    <!-- Main Tab -->
+    <div id="ped-tab-main">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="fgrp"><label class="flbl">Batch No.</label>
+          <select class="fc2" id="ped-batch">${batchOpts}</select></div>
+        <div class="fgrp"><label class="flbl">กะ / Shift</label>
+          <select class="fc2" id="ped-shift">
+            <option value="morning" ${l.shift==='morning'?'selected':''}>🌤️ เช้า</option>
+            <option value="afternoon" ${l.shift==='afternoon'?'selected':''}>🌇 บ่าย</option>
+            <option value="night" ${l.shift==='night'?'selected':''}>🌙 ดึก</option>
+          </select></div>
+        <div class="fgrp"><label class="flbl">เวลาเริ่ม</label>
+          <input type="datetime-local" class="fc2" id="ped-start" value="${toLocal(l.start_time)}"></div>
+        <div class="fgrp"><label class="flbl">เวลาสิ้นสุด</label>
+          <input type="datetime-local" class="fc2" id="ped-end" value="${toLocal(l.end_time)}"></div>
+        <div class="fgrp"><label class="flbl">เครื่องจักร</label>
+          <input type="text" class="fc2" id="ped-machine" value="${l.machine_code||''}"></div>
+        <div class="fgrp"><label class="flbl">แผนผลิต</label>
+          <input type="number" class="fc2" id="ped-plan" value="${l.plan_qty||0}"></div>
+        <div class="fgrp"><label class="flbl">📦 ผลิตได้จริง</label>
+          <input type="number" class="fc2" id="ped-actual" value="${l.actual_qty||0}" oninput="pedCalcOEE()"></div>
+        <div class="fgrp"><label class="flbl">✅ ดี/QC Pass</label>
+          <input type="number" class="fc2" id="ped-good" value="${l.good_qty||0}" oninput="pedCalcOEE()"></div>
+        <div class="fgrp"><label class="flbl">❌ Reject</label>
+          <input type="number" class="fc2" id="ped-reject" value="${l.reject_qty||0}"></div>
+        <div class="fgrp"><label class="flbl">Planned (นาที)</label>
+          <input type="number" class="fc2" id="ped-planned" value="${l.planned_production_min||480}" oninput="pedCalcOEE()"></div>
+        <div class="fgrp"><label class="flbl">Run Time (นาที)</label>
+          <input type="number" class="fc2" id="ped-runtime" value="${l.run_time_min||0}" oninput="pedCalcOEE()"></div>
+        <div class="fgrp"><label class="flbl">Downtime (นาที)</label>
+          <input type="number" class="fc2" id="ped-downtime" value="${l.downtime_min||0}"></div>
+        <div class="fgrp"><label class="flbl">สาเหตุ Downtime</label>
+          <input type="text" class="fc2" id="ped-reason" value="${l.downtime_reason||''}"></div>
+      </div>
+      <div style="background:#F5F3FF;border-radius:6px;padding:8px;margin:8px 0;
+        display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+        ${['avail','perf','qual','oee'].map((k,i)=>`
+          <div style="text-align:center">
+            <div style="font-size:9px;color:#7C3AED">${['Avail','Perf','Quality','OEE'][i]}</div>
+            <div id="ped-${k}" style="font-weight:800;font-size:14px">${fmt(l[['availability_pct','performance_pct','quality_pct','oee_pct'][i]]||0,1)}%</div>
+          </div>`).join('')}
+      </div>
+      <div class="fgrp"><label class="flbl">หมายเหตุ</label>
+        <input type="text" class="fc2" id="ped-note" value="${l.note||''}"></div>
+      <button class="btn btnN sm" style="width:100%;margin-top:6px"
+        onclick="prptViewSteps(${id},'${l.pp_no}')">🔧 แก้ไขขั้นตอนการผลิต</button>
     </div>
-    <div class="fgrp"><label class="flbl">📝 หมายเหตุ</label>
-      <input type="text" class="fc2" id="ped-note" value="${l.note||''}"></div>
-    <div id="ped-msg"></div>
+
+    <!-- QC Tab -->
+    <div id="ped-tab-qc" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:12px;font-weight:700;color:#9F1239">🔍 QC / การวัดขนาด</div>
+        <div style="display:flex;gap:4px">
+          <button class="btn sm" type="button" onclick="pedAddQCRow()"
+            style="background:#9F1239;color:white;border:none;border-radius:5px;padding:3px 9px;font-size:11px;cursor:pointer">
+            + เพิ่มแถว
+          </button>
+        </div>
+      </div>
+      <!-- Spec row -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px;
+        background:#FFF5F7;border-radius:6px;padding:8px;font-size:10px">
+        <div><label style="color:#9F1239">น้ำหนักบรรจุ ±(g)</label>
+          <div style="display:flex;gap:3px">
+            <input type="number" id="ped-spec-wt" placeholder="60"
+              style="flex:1;border:1px solid #FECDD3;border-radius:3px;padding:2px;font-size:10px">
+            <input type="number" id="ped-spec-wt-tol" placeholder="±2"
+              style="width:38px;border:1px solid #FECDD3;border-radius:3px;padding:2px;font-size:10px;color:#DC2626">
+          </div>
+        </div>
+        <div><label style="color:#9F1239">กว้าง ±(mm)</label>
+          <div style="display:flex;gap:3px">
+            <input type="number" id="ped-spec-w" placeholder="30"
+              style="flex:1;border:1px solid #FECDD3;border-radius:3px;padding:2px;font-size:10px">
+            <input type="number" id="ped-spec-w-tol" placeholder="±1"
+              style="width:38px;border:1px solid #FECDD3;border-radius:3px;padding:2px;font-size:10px;color:#DC2626">
+          </div>
+        </div>
+        <div><label style="color:#9F1239">ยาว ±(mm)</label>
+          <div style="display:flex;gap:3px">
+            <input type="number" id="ped-spec-l" placeholder="50"
+              style="flex:1;border:1px solid #FECDD3;border-radius:3px;padding:2px;font-size:10px">
+            <input type="number" id="ped-spec-l-tol" placeholder="±1"
+              style="width:38px;border:1px solid #FECDD3;border-radius:3px;padding:2px;font-size:10px;color:#DC2626">
+          </div>
+        </div>
+        <div><label style="color:#9F1239">ก่อนเคลือบ ±(g)</label>
+          <div style="display:flex;gap:3px">
+            <input type="number" id="ped-spec-pre" placeholder="48"
+              style="flex:1;border:1px solid #FECDD3;border-radius:3px;padding:2px;font-size:10px">
+            <input type="number" id="ped-spec-pre-tol" placeholder="±2"
+              style="width:38px;border:1px solid #FECDD3;border-radius:3px;padding:2px;font-size:10px;color:#DC2626">
+          </div>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table id="ped-qc-table" style="width:100%;border-collapse:collapse;min-width:750px">
+          <thead><tr style="background:#9F1239;color:white;font-size:9px">
+            <th style="padding:3px 5px;width:52px">เวลา</th>
+            <th style="padding:3px 5px;width:55px;text-align:right">บรรจุ(g)</th>
+            <th style="padding:3px 5px;width:55px;text-align:right">ก่อนเคลือบ(g)</th>
+            <th style="padding:3px 5px;width:55px;text-align:right">หลังเคลือบ(g)</th>
+            <th style="padding:3px 5px;width:48px;text-align:right">กว้าง(mm)</th>
+            <th style="padding:3px 5px;width:48px;text-align:right">ยาว(mm)</th>
+            <th style="padding:3px 5px;width:48px;text-align:right">หนา(mm)</th>
+            <th style="padding:3px 5px;width:60px;text-align:center">รสชาติ</th>
+            <th style="padding:3px 5px;width:50px;text-align:center">สี</th>
+            <th style="padding:3px 5px;width:50px;text-align:center">กลิ่น</th>
+            <th style="padding:3px 5px;width:60px;text-align:center">Filling</th>
+            <th style="padding:3px 5px;width:55px;text-align:center">Choc</th>
+            <th style="padding:3px 5px;width:55px;text-align:center">Crispy</th>
+            <th style="padding:3px 5px;width:40px;text-align:center">ผล</th>
+            <th style="padding:3px 5px;width:22px"></th>
+          </tr></thead>
+          <tbody id="ped-qc-tbody">
+            ${qcRows.length?
+              qcRows.map((_,i)=>`<tr id="ped-qr-placeholder-${i}"></tr>`).join('')
+              :'<tr id="ped-qc-empty"><td colspan="15" style="text-align:center;color:#9CA3AF;font-size:11px;padding:12px">ยังไม่มีข้อมูล QC — กด + เพิ่มแถว</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="ped-msg" style="margin-top:8px"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
       <button class="btn btnS" onclick="closeMo()">✕ ยกเลิก</button>
       <button class="btn btnP" onclick="prptUpdateEntry(${id})">💾 บันทึกการแก้ไข</button>
     </div>
-    <button class="btn btnN sm" style="width:100%;margin-top:6px"
-      onclick="prptViewSteps(${id},'${l.pp_no}')">🔧 แก้ไขขั้นตอนการผลิต</button>`);
+  `);
+
+  // populate QC rows after modal opens
+  setTimeout(()=>{
+    // ลบ placeholder rows
+    document.querySelectorAll('[id^="ped-qr-placeholder-"]').forEach(r=>r.remove());
+    const tbody=document.getElementById('ped-qc-tbody');
+    if(!tbody) return;
+    if(qcRows.length){
+      const emp=document.getElementById('ped-qc-empty');
+      if(emp) emp.style.display='none';
+      window._pedQCCount=0;
+      qcRows.forEach(q=>{
+        window._pedQCCount=(window._pedQCCount||0)+1;
+        const idx=window._pedQCCount;
+        pedAddQCRow(q.time, q);
+      });
+    }
+    // set spec values if stored in first row
+    if(qcRows[0]?.spec){
+      const sp=qcRows[0].spec;
+      document.getElementById('ped-spec-wt')?.setAttribute('value',sp.wt||'');
+      document.getElementById('ped-spec-wt-tol')?.setAttribute('value',sp.wtTol||'');
+      document.getElementById('ped-spec-w')?.setAttribute('value',sp.w||'');
+      document.getElementById('ped-spec-w-tol')?.setAttribute('value',sp.wTol||'');
+      document.getElementById('ped-spec-l')?.setAttribute('value',sp.l||'');
+      document.getElementById('ped-spec-l-tol')?.setAttribute('value',sp.lTol||'');
+      document.getElementById('ped-spec-pre')?.setAttribute('value',sp.pre||'');
+      document.getElementById('ped-spec-pre-tol')?.setAttribute('value',sp.preTol||'');
+    }
+  },200);
 }
+
+function pedTab(tab){
+  ['main','qc'].forEach(t=>{
+    const el=document.getElementById('ped-tab-'+t);
+    if(el) el.style.display=t===tab?'':'none';
+  });
+  document.querySelectorAll('#ped-tabs .ftab').forEach((el,i)=>{
+    el.classList.toggle('on',['main','qc'][i]===tab);
+  });
+}
+
+function pedAddQCRow(timeStr, data){
+  const tbody=document.getElementById('ped-qc-tbody');
+  if(!tbody) return;
+  const emp=document.getElementById('ped-qc-empty');
+  if(emp) emp.style.display='none';
+  window._pedQCCount=(window._pedQCCount||0)+1;
+  const idx=window._pedQCCount;
+  const t=timeStr||new Date().toTimeString().slice(0,5);
+  const d=data||{};
+  const tr=document.createElement('tr');
+  tr.id=`ped-qr-${idx}`;
+  tr.style.cssText='border-bottom:1px solid #FECDD3';
+  const ni=(id,ph,val,w=52)=>`<input type="number" id="${id}" placeholder="${ph}" value="${val||''}" step="0.01"
+    style="width:${w}px;border:1px solid #FECDD3;border-radius:3px;padding:2px 3px;font-size:10px;text-align:right"
+    oninput="pedQCCheck(${idx})">`;
+  const ss=(id,val)=>`<select id="${id}" onchange="pedQCCheck(${idx})"
+    style="width:58px;border:1px solid #FECDD3;border-radius:3px;padding:2px;font-size:9px">
+    <option value="">—</option>
+    <option value="pass" ${val==='pass'?'selected':''} style="color:green">✅ผ่าน</option>
+    <option value="marginal" ${val==='marginal'?'selected':''} style="color:orange">⚠️ขอบ</option>
+    <option value="fail" ${val==='fail'?'selected':''} style="color:red">❌NG</option>
+  </select>`;
+  tr.innerHTML=`
+    <td style="padding:2px 3px"><input type="time" id="ped-qt-${idx}" value="${t}"
+      style="width:50px;border:1px solid #FECDD3;border-radius:3px;padding:2px;font-size:10px"></td>
+    <td style="padding:2px 3px">${ni(`ped-qwt-${idx}`,'g',d.wt_packed)}</td>
+    <td style="padding:2px 3px">${ni(`ped-qpre-${idx}`,'g',d.wt_pre_coat)}</td>
+    <td style="padding:2px 3px">${ni(`ped-qpost-${idx}`,'g',d.wt_post_coat)}</td>
+    <td style="padding:2px 3px">${ni(`ped-qw-${idx}`,'mm',d.width,43)}</td>
+    <td style="padding:2px 3px">${ni(`ped-ql-${idx}`,'mm',d.length,43)}</td>
+    <td style="padding:2px 3px">${ni(`ped-qthk-${idx}`,'mm',d.thickness,43)}</td>
+    <td style="padding:2px 3px">${ss(`ped-qtaste-${idx}`,d.taste)}</td>
+    <td style="padding:2px 3px">${ss(`ped-qcolor-${idx}`,d.color)}</td>
+    <td style="padding:2px 3px">${ss(`ped-qodor-${idx}`,d.odor)}</td>
+    <td style="padding:2px 3px">${ss(`ped-qfill-${idx}`,d.filling_ok)}</td>
+    <td style="padding:2px 3px">${ss(`ped-qchoc-${idx}`,d.choc_ok)}</td>
+    <td style="padding:2px 3px">${ss(`ped-qcrispy-${idx}`,d.crispy_ok)}</td>
+    <td style="padding:2px 4px;text-align:center">
+      <span id="ped-qresult-${idx}" style="font-size:11px;font-weight:700">
+        ${d.result||'—'}
+      </span>
+    </td>
+    <td style="padding:2px 3px;text-align:center">
+      <button type="button" onclick="document.getElementById('ped-qr-${idx}').remove()"
+        style="border:none;background:#FEE2E2;color:#DC2626;border-radius:3px;
+        padding:2px 4px;cursor:pointer;font-size:10px">✕</button>
+    </td>`;
+  tbody.appendChild(tr);
+}
+
+function pedQCCheck(idx){
+  const v=id=>document.getElementById(`ped-q${id}-${idx}`)?.value||'';
+  const fails=['taste','color','odor','fill','choc','crispy'].filter(s=>v(s)==='fail').length;
+  const warns=['taste','color','odor','fill','choc','crispy'].filter(s=>v(s)==='marginal').length;
+  const resultEl=document.getElementById(`ped-qresult-${idx}`);
+  if(!resultEl) return;
+  if(fails>0){ resultEl.textContent='❌ NG'; resultEl.style.color='#DC2626'; }
+  else if(warns>0){ resultEl.textContent='⚠️'; resultEl.style.color='#D97706'; }
+  else{ resultEl.textContent='✅ OK'; resultEl.style.color='#16a34a'; }
+}
+
+
 
 function pedCalcOEE(){
   const v=id=>parseFloat(document.getElementById(id)?.value)||0;
@@ -24593,9 +24793,33 @@ async function prptUpdateEntry(id){
   const qual=actual>0?Math.min(100,good/actual*100):100;
   const oee=avail*perf*qual/10000;
   const startV=v('ped-start'), endV=v('ped-end');
+  const batchNo=parseInt(v('ped-batch'))||1;
+
+  // Collect QC data from edit form
+  const qcEdRows=[...document.querySelectorAll('#ped-qc-tbody tr[id^="ped-qr-"]')];
+  const qcData=qcEdRows.map(tr=>{
+    const idx=tr.id.replace('ped-qr-','');
+    const gv=fid=>document.getElementById(`ped-q${fid}-${idx}`)?.value||null;
+    return{
+      time:gv('t'),
+      wt_packed:gv('wt'), wt_pre_coat:gv('pre'), wt_post_coat:gv('post'),
+      width:gv('w'), length:gv('l'), thickness:gv('thk'),
+      taste:gv('taste'), color:gv('color'), odor:gv('odor'),
+      filling_ok:gv('fill'), choc_ok:gv('choc'), crispy_ok:gv('crispy'),
+      result:document.getElementById(`ped-qresult-${idx}`)?.textContent||'—',
+      spec:{
+        wt:n('ped-spec-wt'), wtTol:n('ped-spec-wt-tol'),
+        w:n('ped-spec-w'),   wTol:n('ped-spec-w-tol'),
+        l:n('ped-spec-l'),   lTol:n('ped-spec-l-tol'),
+        pre:n('ped-spec-pre'),preTol:n('ped-spec-pre-tol')
+      }
+    };
+  });
+
   msgEl('ped-msg','<span class="spin"></span> Saving...','i');
   try{
-    await sbU('production_log',{
+    const updateData={
+      batch_no:batchNo,
       start_time:startV?new Date(startV).toISOString():null,
       end_time:endV?new Date(endV).toISOString():null,
       shift:v('ped-shift'), machine_code:v('ped-machine'),
@@ -24606,9 +24830,11 @@ async function prptUpdateEntry(id){
       yield_pct:qual, availability_pct:avail,
       performance_pct:perf, quality_pct:qual, oee_pct:oee,
       note:v('ped-note')
-    },`id=eq.${id}`);
-    msgEl('ped-msg','✅ อัปเดตเรียบร้อย','s');
-    await logA('UPDATE','production',`แก้ไขบันทึก log#${id}`,`log:${id}`);
+    };
+    if(qcData.length) updateData.qc_records=JSON.stringify(qcData);
+    await sbU('production_log', updateData, `id=eq.${id}`);
+    msgEl('ped-msg',`✅ อัปเดตเรียบร้อย (QC: ${qcData.length} แถว)`,'s');
+    await logA('UPDATE','production',`แก้ไขบันทึก log#${id} Batch${batchNo}`,`log:${id}`);
     setTimeout(()=>{ closeMo(); prptLoadLog(); },500);
   }catch(e){ msgEl('ped-msg','❌ '+e.message,'e'); }
 }
@@ -24915,44 +25141,134 @@ function prptPrintOEE(){
 }
 
 async function prptPrintEntry(id){
-  const l=(await sbG('production_log',{f:[`id=eq.${id}`]}).catch(()=>[]))[0];
-  if(!l) return;
+  const [logArr, steps, mats] = await Promise.all([
+    sbG('production_log',{f:[`id=eq.${id}`]}).catch(()=>[]),
+    sbG('prod_log_steps',{f:[`log_id=eq.${id}`],ord:'step_no.asc'}).catch(()=>[]),
+    sbG('prod_log_step_materials',{f:[`log_id=eq.${id}`],ord:'step_id.asc'}).catch(()=>[])
+  ]);
+  const l=logArr[0]||{};
+  let qcRows=[];
+  try{ if(l.qc_records) qcRows=JSON.parse(l.qc_records); }catch(e){}
+
   const printDate=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+  const oeeColor=c=>c>=85?'green':c>=65?'orange':'red';
+  const matsByStep={};
+  mats.forEach(m=>{ if(!matsByStep[m.step_id]) matsByStep[m.step_id]=[]; matsByStep[m.step_id].push(m); });
+
+  // Steps HTML
+  const stepsHtml = steps.map(s=>{
+    const startT=s.start_time?new Date(s.start_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'—';
+    const endT=s.end_time?new Date(s.end_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'—';
+    const mList=matsByStep[s.id]||[];
+    return`<div style="border:1px solid #CBD5E1;border-radius:5px;margin-bottom:8px;overflow:hidden;page-break-inside:avoid">
+      <div style="background:#1B3A5C;color:white;padding:5px 10px;font-weight:700;font-size:9.5pt">
+        #${s.step_no} ${s.step_name}
+        <span style="float:right;font-weight:400;font-size:8.5pt">${startT}–${endT} (${s.duration_min||0} นาที)</span>
+      </div>
+      <div style="padding:6px 10px;font-size:9pt">
+        <table style="width:100%;border-collapse:collapse">
+          <tr>
+            <td style="width:20%;color:gray">👤 พนักงาน:</td><td><b>${s.workers||'—'} คน</b></td>
+            <td style="width:20%;color:gray">📥 Input:</td><td>${s.input_qty||'—'}</td>
+            <td style="width:20%;color:gray">📦 Output:</td><td><b>${s.output_qty||'—'}</b></td>
+          </tr>
+          <tr>
+            <td style="color:gray">⚠️ Defect:</td><td style="color:red">${s.defect_qty||0}${s.defect_reason?' ('+s.defect_reason+')':''}</td>
+            <td style="color:gray">⏸ Downtime:</td><td colspan="3" style="color:orange">${s.downtime_min||0} นาที${s.downtime_reason?' — '+s.downtime_reason:''}</td>
+          </tr>
+        </table>
+        ${mList.length?`
+        <table style="width:100%;border-collapse:collapse;font-size:8.5pt;margin-top:5px">
+          <tr style="background:#EDE9FE"><th style="padding:2px 5px;text-align:left">รหัส</th><th style="padding:2px 5px;text-align:left">ชื่อวัสดุ</th>
+            <th style="padding:2px 5px;text-align:right">แผน</th><th style="padding:2px 5px;text-align:right">ใช้จริง</th>
+            <th style="padding:2px 5px;text-align:right">เหลือ</th><th style="padding:2px 5px;text-align:right">เสีย</th><th>หน่วย</th></tr>
+          ${mList.map(m=>`<tr style="border-bottom:1px solid #E5E7EB">
+            <td style="padding:2px 5px;font-family:monospace">${m.material_code}</td><td style="padding:2px 5px">${m.material_name||''}</td>
+            <td style="text-align:right;padding:2px 5px">${m.planned_qty||'—'}</td><td style="text-align:right;padding:2px 5px;color:green;font-weight:600">${m.used_qty||0}</td>
+            <td style="text-align:right;padding:2px 5px;color:navy">${m.remaining_qty||0}</td><td style="text-align:right;padding:2px 5px;color:red">${m.waste_qty||0}</td>
+            <td style="padding:2px 5px">${m.unit||'kg'}</td></tr>`).join('')}
+        </table>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  // QC HTML
+  const ngCount=qcRows.filter(q=>q.result?.includes('❌')).length;
+  const qcHtml = qcRows.length?`
+    <div style="page-break-before:auto">
+      <h3 style="color:#9F1239;font-size:11pt;margin:10px 0 5px">🔍 QC / การวัดขนาด (${qcRows.length} แถว${ngCount>0?' — NG: '+ngCount:''})</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:8.5pt">
+        <thead><tr style="background:#9F1239;color:white">
+          <th style="padding:3px 5px">เวลา</th>
+          <th style="padding:3px 5px;text-align:right">บรรจุ(g)</th><th style="padding:3px 5px;text-align:right">ก่อนเคลือบ(g)</th>
+          <th style="padding:3px 5px;text-align:right">หลังเคลือบ(g)</th><th style="padding:3px 5px;text-align:right">กว้าง(mm)</th>
+          <th style="padding:3px 5px;text-align:right">ยาว(mm)</th><th style="padding:3px 5px;text-align:right">หนา(mm)</th>
+          <th style="padding:3px 5px">รสชาติ</th><th style="padding:3px 5px">สี</th><th style="padding:3px 5px">กลิ่น</th>
+          <th style="padding:3px 5px">Filling</th><th style="padding:3px 5px">Choc</th><th style="padding:3px 5px">Crispy</th>
+          <th style="padding:3px 5px;text-align:center">ผล</th>
+        </tr></thead>
+        <tbody>
+          ${qcRows.map(q=>{
+            const isNG=q.result?.includes('❌');
+            const isWarn=q.result?.includes('⚠️');
+            const sv=v=>v==='pass'?'✅':v==='fail'?'❌':v==='marginal'?'⚠️':'—';
+            return`<tr style="background:${isNG?'#FFF5F5':isWarn?'#FFFBEB':'white'};border-bottom:1px solid #E5E7EB">
+              <td style="padding:2px 5px;white-space:nowrap">${q.time||'—'}</td>
+              <td style="text-align:right;padding:2px 5px">${q.wt_packed||'—'}</td>
+              <td style="text-align:right;padding:2px 5px">${q.wt_pre_coat||'—'}</td>
+              <td style="text-align:right;padding:2px 5px">${q.wt_post_coat||'—'}</td>
+              <td style="text-align:right;padding:2px 5px">${q.width||'—'}</td>
+              <td style="text-align:right;padding:2px 5px">${q.length||'—'}</td>
+              <td style="text-align:right;padding:2px 5px">${q.thickness||'—'}</td>
+              <td style="text-align:center;padding:2px 5px">${sv(q.taste)}</td>
+              <td style="text-align:center;padding:2px 5px">${sv(q.color)}</td>
+              <td style="text-align:center;padding:2px 5px">${sv(q.odor)}</td>
+              <td style="text-align:center;padding:2px 5px">${sv(q.filling_ok)}</td>
+              <td style="text-align:center;padding:2px 5px">${sv(q.choc_ok)}</td>
+              <td style="text-align:center;padding:2px 5px">${sv(q.crispy_ok)}</td>
+              <td style="text-align:center;padding:2px 5px;font-weight:700;color:${isNG?'red':isWarn?'orange':'green'}">${q.result||'—'}</td>
+            </tr>`;}).join('')}
+        </tbody>
+      </table>
+    </div>`:
+    '<p style="color:gray;font-size:9pt">ไม่มีข้อมูล QC</p>';
+
   openPreviewWindow(`<!DOCTYPE html><html><head><meta charset="UTF-8">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <style>@page{size:A4;margin:15mm}body{font-family:'Sarabun',sans-serif;font-size:10pt}
-    h2{color:#1B3A5C}table{width:100%;border-collapse:collapse}
-    td{padding:5px 8px;border-bottom:1px solid #E5E7EB}
-    .kpi{display:inline-block;text-align:center;border:2px solid #7C3AED;border-radius:8px;padding:8px 16px;margin:4px}
+    <style>@page{size:A4;margin:12mm}body{font-family:'Sarabun',sans-serif;font-size:10pt}
+    h2{color:#1B3A5C;margin:0 0 2px;font-size:13pt}h3{margin:8px 0 4px}
     @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style>
     </head><body>
-    <h2>📋 Production Record — ${l.pp_no}</h2>
-    <p style="color:#6B7280;font-size:9pt;margin:0 0 10px">พิมพ์: ${printDate}</p>
-    <table>
-      ${[['Work Order',l.pp_no],['SKU',l.sku_code],['สินค้า',l.product_name],
-        ['วันที่ผลิต',l.plan_date],['กะ',l.shift],['เครื่องจักร',l.machine_code],
-        ['Batch No.',l.batch_no],['เวลาเริ่ม',l.start_time?new Date(l.start_time).toLocaleString('th-TH'):'—'],
-        ['เวลาสิ้นสุด',l.end_time?new Date(l.end_time).toLocaleString('th-TH'):'—'],
-        ['แผนผลิต',l.plan_qty],['ผลิตได้จริง',l.actual_qty],
-        ['ดี/QC Pass',l.good_qty],['Reject',l.reject_qty||0],
-        ['Run Time (นาที)',l.run_time_min],['Downtime (นาที)',l.downtime_min],
-        ['สาเหตุ Downtime',l.downtime_reason||'—'],['หมายเหตุ',l.note||'—'],
-        ['บันทึกโดย',l.recorded_by||'—']
-      ].map(([k,v])=>`<tr><td style="color:#6B7280;width:35%">${k}</td><td><b>${v||'—'}</b></td></tr>`).join('')}
+    <h2>📋 Production Record — ${l.pp_no} Batch ${l.batch_no||1}</h2>
+    <table style="width:100%;border-collapse:collapse;font-size:9pt;margin-bottom:8px">
+      <tr style="background:#EFF6FF">
+        <td style="padding:3px 8px"><b>สินค้า:</b> ${l.product_name||l.sku_code||'—'}</td>
+        <td style="padding:3px 8px"><b>วันที่:</b> ${l.plan_date||'—'}</td>
+        <td style="padding:3px 8px"><b>กะ:</b> ${l.shift||'—'}</td>
+        <td style="padding:3px 8px"><b>เครื่อง:</b> ${l.machine_code||'—'}</td>
+        <td style="padding:3px 8px;text-align:right;font-size:8.5pt">พิมพ์: ${printDate}</td>
+      </tr>
+      <tr>
+        <td style="padding:3px 8px"><b>แผน:</b> ${l.plan_qty||'—'}</td>
+        <td style="padding:3px 8px"><b>ผลิตได้:</b> <span style="color:navy;font-weight:700">${l.actual_qty||'—'}</span></td>
+        <td style="padding:3px 8px"><b>ดี:</b> <span style="color:green">${l.good_qty||'—'}</span></td>
+        <td style="padding:3px 8px"><b>Reject:</b> <span style="color:red">${l.reject_qty||0}</span></td>
+        <td style="padding:3px 8px"><b>Downtime:</b> ${l.downtime_min||0} นาที</td>
+      </tr>
     </table>
-    <div style="margin-top:16px;text-align:center">
-      ${[['Availability',l.availability_pct],['Performance',l.performance_pct],
-         ['Quality',l.quality_pct],['OEE',l.oee_pct]].map(([k,v])=>`
-        <div class="kpi" style="border-color:${v>=85?'green':v>=65?'orange':'red'}">
-          <div style="font-size:9pt;color:#7C3AED">${k}</div>
-          <div style="font-size:20pt;font-weight:800;color:${v>=85?'green':v>=65?'orange':'red'}">
-            ${v?fmt(v,1)+'%':'—'}
-          </div>
+    <div style="display:flex;gap:10px;margin-bottom:10px">
+      ${[['Availability',l.availability_pct],['Performance',l.performance_pct],['Quality',l.quality_pct],['OEE',l.oee_pct]].map(([k,v])=>`
+        <div style="border:2px solid ${oeeColor(v||0)};border-radius:6px;padding:5px 10px;text-align:center;flex:1">
+          <div style="font-size:8.5pt;color:#7C3AED">${k}</div>
+          <div style="font-size:16pt;font-weight:800;color:${oeeColor(v||0)}">${v?fmt(v,1)+'%':'—'}</div>
         </div>`).join('')}
     </div>
-    <script>window.onload=()=>window.print();<\/script></body></html>`,
-    `Production Record ${l.pp_no}`);
+    ${steps.length?`<h3 style="color:#1B3A5C;font-size:11pt;margin:8px 0 5px">🔧 ขั้นตอนการผลิต (${steps.length} ขั้นตอน)</h3>${stepsHtml}`:''}
+    ${qcHtml}
+    <script>window.onload=()=>window.print();<\/script>
+    </body></html>`, `Production Record ${l.pp_no} B${l.batch_no||1}`);
 }
+
 
 
 // ════════════════════════════════════════════════════════════
