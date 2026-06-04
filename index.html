@@ -126,6 +126,22 @@ tr:hover td{background:var(--bg2)}
   padding:14px 18px;border-bottom:1px solid var(--border);
   font-weight:800;font-size:15px;color:var(--navy);position:sticky;top:0;background:white}
 #mo-b{padding:16px 18px}
+#mo.on[data-full="1"] .mbox #mo-b{
+  padding:16px 20px 40px;
+  max-height:calc(100vh - 58px);
+  overflow-y:auto;
+}
+#mo.on[data-full="1"] .mhdr{
+  background:#1B3A5C;color:white;border-radius:0;
+  padding:12px 20px;
+}
+#mo.on[data-full="1"] .mtit{color:white;font-size:15px;font-weight:700}
+#mo.on[data-full="1"] .mclose{
+  color:rgba(255,255,255,.8);font-size:22px;
+  background:rgba(255,255,255,.1);border-radius:50%;
+  width:32px;height:32px;display:flex;align-items:center;justify-content:center;
+}
+#mo.on[data-full="1"] .mclose:hover{background:rgba(255,255,255,.2)}
 #mo-x{background:none;border:none;cursor:pointer;font-size:20px;
   color:var(--text3);padding:2px 6px;border-radius:4px}
 #mo-x:hover{background:var(--bg2)}
@@ -282,7 +298,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:15
   z-index:1000;align-items:center;justify-content:center}
 .mo.on{display:flex}
 .mbox{background:white;border-radius:14px;max-width:560px;width:100%;
-  max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+  max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);transition:all .2s ease}
 .mhdr{display:flex;align-items:center;justify-content:space-between;
   padding:14px 18px;border-bottom:1px solid var(--border);
   font-weight:800;font-size:15px;color:var(--navy)}
@@ -3367,8 +3383,35 @@ function stockB(av,mn){
 }
 function filterTbl(id,q){document.querySelectorAll(`#${id} tr`).forEach(tr=>{tr.style.display=tr.textContent.toLowerCase().includes(q.toLowerCase())?'':'none';});}
 function msgEl(id,txt,t='i'){const el=document.getElementById(id);if(el)el.innerHTML=`<div class="al al${t}">${txt}</div>`;}
-function openMo(t,html){document.getElementById('mo-t').textContent=t;document.getElementById('mo-b').innerHTML=html;document.getElementById('mo').classList.add('on');}
-function closeMo(){document.getElementById('mo').classList.remove('on');}
+function openMo(t,body,opts={}){
+  const mo=document.getElementById('mo');
+  const mbox=mo?.querySelector('.mbox');
+  const moT=document.getElementById('mo-t');
+  const moB=document.getElementById('mo-b');
+  if(!mo||!moT||!moB) return;
+  moT.textContent=t;
+  moB.innerHTML=body;
+  mo.classList.add('on');
+  // fullscreen mode
+  if(opts.full){
+    mo.style.padding='0';
+    if(mbox){ mbox.style.maxWidth='100vw'; mbox.style.width='100vw';
+      mbox.style.maxHeight='100vh'; mbox.style.height='100vh'; mbox.style.borderRadius='0'; }
+    mo.dataset.full='1';
+  }else{
+    mo.style.padding='';
+    if(mbox){ mbox.style.maxWidth=''; mbox.style.width=''; mbox.style.maxHeight='';
+      mbox.style.height=''; mbox.style.borderRadius=''; }
+    mo.dataset.full='0';
+  }
+}
+function closeMo(){
+  const mo=document.getElementById('mo');
+  const mbox=mo?.querySelector('.mbox');
+  if(mbox){ mbox.style.maxWidth=''; mbox.style.width=''; mbox.style.maxHeight='';
+    mbox.style.height=''; mbox.style.borderRadius=''; }
+  if(mo) mo.style.padding='';
+  document.getElementById('mo').classList.remove('on');}
 const avRM=r=>Number(r.balance_opening||0)+Number(r.qty_in||0)-Number(r.qty_out||0);
 const avWIP=w=>Number(w?.qty_produced||0)-Number(w?.qty_issued||0);
 const avFG=d=>Number(d.qty_in||0)-Number(d.qty_sold||0);
@@ -24169,7 +24212,7 @@ async function prptNewEntry(){
         💾 ยืนยันบันทึก
       </button>
     </div>
-  `,{wide:true});
+  `,{full:true});
 
   // init select2-style mat opts cache
   window._pneMatOpts = matOpts;
