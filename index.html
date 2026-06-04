@@ -15646,6 +15646,51 @@ function prptBuildLogTable(logs){
 }
 
 
+
+// ════════════════════════════════════════════════════════════
+//  PHOTO UPLOAD / PRODUCT PHOTOS
+// ════════════════════════════════════════════════════════════
+function pneLoadPhoto(idx, input){
+  const file=input.files[0];
+  if(!file) return;
+  if(file.size>3*1024*1024){ alert('รูปใหญ่เกินไป (สูงสุด 3MB)'); return; }
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const b64=e.target.result; // data:image/...;base64,...
+    window[`_pnePhoto${idx}`]=b64;
+    const prev=document.getElementById(`pne-photo-preview-${idx}`);
+    if(prev) prev.innerHTML=`<img src="${b64}" style="width:100%;height:100%;object-fit:cover;border-radius:6px">`;
+    const del=document.getElementById(`pne-photo-del-${idx}`);
+    if(del) del.style.display='block';
+    const wrap=document.getElementById(`pne-photo-wrap-${idx}`);
+    if(wrap) wrap.style.borderColor='#16a34a';
+  };
+  reader.readAsDataURL(file);
+}
+
+function pneClearPhoto(idx){
+  window[`_pnePhoto${idx}`]=null;
+  const prev=document.getElementById(`pne-photo-preview-${idx}`);
+  if(prev) prev.innerHTML=`<div style="font-size:24px">📷</div><div style="font-size:9px;color:#9CA3AF;margin-top:3px">รูปที่ ${idx}</div>`;
+  const del=document.getElementById(`pne-photo-del-${idx}`);
+  if(del) del.style.display='none';
+  const wrap=document.getElementById(`pne-photo-wrap-${idx}`);
+  if(wrap) wrap.style.borderColor='#86EFAC';
+  const inp=document.getElementById(`pne-photo-input-${idx}`);
+  if(inp) inp.value='';
+}
+
+// auto-generate lot no
+function pneAutoLot(){
+  const d=document.getElementById('pne-mfg-date')?.value||new Date().toISOString().slice(0,10);
+  const dn=d.replace(/-/g,'');
+  const woEl=document.getElementById('pne-wo');
+  const pp=woEl?.value?.replace(/[^A-Z0-9]/g,'').slice(-4)||'0001';
+  const lot=`LOT-${dn}-${pp}`;
+  const el=document.getElementById('pne-lot');
+  if(el&&!el.value) el.value=lot;
+}
+
 // ════════════════════════════════════════════════════════════
 //  QC RECORD FUNCTIONS
 // ════════════════════════════════════════════════════════════
@@ -24060,6 +24105,57 @@ async function prptNewEntry(){
       </div>
     </div>
 
+    <!-- Lot / Date / Photos -->
+    <div style="background:#F0FDF4;border-radius:8px;padding:10px;margin-bottom:12px">
+      <div style="font-weight:700;color:#166534;font-size:12px;margin-bottom:8px">🏷️ ข้อมูลสินค้าสำเร็จ</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+        <div class="fgrp"><label class="flbl">📦 Lot No.</label>
+          <input type="text" class="fc2" id="pne-lot" placeholder="LOT-YYYYMMDD-001"></div>
+        <div class="fgrp"><label class="flbl">🏭 วันผลิต</label>
+          <input type="date" class="fc2" id="pne-mfg-date"></div>
+        <div class="fgrp"><label class="flbl">📅 EXP Date</label>
+          <input type="date" class="fc2" id="pne-exp-date"></div>
+      </div>
+      <div style="font-size:11px;font-weight:600;color:#166534;margin-bottom:6px">📸 รูปสินค้าหลังบรรจุ (สูงสุด 4 รูป)</div>
+      <div id="pne-photo-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+        <div id="pne-photo-wrap-1" onclick="document.getElementById('pne-photo-input-1').click()"
+          style="border:2px dashed #86EFAC;border-radius:8px;aspect-ratio:1;display:flex;flex-direction:column;
+          align-items:center;justify-content:center;cursor:pointer;overflow:hidden;position:relative;background:#F9FAFB">
+          <div id="pne-photo-preview-1" style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center">
+            <div style="font-size:24px">📷</div><div style="font-size:9px;color:#9CA3AF;margin-top:3px">รูปที่ 1</div></div>
+          <input type="file" id="pne-photo-input-1" accept="image/*" style="display:none" onchange="pneLoadPhoto(1,this)">
+          <button id="pne-photo-del-1" type="button" onclick="event.stopPropagation();pneClearPhoto(1)"
+            style="display:none;position:absolute;top:3px;right:3px;border:none;background:#DC2626;color:white;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer">✕</button>
+        </div>
+        <div id="pne-photo-wrap-2" onclick="document.getElementById('pne-photo-input-2').click()"
+          style="border:2px dashed #86EFAC;border-radius:8px;aspect-ratio:1;display:flex;flex-direction:column;
+          align-items:center;justify-content:center;cursor:pointer;overflow:hidden;position:relative;background:#F9FAFB">
+          <div id="pne-photo-preview-2" style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center">
+            <div style="font-size:24px">📷</div><div style="font-size:9px;color:#9CA3AF;margin-top:3px">รูปที่ 2</div></div>
+          <input type="file" id="pne-photo-input-2" accept="image/*" style="display:none" onchange="pneLoadPhoto(2,this)">
+          <button id="pne-photo-del-2" type="button" onclick="event.stopPropagation();pneClearPhoto(2)"
+            style="display:none;position:absolute;top:3px;right:3px;border:none;background:#DC2626;color:white;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer">✕</button>
+        </div>
+        <div id="pne-photo-wrap-3" onclick="document.getElementById('pne-photo-input-3').click()"
+          style="border:2px dashed #86EFAC;border-radius:8px;aspect-ratio:1;display:flex;flex-direction:column;
+          align-items:center;justify-content:center;cursor:pointer;overflow:hidden;position:relative;background:#F9FAFB">
+          <div id="pne-photo-preview-3" style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center">
+            <div style="font-size:24px">📷</div><div style="font-size:9px;color:#9CA3AF;margin-top:3px">รูปที่ 3</div></div>
+          <input type="file" id="pne-photo-input-3" accept="image/*" style="display:none" onchange="pneLoadPhoto(3,this)">
+          <button id="pne-photo-del-3" type="button" onclick="event.stopPropagation();pneClearPhoto(3)"
+            style="display:none;position:absolute;top:3px;right:3px;border:none;background:#DC2626;color:white;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer">✕</button>
+        </div>
+        <div id="pne-photo-wrap-4" onclick="document.getElementById('pne-photo-input-4').click()"
+          style="border:2px dashed #86EFAC;border-radius:8px;aspect-ratio:1;display:flex;flex-direction:column;
+          align-items:center;justify-content:center;cursor:pointer;overflow:hidden;position:relative;background:#F9FAFB">
+          <div id="pne-photo-preview-4" style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center">
+            <div style="font-size:24px">📷</div><div style="font-size:9px;color:#9CA3AF;margin-top:3px">รูปที่ 4</div></div>
+          <input type="file" id="pne-photo-input-4" accept="image/*" style="display:none" onchange="pneLoadPhoto(4,this)">
+          <button id="pne-photo-del-4" type="button" onclick="event.stopPropagation();pneClearPhoto(4)"
+            style="display:none;position:absolute;top:3px;right:3px;border:none;background:#DC2626;color:white;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer">✕</button>
+        </div>
+      </div>
+    </div>
     <div class="fgrp"><label class="flbl">หมายเหตุ</label>
       <input type="text" class="fc2" id="pne-note" placeholder="หมายเหตุ..."></div>
     <div id="pne-msg"></div>
@@ -24480,7 +24576,34 @@ async function prptSaveEntry(){
         }).catch(()=>{});
       }
     }
+    // บันทึก photos + lot info
+    const lotNo=document.getElementById('pne-lot')?.value||'';
+    const mfgDate=document.getElementById('pne-mfg-date')?.value||'';
+    const expDate=document.getElementById('pne-exp-date')?.value||'';
+    if((lotNo||mfgDate||expDate)&&savedId){
+      await sbU('production_log',{
+        lot_no:lotNo||null, mfg_date:mfgDate||null, exp_date:expDate||null
+      },`id=eq.${savedId}`).catch(()=>{
+        // fallback: ไม่มี column → เก็บใน note
+        if(savedId) console.log('[Lot] lot_no/dates stored separately');
+      });
+    }
+    // บันทึกรูปภาพ
+    const stepsOK3=await checkStepsTable();
+    if(stepsOK3&&savedId){
+      for(let pi=1;pi<=4;pi++){
+        const b64=window[`_pnePhoto${pi}`];
+        if(!b64) continue;
+        await sbP('prod_log_step_materials',{
+          step_id:0, log_id:savedId, pp_no:woPP, step_name:'__PHOTO__',
+          material_code:`photo_${pi}`, material_name:b64,
+          planned_qty:0, used_qty:0, remaining_qty:0, waste_qty:0, unit:'img'
+        }).catch(e=>console.warn('photo save:',e));
+      }
+    }
     msgEl('pne-msg',`✅ บันทึกเรียบร้อย (${stepRows.length} ขั้นตอน, ${matRows.length} วัสดุ, ${qcData.length} QC rows)`,'s');
+    // clear photos
+    for(let pi=1;pi<=4;pi++) window[`_pnePhoto${pi}`]=null;
     setTimeout(()=>{ closeMo(); prptLoadLog(); },800);
   }catch(e){ msgEl('pne-msg','❌ '+e.message,'e'); }
 }
@@ -24598,6 +24721,15 @@ async function prptEditEntry(id){
             <div style="font-size:9px;color:#7C3AED">${['Avail','Perf','Quality','OEE'][i]}</div>
             <div id="ped-${k}" style="font-weight:800;font-size:14px">${fmt(l[['availability_pct','performance_pct','quality_pct','oee_pct'][i]]||0,1)}%</div>
           </div>`).join('')}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;
+        background:#F0FDF4;border-radius:6px;padding:8px;margin-top:4px;margin-bottom:8px">
+        <div class="fgrp"><label style="font-size:10px;color:#166534;font-weight:600">🏷️ Lot No.</label>
+          <input type="text" class="fc2" id="ped-lot" value="${l.lot_no||''}"></div>
+        <div class="fgrp"><label style="font-size:10px;color:#166534;font-weight:600">🏭 วันผลิต</label>
+          <input type="date" class="fc2" id="ped-mfg-date" value="${l.mfg_date||l.plan_date||''}"></div>
+        <div class="fgrp"><label style="font-size:10px;color:#166534;font-weight:600">📅 EXP Date</label>
+          <input type="date" class="fc2" id="ped-exp-date" value="${l.exp_date||''}"></div>
       </div>
       <div class="fgrp"><label class="flbl">หมายเหตุ</label>
         <input type="text" class="fc2" id="ped-note" value="${l.note||''}"></div>
@@ -24856,6 +24988,11 @@ async function prptUpdateEntry(id){
       performance_pct:perf, quality_pct:qual, oee_pct:oee,
       note:v('ped-note')
     };
+    // เพิ่ม lot/date ถ้ามีค่า
+    const lotVal=v('ped-lot'), mfgVal=v('ped-mfg-date'), expVal=v('ped-exp-date');
+    if(lotVal) updateData.lot_no=lotVal;
+    if(mfgVal) updateData.mfg_date=mfgVal;
+    if(expVal)  updateData.exp_date=expVal;
     await sbU('production_log', updateData, `id=eq.${id}`);
     // บันทึก QC data
     const stepsOKed=await checkStepsTable();
@@ -25183,12 +25320,12 @@ async function prptPrintEntry(id){
     sbG('prod_log_step_materials',{f:[`log_id=eq.${id}`],ord:'step_id.asc,id.asc'}).catch(()=>[])
   ]);
   const l=logArr[0]||{};
-  // แยก QC rows ออกจาก materials จริง
-  const mats=allMats.filter(m=>m.step_name!=='__QC__');
+  // แยก materials จริง / QC / Photos
+  const mats=allMats.filter(m=>m.step_name!=='__QC__'&&m.step_name!=='__PHOTO__');
   const qcRawRows=allMats.filter(m=>m.step_name==='__QC__');
+  const photoRows=allMats.filter(m=>m.step_name==='__PHOTO__');
   let qcRows=[];
   qcRawRows.forEach(r=>{ try{ qcRows.push(JSON.parse(r.material_name||'{}')); }catch(e){} });
-  // fallback: ลอง parse จาก qc_records field ถ้ามี
   if(!qcRows.length){ try{ if(l.qc_records) qcRows=JSON.parse(l.qc_records); }catch(e){} }
 
   const printDate=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
@@ -25283,11 +25420,16 @@ async function prptPrintEntry(id){
     <h2>📋 Production Record — ${l.pp_no} Batch ${l.batch_no||1}</h2>
     <table style="width:100%;border-collapse:collapse;font-size:9pt;margin-bottom:8px">
       <tr style="background:#EFF6FF">
-        <td style="padding:3px 8px"><b>สินค้า:</b> ${l.product_name||l.sku_code||'—'}</td>
-        <td style="padding:3px 8px"><b>วันที่:</b> ${l.plan_date||'—'}</td>
+        <td style="padding:3px 8px" colspan="3"><b>สินค้า:</b> ${l.product_name||l.sku_code||'—'}</td>
         <td style="padding:3px 8px"><b>กะ:</b> ${l.shift||'—'}</td>
-        <td style="padding:3px 8px"><b>เครื่อง:</b> ${l.machine_code||'—'}</td>
         <td style="padding:3px 8px;text-align:right;font-size:8.5pt">พิมพ์: ${printDate}</td>
+      </tr>
+      <tr style="background:#F0FDF4">
+        <td style="padding:3px 8px"><b>🏷️ Lot No.:</b> <span style="font-family:monospace;color:#166534;font-weight:700">${l.lot_no||'—'}</span></td>
+        <td style="padding:3px 8px"><b>🏭 วันผลิต:</b> ${l.mfg_date?new Date(l.mfg_date).toLocaleDateString('th-TH',{year:'numeric',month:'short',day:'numeric'}):l.plan_date||'—'}</td>
+        <td style="padding:3px 8px"><b>📅 EXP Date:</b> <span style="color:#DC2626;font-weight:700">${l.exp_date?new Date(l.exp_date).toLocaleDateString('th-TH',{year:'numeric',month:'short',day:'numeric'}):'—'}</span></td>
+        <td style="padding:3px 8px"><b>เครื่อง:</b> ${l.machine_code||'—'}</td>
+        <td style="padding:3px 8px"><b>Batch:</b> ${l.batch_no||1}</td>
       </tr>
       <tr>
         <td style="padding:3px 8px"><b>แผน:</b> ${l.plan_qty||'—'}</td>
@@ -25306,6 +25448,17 @@ async function prptPrintEntry(id){
     </div>
     ${steps.length?`<h3 style="color:#1B3A5C;font-size:11pt;margin:8px 0 5px">🔧 ขั้นตอนการผลิต (${steps.length} ขั้นตอน)</h3>${stepsHtml}`:''}
     ${qcHtml}
+    ${photoRows.length?`
+    <div style="page-break-before:auto;margin-top:12px">
+      <h3 style="color:#166534;font-size:11pt;margin:8px 0 5px">📸 รูปสินค้าหลังบรรจุ (${photoRows.length} รูป)</h3>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+        ${photoRows.map((p,i)=>`
+          <div style="border:1px solid #A7F3D0;border-radius:6px;overflow:hidden;aspect-ratio:1">
+            <img src="${p.material_name}" style="width:100%;height:100%;object-fit:cover"
+              alt="รูปที่ ${i+1}">
+          </div>`).join('')}
+      </div>
+    </div>`:''}
     <script>window.onload=()=>window.print();<\/script>
     </body></html>`, `Production Record ${l.pp_no} B${l.batch_no||1}`);
 }
