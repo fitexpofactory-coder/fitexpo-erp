@@ -3071,6 +3071,10 @@ CREATE INDEX IF NOT EXISTS idx_pbp_date ON prod_batch_plan(plan_date);</pre>
           <button class="btn btnP sm" onclick="prptLoadLog()">🔍 ค้นหา</button>
           <button class="btn btnS sm" onclick="prptNewEntry()">+ บันทึกใหม่</button>
           <button class="btn btnT sm" onclick="prptPrintLog()">🖨️ Print</button>
+          <button class="btn sm" onclick="prptFindDuplicates()"
+            style="background:#DC2626;color:white;border:none;border-radius:6px;
+            padding:4px 10px;font-size:12px;cursor:pointer"
+            title="ค้นหาและลบรายการที่บันทึกซ้ำ">🔍 หารายการซ้ำ</button>
         </div>
       </div>
       <div id="prpt-log-area"><div class="al ali">เลือกวันที่แล้วกด 🔍</div></div>
@@ -15648,6 +15652,174 @@ async function prptDeleteEntry(id, ppNo){
   }catch(e){ alert('❌ ลบไม่สำเร็จ: '+e.message); }
 }
 
+
+// ════════════════════════════════════════════════════════════
+//  DELETE DUPLICATE PRODUCTION LOGS
+// ════════════════════════════════════════════════════════════
+
+async function prptFindDuplicates(){
+  const area=document.getElementById('prpt-log-area');
+  if(area) area.innerHTML='<span class="spin"></span> กำลังค้นหารายการซ้ำ...';
+
+  try{
+    const logs=await sbG('production_log',{
+      s:'id,pp_no,batch_no,plan_date,shift,actual_qty,created_at,product_name,sku_code',
+      ord:'pp_no.asc,batch_no.asc,created_at.asc', lim:500
+    }).catch(()=>[]);
+
+    // จัดกลุ่มตาม pp_no + batch_no
+    const groups={};
+    logs.forEach(l=>{
+      const key=`${l.pp_no}__B${l.batch_no||1}`;
+      if(!groups[key]) groups[key]=[];
+      groups[key].push(l);
+    });
+
+    // หากลุ่มที่มีซ้ำ
+    const dupGroups=Object.entries(groups).filter(([,arr])=>arr.length>1);
+
+    if(!dupGroups.length){
+      if(area) area.innerHTML=`
+        <div style="background:#F0FDF4;border-radius:8px;padding:16px;text-align:center;font-size:14px;color:#166534">
+          ✅ ไม่พบรายการซ้ำ
+        </div>`;
+      return;
+    }
+
+    // แสดงรายการซ้ำ
+    let totalDup=0;
+    const groupHtml=dupGroups.map(([key,arr])=>{
+      totalDup+=arr.length-1; // นับที่ต้องลบ
+      return`
+        <div style="border:1px solid #FECDD3;border-radius:8px;margin-bottom:8px;overflow:hidden">
+          <div style="background:#FFF1F2;padding:8px 12px;font-size:12px;
+            display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <b style="color:#9F1239">${arr[0].pp_no}</b>
+              <span style="margin-left:6px;color:#6B7280">Batch ${arr[0].batch_no||1}</span>
+              <span style="margin-left:6px;color:#6B7280">${arr[0].product_name||arr[0].sku_code||'—'}</span>
+            </div>
+            <div style="display:flex;gap:6px">
+              <span style="background:#DC2626;color:white;border-radius:4px;padding:2px 8px;font-size:10px">
+                ${arr.length} รายการ | ซ้ำ ${arr.length-1}
+              </span>
+              <button onclick="prptDeleteDupGroup('${key}',[${arr.slice(1).map(x=>x.id).join(',')}])"
+                style="background:#DC2626;color:white;border:none;border-radius:5px;
+                padding:3px 10px;font-size:11px;cursor:pointer">
+                🗑 ลบซ้ำ (เก็บล่าสุด)
+              </button>
+              <button onclick="prptDeleteDupGroupKeepFirst('${key}',[${arr.slice(0,-1).map(x=>x.id).join(',')}])"
+                style="background:#D97706;color:white;border:none;border-radius:5px;
+                padding:3px 10px;font-size:11px;cursor:pointer">
+                🗑 ลบซ้ำ (เก็บแรก)
+              </button>
+            </div>
+          </div>
+          <table style="width:100%;border-collapse:collapse;font-size:11px">
+            <thead><tr style="background:#F1F5F9">
+              <th style="padding:4px 8px;text-align:left">ID</th>
+              <th style="padding:4px 8px;text-align:left">วันที่</th>
+              <th style="padding:4px 8px;text-align:left">กะ</th>
+              <th style="padding:4px 8px;text-align:right">ผลิตได้</th>
+              <th style="padding:4px 8px;text-align:left">บันทึกเมื่อ</th>
+              <th style="padding:4px 8px;width:80px"></th>
+            </tr></thead>
+            <tbody>
+              ${arr.map((l,i)=>`<tr style="background:${i===0?'#F0FDF4':'white'};border-bottom:1px solid #F1F5F9">
+                <td style="padding:4px 8px;font-family:monospace;color:#6B7280">#${l.id}</td>
+                <td style="padding:4px 8px">${l.plan_date||'—'}</td>
+                <td style="padding:4px 8px">${l.shift==='morning'?'🌤️':l.shift==='night'?'🌙':'🌇'} ${l.shift||'—'}</td>
+                <td style="padding:4px 8px;text-align:right;font-weight:700">${l.actual_qty||'—'}</td>
+                <td style="padding:4px 8px;color:#6B7280;font-size:10px">
+                  ${l.created_at?new Date(l.created_at).toLocaleString('th-TH',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'—'}
+                </td>
+                <td style="padding:4px 8px">
+                  ${i===0?`<span style="background:#D1FAE5;color:#166534;border-radius:3px;padding:1px 6px;font-size:9px">เก็บไว้</span>`:''}
+                  ${i>0?`<button onclick="prptDeleteEntry(${l.id},'${l.pp_no}')"
+                    style="border:none;background:#FEE2E2;color:#DC2626;border-radius:3px;
+                    padding:2px 8px;font-size:10px;cursor:pointer">🗑 ลบรายการนี้</button>`:''}
+                </td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    }).join('');
+
+    if(area) area.innerHTML=`
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:13px;color:#9F1239;font-weight:700">
+          🔍 พบรายการซ้ำ: <b>${dupGroups.length}</b> กลุ่ม | ต้องลบ: <b>${totalDup}</b> รายการ
+        </div>
+        <div style="display:flex;gap:6px">
+          <button onclick="prptDeleteAllDuplicates(${JSON.stringify(dupGroups.map(([,arr])=>arr.slice(1).map(x=>x.id)).flat())})"
+            style="background:#DC2626;color:white;border:none;border-radius:6px;
+            padding:6px 14px;font-size:12px;cursor:pointer;font-weight:700">
+            🗑 ลบซ้ำทั้งหมด (เก็บแรกในแต่ละกลุ่ม) ${totalDup} รายการ
+          </button>
+          <button onclick="prptLoadLog()"
+            style="border:1px solid #E5E7EB;background:white;border-radius:6px;
+            padding:6px 14px;font-size:12px;cursor:pointer">
+            ✕ ยกเลิก
+          </button>
+        </div>
+      </div>
+      ${groupHtml}`;
+
+    window._prptDupGroups=dupGroups;
+  }catch(e){
+    if(area) area.innerHTML=`<div class="al ale">❌ ${e.message}</div>`;
+  }
+}
+
+async function prptDeleteDupGroup(key, idsToDelete){
+  if(!idsToDelete.length) return;
+  if(!confirm(`ลบ ${idsToDelete.length} รายการซ้ำ?\nID: ${idsToDelete.join(', ')}\n\nไม่สามารถกู้คืนได้!`)) return;
+  for(const id of idsToDelete){
+    await sbD('prod_log_step_materials',`log_id=eq.${id}`).catch(()=>{});
+    await sbD('prod_log_steps',`log_id=eq.${id}`).catch(()=>{});
+    await sbD('production_log',`id=eq.${id}`).catch(()=>{});
+  }
+  alert(`✅ ลบแล้ว ${idsToDelete.length} รายการ`);
+  prptFindDuplicates();
+}
+
+async function prptDeleteDupGroupKeepFirst(key, idsToDelete){
+  if(!idsToDelete.length) return;
+  if(!confirm(`ลบ ${idsToDelete.length} รายการซ้ำ (เก็บรายการแรก)?\n\nไม่สามารถกู้คืนได้!`)) return;
+  for(const id of idsToDelete){
+    await sbD('prod_log_step_materials',`log_id=eq.${id}`).catch(()=>{});
+    await sbD('prod_log_steps',`log_id=eq.${id}`).catch(()=>{});
+    await sbD('production_log',`id=eq.${id}`).catch(()=>{});
+  }
+  alert(`✅ ลบแล้ว ${idsToDelete.length} รายการ`);
+  prptFindDuplicates();
+}
+
+async function prptDeleteAllDuplicates(allDupIds){
+  if(!allDupIds||!allDupIds.length){ alert('ไม่มีรายการที่ต้องลบ'); return; }
+  if(!confirm(
+    `⚠️ ลบรายการซ้ำทั้งหมด ${allDupIds.length} รายการ?\n`+
+    `ID: ${allDupIds.slice(0,10).join(', ')}${allDupIds.length>10?'...':''}\n\n`+
+    `จะเก็บเฉพาะรายการแรกของแต่ละกลุ่ม\nไม่สามารถกู้คืนได้!`
+  )) return;
+  const toast=document.createElement('div');
+  toast.style.cssText='position:fixed;bottom:24px;right:24px;background:#DC2626;color:white;'+
+    'border-radius:10px;padding:14px 20px;z-index:9999;font-size:13px';
+  toast.innerHTML=`<span class="spin"></span> กำลังลบ ${allDupIds.length} รายการ...`;
+  document.body.appendChild(toast);
+  let done=0;
+  for(const id of allDupIds){
+    await sbD('prod_log_step_materials',`log_id=eq.${id}`).catch(()=>{});
+    await sbD('prod_log_steps',`log_id=eq.${id}`).catch(()=>{});
+    await sbD('production_log',`id=eq.${id}`).catch(()=>{});
+    done++;
+    toast.innerHTML=`🗑 ลบแล้ว ${done}/${allDupIds.length}...`;
+  }
+  toast.style.background='#166534';
+  toast.innerHTML=`✅ ลบรายการซ้ำแล้ว ${done} รายการ`;
+  setTimeout(()=>{ toast.remove(); prptLoadLog(); },2000);
+}
+
 function prptBuildLogTable(logs){
   return `<table style="min-width:900px;width:100%;border-collapse:collapse">
     <thead><tr style="background:#1B3A5C">
@@ -15768,6 +15940,16 @@ function pneAddQCRow(timeStr){
     <option value="">—</option>${QC_PASS_OPTS}</select>`;
 
   tr.innerHTML=`
+    <td style="padding:2px 3px">
+      <select id="pne-qstep-${idx}"
+        style="width:96px;border:1px solid #FECDD3;border-radius:3px;padding:2px;font-size:9px">
+        <option value="">— ขั้นตอน —</option>
+        ${STEP_NAMES.map(n=>`<option value="${n}">${n.slice(0,16)}</option>`).join('')}
+        <option value="ทั้งสาย">🔗 ทั้งสาย</option>
+        <option value="ก่อนบรรจุ">📦 ก่อนบรรจุ</option>
+        <option value="หลังบรรจุ">✅ หลังบรรจุ</option>
+      </select>
+    </td>
     <td style="padding:2px 4px">
       <input type="time" id="pne-qt-${idx}" value="${t}"
         style="width:52px;border:1px solid #FECDD3;border-radius:3px;padding:2px;font-size:10px">
@@ -15810,8 +15992,18 @@ function pneAddQCRows15(){
   const count=Math.ceil((end-cur)/15)+1;
   if(count>40){ alert('ช่วงเวลานานเกินไป (สูงสุด 40 แถว)'); return; }
 
+  // ดึง step ล่าสุดที่ user เลือกไว้ (ถ้ามี)
+  const lastStepEl = document.querySelector('#pne-qc-tbody tr[id^="pne-qr-"] select[id^="pne-qstep-"]');
+  const lastStep   = lastStepEl?.value||'';
+  let rowCnt=0;
   for(let m=cur; m<=end; m+=15){
     pneAddQCRow(toStr(m));
+    // ถ้ามี step เลือกไว้ → set ให้แถวใหม่ด้วย
+    if(lastStep){
+      const newSel=document.querySelector(`#pne-qc-tbody tr:last-child select[id^="pne-qstep-"]`);
+      if(newSel) newSel.value=lastStep;
+    }
+    rowCnt++;
   }
 }
 
@@ -15877,6 +16069,7 @@ function pneCollectQCData(){
     const idx=tr.id.replace('pne-qr-','');
     const g=id=>{ const el=document.getElementById(`pne-q${id}-${idx}`); return el?.value||null; };
     return{
+      step:document.getElementById(`pne-qstep-${idx}`)?.value||'',
       time:g('t'),
       wt_packed:g('wt'),   wt_pre_coat:g('pre'), wt_post_coat:g('post'),
       width:g('w'),        length:g('l'),         thickness:g('thk'),
@@ -24096,6 +24289,7 @@ async function prptNewEntry(){
         <table id="pne-qc-table" style="width:100%;border-collapse:collapse;min-width:850px">
           <thead>
             <tr style="background:#9F1239;color:white;font-size:9px">
+              <th style="padding:4px 5px;width:100px">ขั้นตอน</th>
               <th style="padding:4px 5px;width:55px">เวลา</th>
               <th style="padding:4px 5px;width:60px;text-align:right">น้ำหนัก<br>บรรจุ(g)</th>
               <th style="padding:4px 5px;width:60px;text-align:right">น้ำหนัก<br>ก่อนเคลือบ(g)</th>
@@ -24113,6 +24307,7 @@ async function prptNewEntry(){
               <th style="padding:4px 5px;width:25px"></th>
             </tr>
             <tr style="background:#FFF1F2;font-size:8.5px;color:#6B7280">
+              <th style="padding:2px 5px"></th>
               <th colspan="7" style="padding:2px 5px">— วัดค่าจริง —</th>
               <th colspan="3" style="padding:2px 5px;text-align:center">— ประสาทสัมผัส —</th>
               <th colspan="3" style="padding:2px 5px;text-align:center">— ส่วนประกอบ —</th>
@@ -24120,7 +24315,7 @@ async function prptNewEntry(){
             </tr>
           </thead>
           <tbody id="pne-qc-tbody">
-            <tr id="pne-qc-empty"><td colspan="15" style="text-align:center;color:#9CA3AF;font-size:11px;padding:12px">
+            <tr id="pne-qc-empty"><td colspan="16" style="text-align:center;color:#9CA3AF;font-size:11px;padding:12px">
               กด "+ เพิ่มแถว" หรือ "⏱ สุ่มทุก 15 นาที" เพื่อเพิ่มข้อมูลคุณภาพ
             </td></tr>
           </tbody>
@@ -25064,6 +25259,7 @@ async function prptEditEntry(id){
       <div style="overflow-x:auto">
         <table id="ped-qc-table" style="width:100%;border-collapse:collapse;min-width:750px">
           <thead><tr style="background:#9F1239;color:white;font-size:9px">
+            <th style="padding:3px 5px;width:100px">ขั้นตอน</th>
             <th style="padding:3px 5px;width:52px">เวลา</th>
             <th style="padding:3px 5px;width:55px;text-align:right">บรรจุ(g)</th>
             <th style="padding:3px 5px;width:55px;text-align:right">ก่อนเคลือบ(g)</th>
@@ -25081,7 +25277,7 @@ async function prptEditEntry(id){
             <th style="padding:3px 5px;width:22px"></th>
           </tr></thead>
           <tbody id="ped-qc-tbody">
-            <tr id="ped-qc-empty"><td colspan="15" style="text-align:center;color:#9CA3AF;
+            <tr id="ped-qc-empty"><td colspan="16" style="text-align:center;color:#9CA3AF;
               font-size:11px;padding:10px">ยังไม่มี QC — กด + เพิ่มแถว</td></tr>
           </tbody>
         </table>
@@ -25121,7 +25317,7 @@ async function prptEditEntry(id){
 
   setTimeout(()=>{
     const d={steps:_pedInjectSteps,mats:_pedInjectMats,qcRows:_pedInjectQC,
-      qcSpec:_pedInjectSpec,id:_pedInjectId,ppNo:_pedInjectPPNo};
+      qcSpec:_pedInjectSpec,id:_pedInjectId,ppNo:_pedInjectPPNo,photos:_pedInjectPhotos};
     window._pedEditId=d.id;
     window._pedPPNo  =d.ppNo;
 
@@ -25148,6 +25344,22 @@ async function prptEditEntry(id){
         if(tl) tl.value=d.qcSpec[k+'Tol']||'';
       });
     }
+
+    // โหลดรูปภาพเดิม
+    for(let pi=1;pi<=4;pi++) window[`_pedPhoto${pi}`]=null;
+    d.photos.forEach((ph,i)=>{
+      const idx=i+1;
+      if(idx>4) return;
+      const b64=ph.material_name;
+      if(!b64) return;
+      window[`_pedPhoto${idx}`]=b64;
+      const prev=document.getElementById(`ped-photo-preview-${idx}`);
+      if(prev) prev.innerHTML=`<img src="${b64}" style="width:100%;height:100%;object-fit:cover;border-radius:6px">`;
+      const del=document.getElementById(`ped-photo-del-${idx}`);
+      if(del) del.style.display='block';
+      const wrap=document.getElementById(`ped-photo-wrap-${idx}`);
+      if(wrap) wrap.style.borderColor='#16a34a';
+    });
   },150);
 }
 
@@ -25197,6 +25409,36 @@ function pedAddStepRow(data){
   tbody.appendChild(tr);
 }
 
+
+function pedLoadPhoto(idx, input){
+  const file=input.files[0];
+  if(!file) return;
+  if(file.size>3*1024*1024){ alert('รูปใหญ่เกินไป (สูงสุด 3MB)'); return; }
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const b64=e.target.result;
+    window[`_pedPhoto${idx}`]=b64;
+    const prev=document.getElementById(`ped-photo-preview-${idx}`);
+    if(prev) prev.innerHTML=`<img src="${b64}" style="width:100%;height:100%;object-fit:cover;border-radius:6px">`;
+    const del=document.getElementById(`ped-photo-del-${idx}`);
+    if(del) del.style.display='block';
+    const wrap=document.getElementById(`ped-photo-wrap-${idx}`);
+    if(wrap) wrap.style.borderColor='#16a34a';
+  };
+  reader.readAsDataURL(file);
+}
+
+function pedClearPhoto(idx){
+  window[`_pedPhoto${idx}`]=null;
+  const prev=document.getElementById(`ped-photo-preview-${idx}`);
+  if(prev) prev.innerHTML=`<div style="font-size:24px">📷</div><div style="font-size:9px;color:#9CA3AF;margin-top:3px">รูปที่ ${idx}</div>`;
+  const del=document.getElementById(`ped-photo-del-${idx}`);
+  if(del) del.style.display='none';
+  const wrap=document.getElementById(`ped-photo-wrap-${idx}`);
+  if(wrap) wrap.style.borderColor='#86EFAC';
+  const inp=document.getElementById(`ped-photo-input-${idx}`);
+  if(inp) inp.value='';
+}
 function pedCalcStepMin(idx){
   const s=document.getElementById(`ped-sstart-${idx}`)?.value;
   const e=document.getElementById(`ped-send-${idx}`)?.value;
@@ -25308,6 +25550,7 @@ async function pedSaveAll(id){
     const idx=tr.id.replace('ped-qr-','');
     const gv=k=>document.getElementById(`ped-q${k}-${idx}`)?.value||null;
     return{
+      step:document.getElementById(`ped-qstep-${idx}`)?.value||'',
       time:gv('t'), wt_packed:gv('wt'), wt_pre_coat:gv('pre'), wt_post_coat:gv('post'),
       width:gv('w'), length:gv('l'), thickness:gv('thk'),
       taste:gv('taste'), color:gv('color'), odor:gv('odor'),
@@ -25367,6 +25610,19 @@ async function pedSaveAll(id){
           material_code:q.time||'', material_name:JSON.stringify(q),
           planned_qty:0, used_qty:0, remaining_qty:0, waste_qty:0, unit:'qc'
         }).catch(e=>console.warn('qc:',e));
+
+      // บันทึกรูปภาพ
+      for(let pi=1;pi<=4;pi++){
+        const b64=window[`_pedPhoto${pi}`];
+        if(!b64) continue;
+        await sbP('prod_log_step_materials',{
+          step_id:0, log_id:id, pp_no:ppNo, step_name:'__PHOTO__',
+          material_code:`photo_${pi}`, material_name:b64,
+          planned_qty:0, used_qty:0, remaining_qty:0, waste_qty:0, unit:'img'
+        }).catch(e=>console.warn('photo:',e));
+      }
+      // clear photo cache
+      for(let pi=1;pi<=4;pi++) window[`_pedPhoto${pi}`]=null;
     }
 
     await logA('UPDATE','production',`แก้ไขรายงาน log#${id} ${ppNo}`,ppNo);
@@ -25445,6 +25701,16 @@ function pedAddQCRow(timeStr, data){
     <option value="fail" ${val==='fail'?'selected':''} style="color:red">❌NG</option>
   </select>`;
   tr.innerHTML=`
+    <td style="padding:2px 3px">
+      <select id="ped-qstep-${idx}"
+        style="width:96px;border:1px solid #FECDD3;border-radius:3px;padding:2px;font-size:9px">
+        <option value="${d.step||''}">— ขั้นตอน —</option>
+        ${STEP_NAMES.map(n=>`<option value="${n}" ${n===d.step?'selected':''}>${n.slice(0,16)}</option>`).join('')}
+        <option value="ทั้งสาย" ${d.step==='ทั้งสาย'?'selected':''}>🔗 ทั้งสาย</option>
+        <option value="ก่อนบรรจุ" ${d.step==='ก่อนบรรจุ'?'selected':''}>📦 ก่อนบรรจุ</option>
+        <option value="หลังบรรจุ" ${d.step==='หลังบรรจุ'?'selected':''}>✅ หลังบรรจุ</option>
+      </select>
+    </td>
     <td style="padding:2px 3px"><input type="time" id="ped-qt-${idx}" value="${t}"
       style="width:50px;border:1px solid #FECDD3;border-radius:3px;padding:2px;font-size:10px"></td>
     <td style="padding:2px 3px">${ni(`ped-qwt-${idx}`,'g',d.wt_packed)}</td>
@@ -25869,6 +26135,7 @@ async function prptPrintEntry(id){
       <h3 style="color:#9F1239;font-size:11pt;margin:10px 0 5px">🔍 QC / การวัดขนาด (${qcRows.length} แถว${ngCount>0?' — NG: '+ngCount:''})</h3>
       <table style="width:100%;border-collapse:collapse;font-size:8.5pt">
         <thead><tr style="background:#9F1239;color:white">
+          <th style="padding:3px 5px">ขั้นตอน</th>
           <th style="padding:3px 5px">เวลา</th>
           <th style="padding:3px 5px;text-align:right">บรรจุ(g)</th><th style="padding:3px 5px;text-align:right">ก่อนเคลือบ(g)</th>
           <th style="padding:3px 5px;text-align:right">หลังเคลือบ(g)</th><th style="padding:3px 5px;text-align:right">กว้าง(mm)</th>
@@ -25883,6 +26150,7 @@ async function prptPrintEntry(id){
             const isWarn=q.result?.includes('⚠️');
             const sv=v=>v==='pass'?'✅':v==='fail'?'❌':v==='marginal'?'⚠️':'—';
             return`<tr style="background:${isNG?'#FFF5F5':isWarn?'#FFFBEB':'white'};border-bottom:1px solid #E5E7EB">
+              <td style="padding:2px 5px;font-size:8pt;color:#7C3AED">${q.step||'—'}</td>
               <td style="padding:2px 5px;white-space:nowrap">${q.time||'—'}</td>
               <td style="text-align:right;padding:2px 5px">${q.wt_packed||'—'}</td>
               <td style="text-align:right;padding:2px 5px">${q.wt_pre_coat||'—'}</td>
