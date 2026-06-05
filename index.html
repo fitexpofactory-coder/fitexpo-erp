@@ -25236,10 +25236,10 @@ function pneCalcStepMin(idx){
   const s=document.getElementById(`pne-sstart-${idx}`)?.value;
   const e=document.getElementById(`pne-send-${idx}`)?.value;
   if(s&&e){
-    const [sh,sm]=s.split(':').map(Number);
-    const [eh,em]=e.split(':').map(Number);
-    const diff=(eh*60+em)-(sh*60+sm);
-    if(diff>0){
+    const toMin=t=>{ const [h,m]=t.split(':').map(Number); return h*60+m; };
+    let diff=toMin(e)-toMin(s);
+    if(diff<0) diff+=24*60;  // ข้ามวัน: เช่น 23:00 → 01:00 = 120 นาที
+    if(diff>0&&diff<=24*60){
       const minEl=document.getElementById(`pne-smin-${idx}`);
       if(minEl) minEl.value=diff;
     }
@@ -25484,7 +25484,14 @@ async function prptSaveEntry(){
       stepNo:i+1,
       stepName:document.getElementById(`pne-sname-${idx}`)?.value||'',
       startTime:startT?`${date}T${startT}:00+07:00`:null,
-      endTime:endT?`${date}T${endT}:00+07:00`:null,
+      endTime:endT?(()=>{
+        // ถ้า end < start = ข้ามวัน → date +1
+        const toMin=t=>{const [h,m]=t.split(':').map(Number);return h*60+m;};
+        const endDate=startT&&toMin(endT)<toMin(startT)
+          ?new Date(new Date(date+'T00:00:00').getTime()+86400000).toISOString().slice(0,10)
+          :date;
+        return endDate+'T'+endT+':00+07:00';
+      })():null,
       dur:parseFloat(document.getElementById(`pne-smin-${idx}`)?.value)||0,
       wk:parseInt(document.getElementById(`pne-swk-${idx}`)?.value)||1,
       inp:parseFloat(document.getElementById(`pne-sinput-${idx}`)?.value)||0,
@@ -25792,7 +25799,7 @@ async function prptEditEntry(id){
             <th style="padding:4px 6px;width:140px">ขั้นตอน</th>
             <th style="padding:4px 6px;width:78px">เริ่ม</th>
             <th style="padding:4px 6px;width:78px">สิ้นสุด</th>
-            <th style="padding:4px 6px;width:48px;text-align:right">นาที</th>
+            <th style="padding:4px 6px;width:58px;text-align:right" title="คำนวณอัตโนมัติ — รองรับข้ามวัน">นาที⏱</th>
             <th style="padding:4px 6px;width:42px;text-align:right">👤คน</th>
             <th style="padding:4px 6px;width:62px;text-align:right">Input</th>
             <th style="padding:4px 6px;width:62px;text-align:right">Output</th>
@@ -26109,10 +26116,10 @@ function pedCalcStepMin(idx){
   const s=document.getElementById(`ped-sstart-${idx}`)?.value;
   const e=document.getElementById(`ped-send-${idx}`)?.value;
   if(s&&e){
-    const [sh,sm]=s.split(':').map(Number);
-    const [eh,em]=e.split(':').map(Number);
-    const diff=(eh*60+em)-(sh*60+sm);
-    if(diff>0){
+    const toMin=t=>{ const [h,m]=t.split(':').map(Number); return h*60+m; };
+    let diff=toMin(e)-toMin(s);
+    if(diff<0) diff+=24*60;  // ข้ามวัน
+    if(diff>0&&diff<=24*60){
       const el=document.getElementById(`ped-smin-${idx}`);
       if(el) el.value=diff;
     }
@@ -27150,7 +27157,8 @@ function nsCalcDuration(){
   const s=document.getElementById('ns-start')?.value;
   const e=document.getElementById('ns-end')?.value;
   if(s&&e){
-    const diff=(new Date(e)-new Date(s))/60000;
+    let diff=(new Date(e)-new Date(s))/60000;
+    if(diff<0) diff+=24*60;  // overnight
     const dur=document.getElementById('ns-duration');
     if(dur&&diff>0) dur.value=Math.round(diff);
   }
