@@ -15972,7 +15972,7 @@ function prptBuildLogTable(logs){
     <tbody>
     ${logs.map(l=>{
       const oeeC=l.oee_pct>=85?'#16a34a':l.oee_pct>=65?'#D97706':'#DC2626';
-      const startT=l.start_time?new Date(l.start_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false}):'—';
+      const startT=l.start_time?extractHHMM(l.start_time):'—';
       const isWIP=l.sku_code?.startsWith('WIP');
       return`<tr style="border-bottom:1px solid #F1F5F9">
         <td style="padding:4px 8px;font-size:11px;white-space:nowrap">${l.plan_date||''} ${startT}</td>
@@ -16277,6 +16277,13 @@ async function bomShowCostSummary(){
     }
 
     // FG
+    // สร้าง effective masters (fallback ถ้า master ว่าง)
+    const _fgMaster = fgMaster.length>0 ? fgMaster :
+      [...new Set(fgBom.map(r=>r.sku_code))].map(code=>({sku:code,name_en:code,batch_kg:50,yield_pct:95}));
+    const _wipMaster = wipMaster.length>0 ? wipMaster :
+      [...new Set(wipBom.map(r=>r.wip_code))].map(code=>({code,name:code,batch_kg:50,yield_pct:95}));
+    console.log('[BOM Cost] masters: fg=',_fgMaster.length,'wip=',_wipMaster.length,'prices=',matPrices.filter(m=>m.price_per_unit>0).length);
+
     const fgRows=_fgMaster.map(m=>{
       const rows=fgBomMap[m.sku]||[];
       const c=calcCost(rows,Number(m.batch_kg)||50,Number(m.yield_pct)||95,Number(m.pcs_per_batch)||0);
@@ -16310,13 +16317,7 @@ async function bomShowCostSummary(){
     console.log('[BOM Cost] fgMaster:',fgMaster.length,'wipMaster:',wipMaster.length,
       'fgBom:',fgBom.length,'wipBom:',wipBom.length,'prices:',matPrices.filter(m=>m.price_per_unit>0).length);
 
-    // Fallback: ถ้า master ว่าง → สร้าง master จาก BOM keys โดยตรง
-    const _fgMaster = fgMaster.length>0 ? fgMaster :
-      [...new Set(fgBom.map(r=>r.sku_code))].map(code=>({sku:code,name_en:code,batch_kg:50,yield_pct:95}));
-    const _wipMaster = wipMaster.length>0 ? wipMaster :
-      [...new Set(wipBom.map(r=>r.wip_code))].map(code=>({code,name:code,batch_kg:50,yield_pct:95}));
 
-    console.log('[BOM Cost] effective masters: fg=',_fgMaster.length,'wip=',_wipMaster.length);
 
     panel.innerHTML=`
       <!-- Header -->
@@ -24610,7 +24611,7 @@ async function prptLoadLog(){
           ${filtered.map(l=>{
             const isWIP=l.sku_code?.startsWith('WIP');
             const oeeColor=l.oee_pct>=85?'#16a34a':l.oee_pct>=65?'#D97706':'#DC2626';
-            const startT=l.start_time?new Date(l.start_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false}):'—';
+            const startT=l.start_time?extractHHMM(l.start_time):'—';
             return`<tr>
               <td style="font-size:11px;white-space:nowrap">${startT}</td>
               <td style="font-family:monospace;font-size:11px;color:#1B5EC7">${l.pp_no||'—'}</td>
@@ -25601,8 +25602,8 @@ async function prptViewEntry(id){
   const l=(await sbG('production_log',{f:[`id=eq.${id}`]}).catch(()=>[]))[0];
   if(!l) return;
   const oeeColor=l.oee_pct>=85?'#16a34a':l.oee_pct>=65?'#D97706':'#DC2626';
-  const startT=l.start_time?new Date(l.start_time).toLocaleString('th-TH'):'—';
-  const endT=l.end_time?new Date(l.end_time).toLocaleString('th-TH'):'—';
+  const startT=l.start_time?`${l.start_time.slice(0,10)} ${extractHHMM(l.start_time)}`:'—';
+  const endT=l.end_time?`${l.end_time.slice(0,10)} ${extractHHMM(l.end_time)}`:'—';
   openMo(`📋 Production Record — ${l.pp_no}`,`
     <table style="width:100%;font-size:12px;border-collapse:collapse">
       ${[['Work Order',l.pp_no],['SKU',l.sku_code],['สินค้า',l.product_name],
@@ -25674,7 +25675,15 @@ async function prptEditEntry(id){
   const machOpts=['',  ...(machines.map(m=>m.code)||[]) ]
     .map(c=>`<option ${c===l.machine_code?'selected':''}>${c}</option>`).join('');
 
-  const toLocal=dt=>dt?new Date(dt).toISOString().slice(0,16):'';
+  const toLocal=dt=>{
+    if(!dt) return '';
+    if(typeof dt==='string'){
+      // "2026-06-05T14:30:00+07:00" → "2026-06-05T14:30"
+      const m=dt.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})/);
+      if(m) return m[1];
+    }
+    return new Date(dt).toISOString().slice(0,16);
+  };
 
   openMo(`✏️ แก้ไขรายงาน — ${l.pp_no} Batch ${l.batch_no||1}`,`
     <!-- ═══ ข้อมูลหลัก ══════════════════════════════ -->
@@ -26010,12 +26019,7 @@ function pedAddStepRow(data){
   _pedStepCount++;
   const idx=_pedStepCount;
   const d=data||{};
-  const toT=dt=>{
-      if(!dt) return '';
-      // ถ้าเป็น ISO string → ดึง HH:MM โดยตรงโดยไม่ผ่าน Date object
-      if(typeof dt==='string'&&dt.includes('T')) return dt.slice(11,16);
-      return new Date(dt).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false});
-    };
+  const toT=dt=>extractHHMM(dt);;
   const tr=document.createElement('tr');
   tr.id=`ped-sr-${idx}`;
   tr.style.cssText='border-bottom:1px solid #D1FAE5;background:#F0FDF4';
@@ -26596,7 +26600,7 @@ function prptPrintLog(){
   if(!d){alert('กด 🔍 ค้นหาก่อนพิมพ์');return;}
   const rows=d.filtered.map((l,i)=>{
     const oeeColor=l.oee_pct>=85?'green':l.oee_pct>=65?'orange':'red';
-    const startT=l.start_time?new Date(l.start_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false}):'—';
+    const startT=l.start_time?extractHHMM(l.start_time):'—';
     return`<tr>
       <td>${i+1}</td><td>${startT}</td><td>${l.pp_no}</td>
       <td>${l.product_name||l.sku_code}</td><td>${l.shift||'—'}</td>
@@ -26737,8 +26741,8 @@ async function prptPrintEntry(id){
 
   // Steps HTML
   const stepsHtml = steps.map(s=>{
-    const startT=s.start_time?new Date(s.start_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false}):'—';
-    const endT=s.end_time?new Date(s.end_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false}):'—';
+    const startT=s.start_time?extractHHMM(s.start_time):'—';
+    const endT=s.end_time?extractHHMM(s.end_time):'—';
     const mList=matsByStep[s.id]||[];
     return`<div style="border:1px solid #CBD5E1;border-radius:5px;margin-bottom:8px;overflow:hidden;page-break-inside:avoid">
       <div style="background:#1B3A5C;color:white;padding:5px 10px;font-weight:700;font-size:9.5pt">
@@ -26987,8 +26991,8 @@ GRANT USAGE,SELECT ON SEQUENCE prod_log_step_materials_id_seq TO anon,authentica
                 <div style="color:#6B7280;font-size:9px">⏱️ เวลา</div>
                 <div style="font-weight:700">${s.duration_min||'—'} นาที</div>
                 <div style="color:#9CA3AF;font-size:9px">
-                  ${s.start_time?new Date(s.start_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false}):'—'}–
-                  ${s.end_time?new Date(s.end_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false}):'—'}
+                  ${s.start_time?extractHHMM(s.start_time):'—'}–
+                  ${s.end_time?extractHHMM(s.end_time):'—'}
                 </div>
               </div>
               <div style="background:#F0FDF4;border-radius:6px;padding:6px;text-align:center">
@@ -27375,8 +27379,8 @@ async function prptPrintSteps(logId, ppNo){
           <td style="padding:2px 6px">${m.unit||'kg'}</td>
         </tr>`).join('')}
       </table>`:''  ;
-    const startT=s.start_time?new Date(s.start_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false}):'—';
-    const endT=s.end_time?new Date(s.end_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false}):'—';
+    const startT=s.start_time?extractHHMM(s.start_time):'—';
+    const endT=s.end_time?extractHHMM(s.end_time):'—';
     return`
       <div style="border:1px solid #CBD5E1;border-radius:6px;margin-bottom:10px;overflow:hidden;page-break-inside:avoid">
         <div style="background:#1B3A5C;color:white;padding:6px 10px">
