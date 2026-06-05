@@ -3677,7 +3677,9 @@ async function loadBOMDetail(code){
     const codeField=isFG?'sku_code':'wip_code';
     const [rows,master,matPrices]=await Promise.all([
       sbG(bomTable,{f:[`${codeField}=eq.${code}`],ord:'id.asc'}),
-      isFG?sbG('master_product',{f:[`sku=eq.${code}`],s:'*'}):sbG('wip_master',{f:[`code=eq.${code}`],s:'*'}),
+      isFG
+      ?sbG('master_product',{f:[`sku=eq.${code}`],s:'id,sku,name_en,name_th,batch_kg,yield_pct,size_g,min_lot_pcs'}).catch(()=>sbG('master_product',{f:[`sku=eq.${code}`]}).catch(()=>[]))
+      :sbG('wip_master',{f:[`code=eq.${code}`],s:'id,code,name,batch_kg,yield_pct'}).catch(()=>sbG('wip_master',{f:[`code=eq.${code}`]}).catch(()=>[])),
       sbG('master_material',{s:'code,name,unit,category,price_per_unit'}).catch(()=>[]),
     ]);
     // สร้าง price map
@@ -16212,8 +16214,10 @@ async function bomShowCostSummary(){
   try{
     // โหลดทุกอย่างพร้อมกัน
     const [fgMaster, wipMaster, fgBom, wipBom, matPrices] = await Promise.all([
-      sbG('master_product',{ord:'sku.asc',lim:300}).catch(()=>[]),
-      sbG('wip_master',{ord:'code.asc',lim:300}).catch(()=>[]),
+      sbG('master_product',{s:'id,sku,name_en,name_th,batch_kg,yield_pct,size_g,min_lot_pcs',ord:'sku.asc',lim:300})
+        .catch(()=>sbG('master_product',{ord:'sku.asc',lim:300}).catch(()=>[])),
+      sbG('wip_master',{s:'id,code,name,batch_kg,yield_pct',ord:'code.asc',lim:300})
+        .catch(()=>sbG('wip_master',{ord:'code.asc',lim:300}).catch(()=>[])),
       sbG('bom_master',{s:'sku_code,mat_code,qty_per_batch,pct_of_batch,unit,section',ord:'sku_code.asc',lim:2000}).catch(()=>[]),
       sbG('wip_bom',{s:'wip_code,rm_code,qty_per_batch,pct_of_batch,unit,section',ord:'wip_code.asc',lim:2000}).catch(()=>[]),
       sbG('master_material',{s:'code,name,unit,price_per_unit,category',lim:500}).catch(()=>[])
