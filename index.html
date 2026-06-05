@@ -3167,6 +3167,20 @@ let _payrollData=[], _lastMRC=null;
 // ════════════════════════════════════════════════════════════
 const SB='https://meehbfcmnmposarkejuh.supabase.co';
 
+// ── Company Info (เก็บใน localStorage) ───────────────────
+const COMPANY_INFO = {
+  get name(){ return localStorage.getItem('co_name')||'บริษัท ฟิตเอ็กซ์โป จำกัด'; },
+  get nameEN(){ return localStorage.getItem('co_name_en')||'FitExpo Co., Ltd.'; },
+  get logo(){ return localStorage.getItem('co_logo')||''; },
+  get address(){ return localStorage.getItem('co_address')||''; },
+  get tel(){ return localStorage.getItem('co_tel')||''; },
+  set name(v){ localStorage.setItem('co_name',v); },
+  set nameEN(v){ localStorage.setItem('co_name_en',v); },
+  set logo(v){ localStorage.setItem('co_logo',v); },
+  set address(v){ localStorage.setItem('co_address',v); },
+  set tel(v){ localStorage.setItem('co_tel',v); },
+};
+
 // ── Time helper: extract HH:MM from any ISO datetime string ──
 // ไม่ผ่าน Date object เพื่อป้องกัน timezone shift
 function extractHHMM(dt){
@@ -3690,13 +3704,41 @@ async function loadBOMDetail(code){
     const isFG=BOM_TYPE==='fg';
     const bomTable=isFG?'bom_master':'wip_bom';
     const codeField=isFG?'sku_code':'wip_code';
-    const [rows,master,matPrices]=await Promise.all([
+    const [rows,master,matPrices,wipBomAll,wipMasterAll]=await Promise.all([
       sbG(bomTable,{f:[`${codeField}=eq.${code}`],ord:'id.asc'}),
       isFG
-      ?sbG('master_product',{f:[`sku=eq.${code}`],s:'sku,name_en,name_th,batch_kg,yield_pct,size_g'}).catch(()=>[])
-      :sbG('wip_master',{f:[`code=eq.${code}`],s:'code,name,batch_kg,yield_pct'}).catch(()=>[]),
+      ?sbG('master_product',{f:[`sku=eq.${code}`],s:'sku,name_en,name_th,batch_kg,yield_pct,size_g,pcs_per_batch,net_weight_g'}).catch(()=>[])
+      :sbG('wip_master',{f:[`code=eq.${code}`],s:'code,name,batch_kg,yield_pct,pcs_per_batch,net_weight_g'}).catch(()=>[]),
       sbG('master_material',{s:'code,name,unit,category,price_per_unit'}).catch(()=>[]),
+      isFG?sbG('wip_bom',{ord:'wip_code.asc'}).catch(()=>[]):[],
+      isFG?sbG('wip_master',{s:'code,name,batch_kg,yield_pct'}).catch(()=>[]):[],
     ]);
+    // สร้าง WIP cost map: wipCode → ราคา/kg
+    const _wipCostMap={};
+    if(isFG&&wipBomAll.length&&wipMasterAll.length){
+      const _wipBomByCode={};
+      wipBomAll.forEach(r=>{ if(!_wipBomByCode[r.wip_code]) _wipBomByCode[r.wip_code]=[]; _wipBomByCode[r.wip_code].push(r); });
+      const _matPriceMap2={};
+      matPrices.forEach(m=>{ if(m.price_per_unit) _matPriceMap2[m.code]=Number(m.price_per_unit); });
+      wipMasterAll.forEach(wm=>{
+        const wRows=_wipBomByCode[wm.code]||[];
+        const wBkg=Number(wm.batch_kg)||50;
+        const wYield=Number(wm.yield_pct)||95;
+        let wCost=0;
+        wRows.forEach(wr=>{
+          const wMatCode=wr.rm_code||'';
+          const wPct=Number(wr.pct_of_batch||0);
+          const wQty=Number(wr.qty_per_batch||0);
+          let wKg=wPct>0?wPct/100*wBkg:wQty;
+          const wUnit=(wr.unit||'kg').toLowerCase();
+          if(wUnit==='g'||wUnit==='ml') wKg/=1000;
+          wCost+=wKg*(_matPriceMap2[wMatCode]||0);
+        });
+        // ราคา WIP ต่อ kg output
+        const wOutKg=wBkg*(wYield/100);
+        _wipCostMap[wm.code]= wOutKg>0 ? wCost/wOutKg : 0;
+      });
+    }
     // สร้าง price map
     const _priceMap={};
     (matPrices||[]).forEach(m=>{ if(m.price_per_unit) _priceMap[m.code]=Number(m.price_per_unit); });
@@ -3712,7 +3754,41 @@ async function loadBOMDetail(code){
       <div class="ct">${isFG?m?.name_en:m?.name||code}</div>
       <div style="font-size:11px;color:var(--text3);margin-top:2px">${code} | Batch: ${batchKg}kg${isFG?` | Yield ~${yieldPct}%`:''}</div>
     </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <!-- pcs_per_batch input -->
+    <div style="background:#FEF3C7;border-radius:6px;padding:8px;margin-top:6px;
+      display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div>
+        <label style="font-size:10px;font-weight:600;color:#92400E">🔢 จำนวนชิ้น/Batch (pcs_per_batch)</label>
+        <div style="display:flex;gap:4px;margin-top:2px">
+          <input type="number" id="bom-pcs-input" value="${m?.pcs_per_batch||0}"
+            min="0" step="1" placeholder="0"
+            style="flex:1;border:1px solid #FCD34D;border-radius:4px;padding:3px 6px;font-size:11px">
+          <button onclick="bomSavePcsBatch('${code}','${isFG?'master_product':'wip_master'}','${isFG?'sku':'code'}')"
+            style="border:none;background:#D97706;color:white;border-radius:4px;padding:3px 10px;font-size:11px;cursor:pointer">
+            💾 บันทึก
+          </button>
+        </div>
+        <div style="font-size:9px;color:#92400E;margin-top:2px">
+          ใช้คำนวณต้นทุน/ชิ้น | ${m?.pcs_per_batch>0?'ปัจจุบัน: '+m.pcs_per_batch+' ชิ้น/batch':'ยังไม่ได้ตั้งค่า'}
+        </div>
+      </div>
+      <div>
+        <label style="font-size:10px;font-weight:600;color:#92400E">⚖️ น้ำหนักสุทธิ/ชิ้น (g)</label>
+        <div style="display:flex;gap:4px;margin-top:2px">
+          <input type="number" id="bom-netg-input" value="${m?.net_weight_g||m?.size_g||0}"
+            min="0" step="0.1" placeholder="0"
+            style="flex:1;border:1px solid #FCD34D;border-radius:4px;padding:3px 6px;font-size:11px">
+          <button onclick="bomSaveNetWeight('${code}','${isFG?'master_product':'wip_master'}','${isFG?'sku':'code'}')"
+            style="border:none;background:#D97706;color:white;border-radius:4px;padding:3px 10px;font-size:11px;cursor:pointer">
+            💾 บันทึก
+          </button>
+        </div>
+        <div style="font-size:9px;color:#92400E;margin-top:2px">
+          fallback: ใช้ size_g = ${m?.size_g||0} g
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
       <button class="btn btnP sm" onclick="showAddBOMRow('${code}','${bomTable}','${codeField}',${batchKg})">+ เพิ่มวัสดุ</button>
       <button class="btn btnT sm" onclick="printBatchFor('${code}')">🖨️ Print</button>
       <button class="btn btnS sm" onclick="showCopyBOM('${code}','${BOM_TYPE}')">📋 Copy BOM</button>
@@ -3791,7 +3867,9 @@ async function loadBOMDetail(code){
         let kgPB = pct>0 ? pct/100*batchKg : qty*scaleFactor;
         const unitL=(r.unit||'kg').toLowerCase();
         if(unitL==='g'||unitL==='ml') kgPB/=1000;
-        const price=_priceMap[matCode]||0;
+        // ราคา: ถ้าเป็น WIP → ใช้ wipCostMap, ถ้าเป็น RM/PK → priceMap
+        const isWIP=matCode.startsWith('WIP')||matCode.startsWith('wip')||_wipCostMap[matCode]>0;
+        const price = isWIP&&_wipCostMap[matCode]>0 ? _wipCostMap[matCode] : (_priceMap[matCode]||0);
         if(matCode&&!price) missingPrice.push(matCode);
         totalCost+=kgPB*price;
       });
@@ -16234,6 +16312,87 @@ function pneCollectQCData(){
 }
 
 
+
+// ════════════════════════════════════════════════════════════
+//  COMPANY SETTINGS
+// ════════════════════════════════════════════════════════════
+function showCompanySettings(){
+  openMo('🏭 ตั้งค่าข้อมูลบริษัท',`
+    <div class="fgrp"><label class="flbl">ชื่อบริษัท (ภาษาไทย)</label>
+      <input type="text" class="fc2" id="cs-name" value="${COMPANY_INFO.name}"
+        placeholder="บริษัท ฟิตเอ็กซ์โป จำกัด"></div>
+    <div class="fgrp"><label class="flbl">ชื่อบริษัท (ภาษาอังกฤษ)</label>
+      <input type="text" class="fc2" id="cs-name-en" value="${COMPANY_INFO.nameEN}"
+        placeholder="FitExpo Co., Ltd."></div>
+    <div class="fgrp"><label class="flbl">ที่อยู่</label>
+      <input type="text" class="fc2" id="cs-addr" value="${COMPANY_INFO.address}"
+        placeholder="เลขที่ ถนน ตำบล อำเภอ จังหวัด"></div>
+    <div class="fgrp"><label class="flbl">โทรศัพท์</label>
+      <input type="text" class="fc2" id="cs-tel" value="${COMPANY_INFO.tel}"
+        placeholder="02-xxx-xxxx"></div>
+    <div class="fgrp">
+      <label class="flbl">โลโก้บริษัท (อัปโหลดรูป)</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div id="cs-logo-preview" style="width:80px;height:80px;border:2px dashed #CBD5E1;
+          border-radius:8px;display:flex;align-items:center;justify-content:center;
+          overflow:hidden;background:#F8FAFC;flex-shrink:0;cursor:pointer"
+          onclick="document.getElementById('cs-logo-input').click()">
+          ${COMPANY_INFO.logo
+            ?'<img src="'+COMPANY_INFO.logo+'" style="width:100%;height:100%;object-fit:contain">'
+            :'<div style="text-align:center;font-size:10px;color:#9CA3AF">คลิกเพื่อ<br>อัปโหลด<br>โลโก้</div>'}
+        </div>
+        <div style="flex:1">
+          <input type="file" id="cs-logo-input" accept="image/*" style="display:none"
+            onchange="csLoadLogo(this)">
+          <button class="btn sm" type="button" onclick="document.getElementById('cs-logo-input').click()"
+            style="margin-bottom:4px;width:100%">📷 เลือกรูปโลโก้</button>
+          ${COMPANY_INFO.logo
+            ?'<button class="btn sm" type="button" onclick="csClearLogo()" style="width:100%;background:#FEE2E2;color:#DC2626;border:none">✕ ลบโลโก้</button>'
+            :''}
+          <div style="font-size:9px;color:#6B7280;margin-top:4px">PNG, JPG, SVG (ไม่เกิน 1MB)</div>
+        </div>
+      </div>
+    </div>
+    <div id="cs-msg" style="margin:8px 0"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+      <button class="btn btnS" onclick="closeMo()">✕ ยกเลิก</button>
+      <button class="btn btnP" onclick="csSave()">💾 บันทึกข้อมูลบริษัท</button>
+    </div>
+  `);
+}
+
+function csLoadLogo(input){
+  const file=input.files[0];
+  if(!file) return;
+  if(file.size>1*1024*1024){ alert('รูปใหญ่เกินไป (สูงสุด 1MB)'); return; }
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const b64=e.target.result;
+    window._csTempLogo=b64;
+    const prev=document.getElementById('cs-logo-preview');
+    if(prev) prev.innerHTML=`<img src="${b64}" style="width:100%;height:100%;object-fit:contain">`;
+  };
+  reader.readAsDataURL(file);
+}
+
+function csClearLogo(){
+  window._csTempLogo='';
+  COMPANY_INFO.logo='';
+  const prev=document.getElementById('cs-logo-preview');
+  if(prev) prev.innerHTML='<div style="text-align:center;font-size:10px;color:#9CA3AF">คลิกเพื่อ<br>อัปโหลด<br>โลโก้</div>';
+}
+
+function csSave(){
+  COMPANY_INFO.name=document.getElementById('cs-name')?.value||'';
+  COMPANY_INFO.nameEN=document.getElementById('cs-name-en')?.value||'';
+  COMPANY_INFO.address=document.getElementById('cs-addr')?.value||'';
+  COMPANY_INFO.tel=document.getElementById('cs-tel')?.value||'';
+  if(window._csTempLogo!==undefined) COMPANY_INFO.logo=window._csTempLogo||'';
+  window._csTempLogo=undefined;
+  msgEl('cs-msg','✅ บันทึกเรียบร้อย','s');
+  setTimeout(closeMo,700);
+}
+
 // ════════════════════════════════════════════════════════════
 //  BOM COST SUMMARY
 // ════════════════════════════════════════════════════════════
@@ -16301,7 +16460,7 @@ async function bomShowCostSummary(){
 
     const fgRows=_fgMaster.map(m=>{
       const rows=fgBomMap[m.sku]||[];
-      const c=calcCost(rows,Number(m.batch_kg)||50,Number(m.yield_pct)||95,Number(m.pcs_per_batch)||0);
+      const c=calcCost(rows,Number(m.batch_kg)||50,Number(m.yield_pct)||95,Number(m.pcs_per_batch)||0,Number(m.size_g)||0);
       return{type:'FG',code:m.sku,name:m.name_en||m.name_th||m.sku,
         batchKg:Number(m.batch_kg)||50, yieldPct:Number(m.yield_pct)||95,
         pcsPerBatch:Number(m.pcs_per_batch)||0,
@@ -16312,7 +16471,7 @@ async function bomShowCostSummary(){
     // WIP
     const wipRows=_wipMaster.map(m=>{
       const rows=wipBomMap[m.code]||[];
-      const c=calcCost(rows,Number(m.batch_kg)||50,Number(m.yield_pct)||95,Number(m.pcs_per_batch)||0);
+      const c=calcCost(rows,Number(m.batch_kg)||50,Number(m.yield_pct)||95,Number(m.pcs_per_batch)||0,0);
       return{type:'WIP',code:m.code,name:m.name||m.code,
         batchKg:Number(m.batch_kg)||50, yieldPct:Number(m.yield_pct)||95,
         pcsPerBatch:Number(m.pcs_per_batch)||0,
@@ -16553,6 +16712,34 @@ async function bomEditMatPrices(code, type){
   `);
 }
 
+
+async function bomSavePcsBatch(code, table, field){
+  const val=parseInt(document.getElementById('bom-pcs-input')?.value)||0;
+  try{
+    await sbU(table,{pcs_per_batch:val},`${field}=eq.${code}`);
+    showToast(`✅ บันทึก pcs_per_batch = ${val} ชิ้น/batch`,'s');
+    loadBOMDetail(code);
+  }catch(e){ showToast('❌ '+e.message,'e'); }
+}
+
+async function bomSaveNetWeight(code, table, field){
+  const val=parseFloat(document.getElementById('bom-netg-input')?.value)||0;
+  try{
+    await sbU(table,{net_weight_g:val},`${field}=eq.${code}`);
+    showToast(`✅ บันทึก net_weight_g = ${val} g`,'s');
+    loadBOMDetail(code);
+  }catch(e){ showToast('❌ '+e.message,'e'); }
+}
+
+function showToast(msg, type='s'){
+  const t=document.createElement('div');
+  t.style.cssText='position:fixed;bottom:48px;right:14px;border-radius:8px;padding:10px 16px;'+
+    'z-index:9000;font-size:12px;box-shadow:0 4px 12px rgba(0,0,0,.2);'+
+    'background:'+(type==='s'?'#166534':type==='e'?'#DC2626':'#1B3A5C')+';color:white';
+  t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove&&t.remove(),3000);
+}
 async function bomSaveMatPrices(matCodes){
   msgEl('bep-msg','<span class="spin"></span> กำลังบันทึก...','i');
   let saved=0, errors=0;
@@ -26841,13 +27028,52 @@ async function prptPrintEntry(id){
     </div>`:
     '<p style="color:gray;font-size:9pt">ไม่มีข้อมูล QC</p>';
 
+  const _coLogo=COMPANY_INFO.logo;
+  const _coName=COMPANY_INFO.name;
+  const _coNameEN=COMPANY_INFO.nameEN;
+  const _coAddr=COMPANY_INFO.address;
+  const _coTel=COMPANY_INFO.tel;
+  const _recorder=CU?.full_name||CU?.username||'—';
+
   openPreviewWindow(`<!DOCTYPE html><html><head><meta charset="UTF-8">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <style>@page{size:A4;margin:12mm}body{font-family:'Sarabun',sans-serif;font-size:10pt}
-    h2{color:#1B3A5C;margin:0 0 2px;font-size:13pt}h3{margin:8px 0 4px}
-    @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style>
+    <style>
+      @page{size:A4;margin:10mm}
+      body{font-family:'Sarabun',sans-serif;font-size:10pt;margin:0}
+      h3{margin:8px 0 4px}
+      .doc-header{display:flex;align-items:center;gap:12px;padding-bottom:8px;
+        border-bottom:3px solid #1B3A5C;margin-bottom:10px}
+      .doc-header-logo{width:64px;height:64px;object-fit:contain;flex-shrink:0}
+      .doc-header-logo-placeholder{width:64px;height:64px;flex-shrink:0}
+      .doc-footer{border-top:1px solid #CBD5E1;margin-top:16px;padding-top:8px;
+        display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:9pt}
+      .sig-box{text-align:center}
+      .sig-line{border-top:1px solid #374151;margin-top:32px;padding-top:4px;font-size:9pt}
+      @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+    </style>
     </head><body>
-    <h2>📋 Production Record — ${l.pp_no} Batch ${l.batch_no||1}</h2>
+
+    <!-- ═══ Document Header ═══════════════════════════════ -->
+    <div class="doc-header">
+      ${_coLogo
+        ?'<img src="'+_coLogo+'" class="doc-header-logo" alt="logo">'
+        :'<div class="doc-header-logo-placeholder"></div>'}
+      <div style="flex:1">
+        <div style="font-size:14pt;font-weight:800;color:#1B3A5C">${_coName}</div>
+        <div style="font-size:9pt;color:#6B7280">${_coNameEN}</div>
+        ${_coAddr?'<div style="font-size:8.5pt;color:#6B7280">'+_coAddr+'</div>':''}
+        ${_coTel?'<div style="font-size:8.5pt;color:#6B7280">📞 '+_coTel+'</div>':''}
+      </div>
+      <div style="text-align:right;font-size:8.5pt;color:#6B7280">
+        <div style="font-size:12pt;font-weight:700;color:#1B3A5C">Production Record</div>
+        <div>บันทึกผลการผลิต</div>
+        <div style="margin-top:4px">พิมพ์: ${printDate}</div>
+      </div>
+    </div>
+
+    <h2 style="color:#1B3A5C;font-size:12pt;margin:0 0 6px">
+      📋 ${l.pp_no} &nbsp;|&nbsp; Batch ${l.batch_no||1}
+    </h2>
     <table style="width:100%;border-collapse:collapse;font-size:9pt;margin-bottom:8px">
       <tr style="background:#EFF6FF">
         <td style="padding:3px 8px" colspan="3"><b>สินค้า:</b> ${l.product_name||l.sku_code||'—'}</td>
@@ -26889,6 +27115,23 @@ async function prptPrintEntry(id){
           </div>`).join('')}
       </div>
     </div>`:''}
+    <!-- ═══ Document Footer ══════════════════════════════ -->
+    <div class="doc-footer">
+      <div class="sig-box">
+        <div style="color:#6B7280;font-size:9pt">ผู้บันทึกรายงาน</div>
+        <div style="font-weight:700">${_recorder}</div>
+        <div class="sig-line">ลายมือชื่อ</div>
+      </div>
+      <div class="sig-box">
+        <div style="color:#6B7280;font-size:9pt">ผู้ตรวจสอบ</div>
+        <div class="sig-line">ลายมือชื่อ</div>
+      </div>
+      <div class="sig-box">
+        <div style="color:#6B7280;font-size:9pt">ผู้อนุมัติ</div>
+        <div class="sig-line">ลายมือชื่อ</div>
+      </div>
+    </div>
+
     <script>window.onload=()=>window.print();<\/script>
     </body></html>`, `Production Record ${l.pp_no} B${l.batch_no||1}`);
 }
