@@ -3172,28 +3172,14 @@ const SB='https://meehbfcmnmposarkejuh.supabase.co';
 function extractHHMM(dt){
   if(!dt) return '—';
   if(typeof dt==='string'){
-    // ถ้า Supabase ส่ง UTC กลับมา (+00:00 หรือ Z) → แปลงเป็น local +07:00
-    if(dt.endsWith('+00:00')||dt.endsWith('Z')||dt.match(/\+00:00$/)){
-      try{
-        var d=new Date(dt);
-        // add 7 hours for Thailand
-        var local=new Date(d.getTime()+7*3600000);
-        var h=String(local.getUTCHours()).padStart(2,'0');
-        var mi=String(local.getUTCMinutes()).padStart(2,'0');
-        return h+':'+mi;
-      }catch(e){}
-    }
-    // ถ้ามี +07:00 หรือ naive → ดึง T→HH:MM โดยตรง
-    var m=dt.match(/T(\d{2}:\d{2})/);
+    // ดึง HH:MM จาก ISO string ตรงๆ ไม่แปลง timezone
+    // "2026-06-05T08:05:00" หรือ "2026-06-05T08:05:00+00:00" → "08:05"
+    var m=dt.match(/[T ](\d{2}:\d{2})/);
     if(m) return m[1];
-    // time only: "08:05"
+    // time only: "08:05" หรือ "08:05:00"
     if(/^\d{2}:\d{2}/.test(dt)) return dt.slice(0,5);
   }
-  try{
-    // fallback: ใช้ getHours (local timezone)
-    var d=new Date(dt);
-    return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
-  }catch(e){ return '—'; }
+  return '—';
 }
 let KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1lZWhiZmNtbm1wb3NhcmtlanVoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NjQyNTMsImV4cCI6MjA5MDA0MDI1M30.vbd9TxJr4D4ccPqjm1lw9XD4FwgrCOErqjXkKpUzLkk'; //
 
@@ -25714,23 +25700,11 @@ async function prptEditEntry(id){
   const toLocal=dt=>{
     if(!dt) return '';
     if(typeof dt==='string'){
-      // UTC → +07:00 local
-      if(dt.endsWith('+00:00')||dt.endsWith('Z')){
-        try{
-          const d=new Date(dt);
-          const local=new Date(d.getTime()+7*3600000);
-          return local.toISOString().slice(0,16).replace('Z','');
-        }catch(e){}
-      }
-      // +07:00 หรือ naive → ดึงตรงๆ
-      const m=dt.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})/);
-      if(m) return m[1];
+      // ดึง YYYY-MM-DDTHH:MM ตรงๆ จาก ISO string ไม่แปลง timezone
+      const m=dt.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})/);
+      if(m) return m[1]+'T'+m[2];
     }
-    try{
-      const d=new Date(dt);
-      const local=new Date(d.getTime()+7*3600000);
-      return local.toISOString().slice(0,16).replace('Z','');
-    }catch(e){ return ''; }
+    return '';
   };
 
   openMo(`✏️ แก้ไขรายงาน — ${l.pp_no} Batch ${l.batch_no||1}`,`
