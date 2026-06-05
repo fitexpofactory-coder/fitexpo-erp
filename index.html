@@ -23936,11 +23936,12 @@ async function prptNewEntry(){
   const wos=await sbG('production_plan',{
     f:['status=neq.cancelled'],
     s:'id,pp_no,sku_code,product_name,batch_kg,num_batches',
-    ord:'pp_no.desc',lim:80}).catch(()=>[]);
+    ord:'pp_no.desc',lim:200}).catch(()=>[]);
+  window._pneWOCache = wos; // cache for search
   const machines=await sbG('machines',{s:'code,name',ord:'code.asc'}).catch(()=>[]).then(r=>r).catch(()=>[]);
   const mats=await sbG('master_material',{s:'id,code,name,unit',ord:'code.asc',lim:300}).catch(()=>[]);
 
-  const woOpts=wos.map(w=>`<option value="${w.pp_no}" data-sku="${w.sku_code}" data-name="${(w.product_name||w.sku_code).replace(/"/g,'')}">${w.pp_no} — ${w.product_name||w.sku_code}</option>`).join('');
+  // woOpts ไม่ต้องใช้แล้ว (ใช้ search แทน)
   const machOpts=['',  ...(machines.map(m=>m.code)||[]) ].map(c=>`<option>${c}</option>`).join('');
   const matOpts=mats.map(m=>`<option value="${m.code}" data-unit="${m.unit||'kg'}">${m.code} — ${m.name||''}</option>`).join('');
 
@@ -23953,9 +23954,23 @@ async function prptNewEntry(){
       <div style="font-weight:700;color:#1B3A5C;font-size:12px;margin-bottom:8px">📋 ข้อมูลใบสั่งผลิต</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div class="fgrp"><label class="flbl">Work Order</label>
-          <select class="fc2" id="pne-wo" onchange="pneLoadWO()">
-            <option value="">— เลือก WO —</option>${woOpts}
-          </select></div>
+          <div style="position:relative">
+            <input type="text" class="fc2" id="pne-wo-search"
+              placeholder="พิมพ์ WO No. หรือชื่อสินค้า..."
+              autocomplete="off"
+              oninput="pneSearchWO(this.value)"
+              onfocus="pneSearchWO(this.value)"
+              style="width:100%">
+            <input type="hidden" id="pne-wo" value="">
+            <div id="pne-wo-list" style="display:none;position:absolute;left:0;right:0;top:100%;
+              background:white;border:1px solid var(--border);border-radius:0 0 8px 8px;
+              box-shadow:0 4px 12px rgba(0,0,0,.15);max-height:220px;overflow-y:auto;z-index:500">
+            </div>
+          </div>
+          <div id="pne-wo-selected" style="display:none;background:#EFF6FF;border-radius:6px;
+            padding:6px 10px;margin-top:4px;font-size:11px;color:#1B3A5C">
+          </div>
+        </div>
         <div class="fgrp"><label class="flbl">กะ / Shift</label>
           <select class="fc2" id="pne-shift">
             <option value="morning">🌤️ เช้า</option>
@@ -24221,11 +24236,115 @@ async function prptNewEntry(){
 
 let _pneStepCount=0, _pneMatCount=0;
 
+
+// ── WO Search ────────────────────────────────────────────────
+function pneSearchWO(q){
+  const list=document.getElementById('pne-wo-list');
+  const wos=window._pneWOCache||[];
+  if(!list) return;
+
+  const keyword=(q||'').toLowerCase().trim();
+  const filtered = keyword
+    ? wos.filter(w=>
+        (w.pp_no||'').toLowerCase().includes(keyword) ||
+        (w.product_name||'').toLowerCase().includes(keyword) ||
+        (w.sku_code||'').toLowerCase().includes(keyword)
+      )
+    : wos.slice(0, 30); // แสดง 30 ล่าสุดถ้าไม่ได้พิมพ์
+
+  if(!filtered.length){
+    list.style.display='block';
+    list.innerHTML='<div style="padding:10px 12px;color:#9CA3AF;font-size:12px">ไม่พบ WO</div>';
+    return;
+  }
+
+  list.style.display='block';
+  list.innerHTML = filtered.map(w=>{
+    const isWIP=w.sku_code?.startsWith('WIP');
+    const statusDot={'จองแล้ว':'🟡','กำลังผลิต':'🔵','เสร็จสิ้น':'🟢'}[w.status]||'⚪';
+    return `<div onclick="pneSelectWO('${w.pp_no}','${w.sku_code}','${(w.product_name||w.sku_code).replace(/'/g,"\\'")}',${w.batch_kg||50},${w.num_batches||1})"
+      style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #F1F5F9;
+        display:flex;align-items:center;gap:8px"
+      onmouseover="this.style.background='#EFF6FF'"
+      onmouseout="this.style.background=''">
+      <span style="background:${isWIP?'#EDE9FE':'#DBEAFE'};color:${isWIP?'#7C3AED':'#1E40AF'};
+        padding:1px 5px;border-radius:3px;font-size:9px;flex-shrink:0">${isWIP?'WIP':'FG'}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;color:#1B3A5C;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+          ${w.pp_no}
+        </div>
+        <div style="font-size:11px;color:#6B7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+          ${w.product_name||w.sku_code}
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:10px;color:#374151">${w.num_batches||1} Batch × ${w.batch_kg||50}kg</div>
+        <div style="font-size:9px;color:#9CA3AF">${statusDot} ${w.status||'—'}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // ปิดเมื่อ click นอก
+  setTimeout(()=>{
+    document.addEventListener('click', function closeList(e){
+      const wrap=document.getElementById('pne-wo-search')?.parentElement;
+      if(wrap&&!wrap.contains(e.target)){
+        list.style.display='none';
+        document.removeEventListener('click',closeList);
+      }
+    });
+  },10);
+}
+
+async function pneSelectWO(ppNo, skuCode, prodName, batchKg, numBatches){
+  // set hidden value
+  const woInput=document.getElementById('pne-wo');
+  const searchInput=document.getElementById('pne-wo-search');
+  const selectedDiv=document.getElementById('pne-wo-selected');
+  const list=document.getElementById('pne-wo-list');
+
+  if(woInput) woInput.value=ppNo;
+  if(searchInput) searchInput.value=ppNo+' — '+prodName;
+  if(list) list.style.display='none';
+
+  // แสดง selected info
+  if(selectedDiv){
+    selectedDiv.style.display='block';
+    selectedDiv.innerHTML=`
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <b style="color:#1B3A5C">${ppNo}</b>
+          <span style="color:#6B7280;margin-left:6px">${prodName}</span>
+        </div>
+        <button type="button" onclick="pneClearWO()"
+          style="border:none;background:#FEE2E2;color:#DC2626;border-radius:4px;
+          padding:2px 6px;cursor:pointer;font-size:10px">✕ เปลี่ยน</button>
+      </div>
+      <div style="color:#6B7280;font-size:10px;margin-top:2px">
+        ${numBatches} Batch × ${batchKg} kg | รวม ${numBatches*batchKg} kg
+      </div>`;
+  }
+
+  // โหลด batch selector
+  await pneLoadWO();
+}
+
+function pneClearWO(){
+  const woInput=document.getElementById('pne-wo');
+  const searchInput=document.getElementById('pne-wo-search');
+  const selectedDiv=document.getElementById('pne-wo-selected');
+  const batchSel=document.getElementById('pne-batch');
+  const batchInfo=document.getElementById('pne-batch-info');
+  if(woInput){ woInput.value=''; }
+  if(searchInput){ searchInput.value=''; searchInput.focus(); }
+  if(selectedDiv){ selectedDiv.style.display='none'; selectedDiv.innerHTML=''; }
+  if(batchSel){ batchSel.innerHTML='<option value="1">Batch 1 (เลือก WO ก่อน)</option>'; }
+  if(batchInfo){ batchInfo.innerHTML=''; }
+}
+
 async function pneLoadWO(){
-  const sel=document.getElementById('pne-wo');
-  const opt=sel?.options[sel.selectedIndex];
-  if(!opt?.value) return;
-  const ppNo=opt.value;
+  const ppNo=document.getElementById('pne-wo')?.value||'';
+  if(!ppNo) return;
 
   // โหลด WO detail เพื่อดู num_batches
   const wo=(await sbG('production_plan',{f:[`pp_no=eq.${ppNo}`],
