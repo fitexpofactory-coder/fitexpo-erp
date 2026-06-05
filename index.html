@@ -830,6 +830,10 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
         <div class="ftab on" onclick="switchBOMType('fg',this)">สินค้า FG</div>
         <div class="ftab" onclick="switchBOMType('wip',this)">WIP</div>
       </div>
+      <button class="btn btnP sm" style="width:100%;margin-top:8px;font-size:12px"
+        onclick="bomShowCostSummary()">
+        💰 สรุปต้นทุน BOM ทั้งหมด
+      </button>
       <input type="text" class="fc2 mb3" placeholder="ค้นหา..." id="bom-q" oninput="filterBOMList()">
       <div id="bom-sku-list" style="max-height:460px;overflow-y:auto;display:flex;flex-direction:column;gap:3px"></div>
     </div>
@@ -16182,6 +16186,382 @@ function pneCollectQCData(){
       spec
     };
   });
+}
+
+
+// ════════════════════════════════════════════════════════════
+//  BOM COST SUMMARY
+// ════════════════════════════════════════════════════════════
+async function bomShowCostSummary(){
+  const panel=document.getElementById('bom-detail-panel');
+  if(!panel) return;
+  panel.innerHTML=`<div style="text-align:center;padding:40px"><span class="spin"></span> กำลังคำนวณต้นทุน BOM ทั้งหมด...</div>`;
+
+  try{
+    // โหลดทุกอย่างพร้อมกัน
+    const [fgMaster, wipMaster, fgBom, wipBom, matPrices] = await Promise.all([
+      sbG('master_product',{s:'sku,name_en,batch_kg,yield_pct,pcs_per_batch,weight_per_pcs,stock_unit',ord:'sku.asc',lim:200}).catch(()=>[]),
+      sbG('wip_master',{s:'code,name,batch_kg,yield_pct,pcs_per_batch',ord:'code.asc',lim:200}).catch(()=>[]),
+      sbG('bom_master',{s:'sku_code,mat_code,qty_per_batch,pct_of_batch,unit,section',ord:'sku_code.asc',lim:2000}).catch(()=>[]),
+      sbG('wip_bom',{s:'wip_code,rm_code,qty_per_batch,pct_of_batch,unit,section',ord:'wip_code.asc',lim:2000}).catch(()=>[]),
+      sbG('master_material',{s:'code,name,unit,price_per_unit,category',lim:500}).catch(()=>[])
+    ]);
+
+    // Price map
+    const priceMap={};
+    const matInfoMap={};
+    matPrices.forEach(m=>{
+      priceMap[m.code]=Number(m.price_per_unit)||0;
+      matInfoMap[m.code]={name:m.name||'',unit:m.unit||'kg',category:m.category||''};
+    });
+
+    // Group BOM by SKU
+    const fgBomMap={}, wipBomMap={};
+    fgBom.forEach(r=>{ if(!fgBomMap[r.sku_code]) fgBomMap[r.sku_code]=[];  fgBomMap[r.sku_code].push(r); });
+    wipBom.forEach(r=>{ if(!wipBomMap[r.wip_code]) wipBomMap[r.wip_code]=[]; wipBomMap[r.wip_code].push(r); });
+
+    // คำนวณต้นทุนต่อ product
+    function calcCost(rows, batchKg, yieldPct, pcsPerBatch){
+      const scaleFactor = batchKg>0 ? 1 : 1; // qty ใน BOM = qty per batch_kg
+      let totalCost=0, missingCount=0;
+      const byMat=[];
+      rows.forEach(r=>{
+        const code=r.mat_code||r.rm_code||'';
+        const pct=Number(r.pct_of_batch||0);
+        const qty=Number(r.qty_per_batch||0);
+        let kgPB=pct>0?pct/100*batchKg:qty;  // qty_per_batch = qty ต่อ batch_kg นั้นอยู่แล้ว
+        const unitL=(r.unit||'kg').toLowerCase();
+        if(unitL==='g'||unitL==='ml') kgPB/=1000;
+        const price=priceMap[code]||0;
+        const cost=kgPB*price;
+        if(code&&!price) missingCount++;
+        totalCost+=cost;
+        byMat.push({code,kgPB,price,cost});
+      });
+      const pricePerKgIn  = batchKg>0?totalCost/batchKg:0;
+      const yp=yieldPct||95;
+      const pricePerKgOut = pricePerKgIn/(yp/100);
+      const pcs=pcsPerBatch||0;
+      const pricePerPcs   = pcs>0?totalCost/pcs:0;
+      return{totalCost,pricePerKgIn,pricePerKgOut,pricePerPcs,missingCount,byMat};
+    }
+
+    // FG
+    const fgRows=fgMaster.map(m=>{
+      const rows=fgBomMap[m.sku]||[];
+      const c=calcCost(rows,Number(m.batch_kg)||50,Number(m.yield_pct)||95,Number(m.pcs_per_batch)||0);
+      return{type:'FG',code:m.sku,name:m.name_en||m.sku,
+        batchKg:Number(m.batch_kg)||50, yieldPct:Number(m.yield_pct)||95,
+        pcsPerBatch:Number(m.pcs_per_batch)||0, bomCount:rows.length, ...c};
+    }).filter(r=>r.bomCount>0);
+
+    // WIP
+    const wipRows=wipMaster.map(m=>{
+      const rows=wipBomMap[m.code]||[];
+      const c=calcCost(rows,Number(m.batch_kg)||50,Number(m.yield_pct)||95,Number(m.pcs_per_batch)||0);
+      return{type:'WIP',code:m.code,name:m.name||m.code,
+        batchKg:Number(m.batch_kg)||50, yieldPct:Number(m.yield_pct)||95,
+        pcsPerBatch:Number(m.pcs_per_batch)||0, bomCount:rows.length, ...c};
+    }).filter(r=>r.bomCount>0);
+
+    const allRows=[...fgRows,...wipRows];
+    const grandTotal=allRows.reduce((s,r)=>s+r.totalCost,0);
+    const missingTotal=allRows.reduce((s,r)=>s+r.missingCount,0);
+
+    // Sort state
+    window._bomCostData={allRows,priceMap,matInfoMap};
+    window._bomCostSort='code';
+
+    panel.innerHTML=`
+      <!-- Header -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-weight:800;font-size:14px;color:#1B3A5C">💰 สรุปต้นทุน BOM ทั้งหมด</div>
+          <div style="font-size:11px;color:#6B7280;margin-top:2px">
+            FG: ${fgRows.length} SKU | WIP: ${wipRows.length} รายการ | รวม ${allRows.length}
+            ${missingTotal>0?`<span style="color:#DC2626"> | ⚠️ ไม่มีราคา: ${missingTotal} รายการ</span>`:''}
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <select id="bcs-filter" class="fc2 sm" style="width:100px" onchange="bomRenderCostTable()">
+            <option value="all">ทุกประเภท</option>
+            <option value="FG">FG เท่านั้น</option>
+            <option value="WIP">WIP เท่านั้น</option>
+            <option value="missing">⚠️ ไม่มีราคา</option>
+          </select>
+          <input type="text" id="bcs-search" class="fc2 sm" placeholder="ค้นหา SKU / ชื่อ" style="width:160px" oninput="bomRenderCostTable()">
+          <button class="btn btnT sm" onclick="bomPrintCostSummary()">🖨️ Print</button>
+          <button class="btn btnS sm" onclick="bomShowCostSummary()">🔄</button>
+        </div>
+      </div>
+
+      <!-- Grand Total KPIs -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+        <div class="kpi kg"><div class="kl">📦 FG</div>
+          <div class="kv" style="color:#1B3A5C">${fgRows.length}</div><div class="kd">SKU มี BOM</div></div>
+        <div class="kpi kg"><div class="kl">🏭 WIP</div>
+          <div class="kv" style="color:#7C3AED">${wipRows.length}</div><div class="kd">WIP มี BOM</div></div>
+        <div class="kpi kr"><div class="kl">⚠️ ไม่มีราคา</div>
+          <div class="kv" style="color:${missingTotal>0?'#DC2626':'#16a34a'}">${missingTotal}</div><div class="kd">รายการวัสดุ</div></div>
+        <div class="kpi" style="border-left:3px solid #16a34a"><div class="kl">💰 ต้นทุนรวม</div>
+          <div class="kv" style="font-size:14px;color:#16a34a">฿${grandTotal.toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:0})}</div>
+          <div class="kd">ทุก SKU/Batch</div></div>
+      </div>
+
+      <!-- Table -->
+      <div id="bcs-table-wrap" class="tw" style="overflow-x:auto;max-height:520px;overflow-y:auto"></div>
+    `;
+
+    bomRenderCostTable();
+  }catch(e){
+    if(panel) panel.innerHTML=`<div class="al ale">❌ ${e.message}</div>`;
+  }
+}
+
+function bomRenderCostTable(){
+  const wrap=document.getElementById('bcs-table-wrap');
+  if(!wrap||!window._bomCostData) return;
+  const {allRows}=window._bomCostData;
+  const filter=document.getElementById('bcs-filter')?.value||'all';
+  const q=(document.getElementById('bcs-search')?.value||'').toLowerCase();
+
+  let rows=allRows.filter(r=>{
+    if(filter==='FG'&&r.type!=='FG') return false;
+    if(filter==='WIP'&&r.type!=='WIP') return false;
+    if(filter==='missing'&&r.missingCount===0) return false;
+    if(q&&!r.code.toLowerCase().includes(q)&&!r.name.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  // sort
+  const sort=window._bomCostSort||'code';
+  rows=[...rows].sort((a,b)=>{
+    if(sort==='code') return a.code.localeCompare(b.code);
+    if(sort==='cost') return b.totalCost-a.totalCost;
+    if(sort==='perkg') return b.pricePerKgOut-a.pricePerKgOut;
+    if(sort==='perpcs') return b.pricePerPcs-a.pricePerPcs;
+    return 0;
+  });
+
+  const thb2=v=>v>0?'฿'+v.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
+  const sortBtn=(key,label)=>`<span onclick="window._bomCostSort='${key}';bomRenderCostTable()"
+    style="cursor:pointer;color:white;${window._bomCostSort===key?'text-decoration:underline;font-weight:900':''}">${label}${window._bomCostSort===key?' ▲':''}</span>`;
+
+  wrap.innerHTML=`
+    <table style="width:100%;border-collapse:collapse;min-width:800px">
+      <thead style="position:sticky;top:0">
+        <tr style="background:#1B3A5C;color:white;font-size:11px">
+          <th style="padding:6px 8px;text-align:left;width:40px">Type</th>
+          <th style="padding:6px 8px;text-align:left">${sortBtn('code','รหัส / SKU')}</th>
+          <th style="padding:6px 8px;text-align:left">ชื่อสินค้า</th>
+          <th style="padding:6px 8px;text-align:right;width:60px">Batch(kg)</th>
+          <th style="padding:6px 8px;text-align:right;width:50px">Yield%</th>
+          <th style="padding:6px 8px;text-align:right;width:60px">BOM Items</th>
+          <th style="padding:6px 8px;text-align:right">${sortBtn('cost','ต้นทุน/Batch')}</th>
+          <th style="padding:6px 8px;text-align:right">${sortBtn('perkg','ต้นทุน/kg')}</th>
+          <th style="padding:6px 8px;text-align:right">${sortBtn('perpcs','ต้นทุน/ชิ้น')}</th>
+          <th style="padding:6px 8px;text-align:center;width:80px">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(r=>`
+          <tr style="border-bottom:1px solid #F1F5F9;cursor:pointer"
+            onmouseover="this.style.background='#F8FAFC'" onmouseout="this.style.background=''">
+            <td style="padding:5px 8px;text-align:center">
+              <span style="background:${r.type==='FG'?'#DBEAFE':'#EDE9FE'};
+                color:${r.type==='FG'?'#1E40AF':'#7C3AED'};
+                padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600">${r.type}</span>
+            </td>
+            <td style="padding:5px 8px;font-family:monospace;font-size:11px;
+              color:${r.type==='FG'?'#1B5EC7':'#7C3AED'};white-space:nowrap">${r.code}</td>
+            <td style="padding:5px 8px;font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+              ${r.name}
+              ${r.missingCount>0?`<span style="color:#DC2626;font-size:9px;margin-left:4px">⚠️ ${r.missingCount}</span>`:''}
+            </td>
+            <td style="padding:5px 8px;text-align:right;font-size:11px">${r.batchKg}</td>
+            <td style="padding:5px 8px;text-align:right;font-size:11px">${r.yieldPct}%</td>
+            <td style="padding:5px 8px;text-align:right;font-size:11px">${r.bomCount}</td>
+            <td style="padding:5px 8px;text-align:right;font-weight:700;color:${r.totalCost>0?'#1B3A5C':'#9CA3AF'}">
+              ${thb2(r.totalCost)}</td>
+            <td style="padding:5px 8px;text-align:right;font-size:11px;color:${r.pricePerKgOut>0?'#16a34a':'#9CA3AF'}">
+              ${thb2(r.pricePerKgOut)}/kg</td>
+            <td style="padding:5px 8px;text-align:right;font-size:11px;color:${r.pricePerPcs>0?'#D97706':'#9CA3AF'}">
+              ${r.pricePerPcs>0?thb2(r.pricePerPcs)+'/pcs':'—'}</td>
+            <td style="padding:4px 6px;text-align:center;white-space:nowrap">
+              <button onclick="bomOpenFromSummary('${r.code}','${r.type}')"
+                style="border:none;background:#EFF6FF;color:#2563EB;border-radius:4px;
+                padding:3px 8px;font-size:10px;cursor:pointer;margin-right:2px">
+                📋 BOM
+              </button>
+              <button onclick="bomEditMatPrices('${r.code}','${r.type}')"
+                style="border:none;background:#F0FDF4;color:#16a34a;border-radius:4px;
+                padding:3px 8px;font-size:10px;cursor:pointer">
+                ✏️ ราคา
+              </button>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+      <tfoot>
+        <tr style="background:#EFF6FF;font-weight:700;font-size:11px">
+          <td colspan="6" style="padding:5px 8px">รวม ${rows.length} รายการ</td>
+          <td style="padding:5px 8px;text-align:right;color:#1B3A5C">
+            ฿${rows.reduce((s,r)=>s+r.totalCost,0).toLocaleString('th-TH',{minimumFractionDigits:0})}
+          </td>
+          <td colspan="3"></td>
+        </tr>
+      </tfoot>
+    </table>`;
+}
+
+function bomOpenFromSummary(code, type){
+  // สลับ BOM type แล้วเปิด BOM detail
+  BOM_TYPE = type==='FG'?'fg':'wip';
+  // update tab UI
+  document.querySelectorAll('#bom-type-tabs .ftab').forEach((el,i)=>{
+    el.classList.toggle('on', i===(BOM_TYPE==='fg'?0:1));
+  });
+  loadBOMDetail(code);
+}
+
+async function bomEditMatPrices(code, type){
+  // เปิด modal แก้ไขราคาวัสดุของ BOM นี้
+  const bomTable=type==='FG'?'bom_master':'wip_bom';
+  const codeField=type==='FG'?'sku_code':'wip_code';
+  const rows=await sbG(bomTable,{f:[`${codeField}=eq.${code}`],ord:'id.asc'}).catch(()=>[]);
+  const matCodes=[...new Set(rows.map(r=>r.mat_code||r.rm_code||'').filter(Boolean))];
+  if(!matCodes.length){ alert('BOM ว่างเปล่า'); return; }
+  const mats=await sbG('master_material',{
+    f:[`code=in.(${matCodes.join(',')})`],
+    s:'id,code,name,unit,price_per_unit,category'
+  }).catch(()=>[]);
+
+  const matMap={};
+  mats.forEach(m=>matMap[m.code]=m);
+
+  openMo(`✏️ แก้ไขราคาวัสดุ — ${code}`,`
+    <div style="font-size:11px;color:#6B7280;margin-bottom:10px">
+      แก้ไขราคาต่อหน่วย (kg/pcs) ของวัสดุใน BOM ${code}
+    </div>
+    <div class="tw" style="max-height:420px;overflow-y:auto">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:#1B3A5C;color:white;font-size:11px">
+          <th style="padding:5px 8px;text-align:left">รหัส</th>
+          <th style="padding:5px 8px;text-align:left">ชื่อ</th>
+          <th style="padding:5px 8px;text-align:left">หมวด</th>
+          <th style="padding:5px 8px;text-align:right;width:110px">ราคา/หน่วย (฿)</th>
+          <th style="padding:5px 8px;width:50px">หน่วย</th>
+        </tr></thead>
+        <tbody>
+          ${matCodes.map(c=>{
+            const m=matMap[c]||{code:c,name:'ไม่พบ',unit:'kg',price_per_unit:0};
+            return`<tr style="border-bottom:1px solid #F1F5F9">
+              <td style="padding:5px 8px;font-family:monospace;font-size:11px;
+                color:${c.startsWith('PK')?'#D97706':'#1B5EC7'}">${c}</td>
+              <td style="padding:5px 8px;font-size:11px">${m.name||c}</td>
+              <td style="padding:5px 8px;font-size:10px;color:#6B7280">${m.category||'—'}</td>
+              <td style="padding:4px 6px">
+                <input type="number" id="bep-price-${c}" value="${m.price_per_unit||''}"
+                  step="0.01" min="0" placeholder="0.00"
+                  style="width:100%;border:1px solid ${!m.price_per_unit?'#DC2626':'#E5E7EB'};
+                  border-radius:4px;padding:3px 6px;font-size:12px;text-align:right">
+              </td>
+              <td style="padding:5px 8px;font-size:11px;color:#6B7280">${m.unit||'kg'}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div id="bep-msg" style="margin-top:8px"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
+      <button class="btn btnS" onclick="closeMo()">✕ ยกเลิก</button>
+      <button class="btn btnP" onclick="bomSaveMatPrices(${JSON.stringify(matCodes)})">
+        💾 บันทึกราคาทั้งหมด
+      </button>
+    </div>
+  `);
+}
+
+async function bomSaveMatPrices(matCodes){
+  msgEl('bep-msg','<span class="spin"></span> กำลังบันทึก...','i');
+  let saved=0, errors=0;
+  for(const code of matCodes){
+    const price=parseFloat(document.getElementById(`bep-price-${code}`)?.value)||0;
+    if(price<=0) continue;
+    try{
+      const existing=(await sbG('master_material',{f:[`code=eq.${code}`],s:'id'}).catch(()=>[]))[0];
+      if(existing){
+        await sbU('master_material',{price_per_unit:price},`code=eq.${code}`);
+        saved++;
+      }
+    }catch(e){ errors++; }
+  }
+  if(errors>0){
+    msgEl('bep-msg',`⚠️ บันทึก ${saved} รายการ (ผิดพลาด ${errors})`, 'i');
+  }else{
+    msgEl('bep-msg',`✅ บันทึกราคา ${saved} รายการเรียบร้อย`,'s');
+    setTimeout(()=>{ closeMo(); bomShowCostSummary(); },700);
+  }
+}
+
+async function bomPrintCostSummary(){
+  const {allRows}=window._bomCostData||{allRows:[]};
+  if(!allRows.length){ alert('ไม่มีข้อมูล'); return; }
+  const filter=document.getElementById('bcs-filter')?.value||'all';
+  const q=(document.getElementById('bcs-search')?.value||'').toLowerCase();
+  const rows=allRows.filter(r=>{
+    if(filter==='FG'&&r.type!=='FG') return false;
+    if(filter==='WIP'&&r.type!=='WIP') return false;
+    if(filter==='missing'&&r.missingCount===0) return false;
+    if(q&&!r.code.toLowerCase().includes(q)&&!r.name.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const thb2=v=>v>0?'฿'+v.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
+  const printDate=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+  const trs=rows.map((r,i)=>`<tr style="border-bottom:1px solid #E5E7EB;background:${i%2?'#F9FAFB':'white'}">
+    <td style="padding:4px 6px;text-align:center">${r.type}</td>
+    <td style="padding:4px 6px;font-family:monospace;font-size:8.5pt">${r.code}</td>
+    <td style="padding:4px 6px">${r.name}</td>
+    <td style="text-align:right;padding:4px 6px">${r.batchKg}kg</td>
+    <td style="text-align:right;padding:4px 6px">${r.yieldPct}%</td>
+    <td style="text-align:right;padding:4px 6px">${r.bomCount}</td>
+    <td style="text-align:right;padding:4px 6px;font-weight:700">${thb2(r.totalCost)}</td>
+    <td style="text-align:right;padding:4px 6px">${thb2(r.pricePerKgOut)}/kg</td>
+    <td style="text-align:right;padding:4px 6px">${r.pricePerPcs>0?thb2(r.pricePerPcs)+'/pcs':'—'}</td>
+    <td style="text-align:center;padding:4px 6px;color:${r.missingCount>0?'red':''}">${r.missingCount>0?'⚠️ '+r.missingCount:'✅'}</td>
+  </tr>`).join('');
+  const grandT=rows.reduce((s,r)=>s+r.totalCost,0);
+
+  openPreviewWindow(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>@page{size:A4 landscape;margin:10mm}body{font-family:'Sarabun',sans-serif;font-size:9pt}
+    h2{color:#1B3A5C;margin:0 0 4px;font-size:12pt}
+    table{width:100%;border-collapse:collapse}
+    th{background:#1B3A5C;color:white;padding:4px 6px;font-size:8.5pt;text-align:left}
+    tfoot td{background:#EFF6FF;font-weight:700}
+    @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style>
+    </head><body>
+    <h2>💰 BOM Cost Summary — ต้นทุนวัตถุดิบสรุปตาม BOM</h2>
+    <p style="color:#6B7280;font-size:8.5pt;margin:0 0 8px">
+      พิมพ์วันที่: ${printDate} | ${rows.length} รายการ |
+      ต้นทุนรวมทุก SKU/Batch: ฿${grandT.toLocaleString('th-TH',{minimumFractionDigits:0})}
+    </p>
+    <table><thead><tr>
+      <th style="width:35px">Type</th><th style="width:100px">รหัส</th>
+      <th>ชื่อสินค้า</th><th style="text-align:right;width:55px">Batch</th>
+      <th style="text-align:right;width:45px">Yield%</th>
+      <th style="text-align:right;width:45px">Items</th>
+      <th style="text-align:right;width:85px">ต้นทุน/Batch</th>
+      <th style="text-align:right;width:80px">ต้นทุน/kg</th>
+      <th style="text-align:right;width:80px">ต้นทุน/ชิ้น</th>
+      <th style="text-align:center;width:50px">ราคา</th>
+    </tr></thead><tbody>${trs}</tbody>
+    <tfoot><tr>
+      <td colspan="6">รวม ${rows.length} รายการ</td>
+      <td style="text-align:right">฿${grandT.toLocaleString('th-TH',{minimumFractionDigits:0})}</td>
+      <td colspan="3"></td>
+    </tr></tfoot></table>
+    <script>window.onload=()=>window.print();<\/script>
+    </body></html>`, 'BOM Cost Summary');
 }
 
 // ════════════════════════════════════════════════════════════
