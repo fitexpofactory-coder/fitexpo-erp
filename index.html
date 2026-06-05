@@ -3678,8 +3678,8 @@ async function loadBOMDetail(code){
     const [rows,master,matPrices]=await Promise.all([
       sbG(bomTable,{f:[`${codeField}=eq.${code}`],ord:'id.asc'}),
       isFG
-      ?sbG('master_product',{f:[`sku=eq.${code}`],s:'id,sku,name_en,name_th,batch_kg,yield_pct,size_g,min_lot_pcs'}).catch(()=>sbG('master_product',{f:[`sku=eq.${code}`]}).catch(()=>[]))
-      :sbG('wip_master',{f:[`code=eq.${code}`],s:'id,code,name,batch_kg,yield_pct'}).catch(()=>sbG('wip_master',{f:[`code=eq.${code}`]}).catch(()=>[])),
+      ?sbG('master_product',{f:[`sku=eq.${code}`],s:'sku,name_en,name_th,batch_kg,yield_pct,size_g'}).catch(()=>[])
+      :sbG('wip_master',{f:[`code=eq.${code}`],s:'code,name,batch_kg,yield_pct'}).catch(()=>[]),
       sbG('master_material',{s:'code,name,unit,category,price_per_unit'}).catch(()=>[]),
     ]);
     // สร้าง price map
@@ -3789,9 +3789,10 @@ async function loadBOMDetail(code){
       // คำนวณ ราคา/ชิ้น
       // วิธี 1: จาก pcs_per_batch ตรงๆ
       const pricePerPcs1 = pcsPerBatch>0 ? totalCost/pcsPerBatch : 0;
-      // วิธี 2: จาก weight/pcs และ yield
+      // วิธี 2: จาก weight/pcs และ yield (fallback ใช้ size_g ถ้าไม่มี net_weight_g)
+      const effectiveWeightPcs = weightPcs>0 ? weightPcs : (Number(m?.size_g)||0);
       const outputKg = batchKg*(yieldPct2/100);
-      const pcsFromWeight = (weightPcs>0&&outputKg>0) ? (outputKg*1000/weightPcs) : 0;
+      const pcsFromWeight = (effectiveWeightPcs>0&&outputKg>0) ? (outputKg*1000/effectiveWeightPcs) : 0;
       const pricePerPcs2 = pcsFromWeight>0 ? totalCost/pcsFromWeight : 0;
       const pricePerPcs  = pricePerPcs1>0 ? pricePerPcs1 : pricePerPcs2;
 
@@ -8151,7 +8152,7 @@ async function hrDoCheckIn(){
       const rec = existing[0];
       if(rec.check_in){
         const inTime = new Date(rec.check_in)
-          .toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+          .toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false});
         resultEl.textContent = `⚠️ เช็คอินแล้วตั้งแต่ ${inTime} น.`;
         _hrTodayAtt = rec;
         hrUpdateCIUI();
@@ -8184,7 +8185,7 @@ async function hrDoCheckIn(){
       _hrTodayAtt = res[0]||{emp_code:empCode,att_date:today,check_in:now.toISOString()};
     }
 
-    const timeStr = now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+    const timeStr = now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false});
     resultEl.textContent = lateMins>0
       ? `⏰ เช็คอิน ${timeStr} (สาย ${lateMins} นาที)`
       : `✅ เช็คอิน ${timeStr} ตรงเวลา`;
@@ -8215,7 +8216,7 @@ async function hrDoCheckOut(){
   try{
     await sbU('attendance',{check_out:now.toISOString(),actual_work_min:workMin,ot_min:otMin},`id=eq.${_hrTodayAtt.id}`);
     _hrTodayAtt={..._hrTodayAtt,check_out:now.toISOString(),actual_work_min:workMin,ot_min:otMin};
-    document.getElementById('hr-ci-result').textContent=`🚪 เช็คเอาท์ ${now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})} | ทำงาน ${fmt(workMin/60,1)} ชม.${otMin>0?` | OT ${otMin} นาที`:''}`;
+    document.getElementById('hr-ci-result').textContent=`🚪 เช็คเอาท์ ${now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false})} | ทำงาน ${fmt(workMin/60,1)} ชม.${otMin>0?` | OT ${otMin} นาที`:''}`;
     hrUpdateCIUI();hrLoadCIHistory();
     await logA('UPDATE','hr',`เช็คเอาท์ ${empCode}`,empCode);
   }catch(e){document.getElementById('hr-ci-result').textContent='❌ '+e.message;}
@@ -10005,7 +10006,14 @@ function prodForm(p={}){
     <div class="fgrp"><label class="flbl">ชื่อสินค้า (EN) *</label><input type="text" class="fc2" id="pf-name" value="${p.name_en||''}"></div>
     <div class="fgrp"><label class="flbl">Product Line</label><input type="text" class="fc2" id="pf-line" value="${p.product_line||''}" placeholder="Fitly Crispy"></div>
     <div class="fgrp"><label class="flbl">Flavour</label><input type="text" class="fc2" id="pf-flv" value="${p.flavour||''}" placeholder="Chocolate"></div>
-    <div class="fgrp"><label class="flbl">ขนาด (g)</label><input type="number" class="fc2" id="pf-sz" value="${p.size_g||40}"></div>
+    <div class="fgrp"><label class="flbl">⚖️ ขนาด/น้ำหนักต่อชิ้น (g)</label>
+      <input type="number" class="fc2" id="pf-sz" value="${p.size_g||40}" step="0.1"></div>
+    <div class="fgrp"><label class="flbl">🔢 จำนวนชิ้น/Batch (pcs_per_batch)</label>
+      <input type="number" class="fc2" id="pf-pcs" value="${p.pcs_per_batch||0}" min="0" step="1" placeholder="0">
+      <div style="font-size:10px;color:var(--text3);margin-top:2px">สำหรับคำนวณต้นทุน/ชิ้น</div></div>
+    <div class="fgrp"><label class="flbl">⚖️ น้ำหนักสุทธิ/ชิ้น (net_weight_g)</label>
+      <input type="number" class="fc2" id="pf-netg" value="${p.net_weight_g||0}" min="0" step="0.1" placeholder="0 = ใช้ size_g">
+    </div>
     <div class="fgrp"><label class="flbl">หน่วย Stock *</label>
       <select class="fc2" id="pf-stock-unit">
         <option value="kg" ${(p.stock_unit||'kg')==='kg'?'selected':''}>kg (กิโลกรัม)</option>
@@ -10063,6 +10071,8 @@ async function saveProd(oldSku){
     product_line:document.getElementById('pf-line').value,
     flavour:document.getElementById('pf-flv').value,
     size_g:parseFloat(document.getElementById('pf-sz').value)||40,
+    pcs_per_batch:parseInt(document.getElementById('pf-pcs')?.value)||0,
+    net_weight_g:parseFloat(document.getElementById('pf-netg')?.value)||0,
     stock_unit:stockUnit,
     batch_kg:batchKgVal,
     min_batch_kg:Math.min(minBatchKg,batchKgVal),
@@ -10103,6 +10113,12 @@ function wipForm(w={}){
     <div class="fgrp"><label class="flbl">หมวดหมู่</label><input type="text" class="fc2" id="wf-cat" value="${w.category||''}" placeholder="Syrup / Coating / Filling"></div>
     <div class="fgrp"><label class="flbl">Batch Size (kg)</label><input type="number" class="fc2" id="wf-batch" value="${w.batch_kg||50}"></div>
     <div class="fgrp"><label class="flbl">Yield %</label><input type="number" class="fc2" id="wf-yield" value="${w.yield_pct||95}" step="0.1"></div>
+    <div class="fgrp"><label class="flbl">🔢 จำนวนชิ้น/Batch (pcs_per_batch)</label>
+      <input type="number" class="fc2" id="wf-pcs" value="${w.pcs_per_batch||0}" min="0" step="1" placeholder="0">
+      <div style="font-size:10px;color:var(--text3);margin-top:2px">สำหรับคำนวณต้นทุน/ชิ้น</div></div>
+    <div class="fgrp"><label class="flbl">⚖️ น้ำหนักสุทธิ/ชิ้น (net_weight_g)</label>
+      <input type="number" class="fc2" id="wf-netg" value="${w.net_weight_g||0}" min="0" step="0.1" placeholder="0">
+    </div>
     <div class="fgrp"><label class="flbl">Shelf Life (วัน)</label><input type="number" class="fc2" id="wf-shelf" value="${w.shelf_life_days||0}"></div>
     <div class="fgrp"><label class="flbl">การเก็บรักษา</label><input type="text" class="fc2" id="wf-storage" value="${w.storage||''}" placeholder="อุณหภูมิห้อง"></div>
     <div class="fgrp"><label class="flbl">Status / สถานะ</label>
@@ -15956,7 +15972,7 @@ function prptBuildLogTable(logs){
     <tbody>
     ${logs.map(l=>{
       const oeeC=l.oee_pct>=85?'#16a34a':l.oee_pct>=65?'#D97706':'#DC2626';
-      const startT=l.start_time?new Date(l.start_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'—';
+      const startT=l.start_time?new Date(l.start_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false}):'—';
       const isWIP=l.sku_code?.startsWith('WIP');
       return`<tr style="border-bottom:1px solid #F1F5F9">
         <td style="padding:4px 8px;font-size:11px;white-space:nowrap">${l.plan_date||''} ${startT}</td>
@@ -16214,10 +16230,8 @@ async function bomShowCostSummary(){
   try{
     // โหลดทุกอย่างพร้อมกัน
     const [fgMaster, wipMaster, fgBom, wipBom, matPrices] = await Promise.all([
-      sbG('master_product',{s:'id,sku,name_en,name_th,batch_kg,yield_pct,size_g,min_lot_pcs',ord:'sku.asc',lim:300})
-        .catch(()=>sbG('master_product',{ord:'sku.asc',lim:300}).catch(()=>[])),
-      sbG('wip_master',{s:'id,code,name,batch_kg,yield_pct',ord:'code.asc',lim:300})
-        .catch(()=>sbG('wip_master',{ord:'code.asc',lim:300}).catch(()=>[])),
+      sbG('master_product',{s:'sku,name_en,name_th,batch_kg,yield_pct,size_g',ord:'sku.asc',lim:300}).catch(()=>[]),
+      sbG('wip_master',{s:'code,name,batch_kg,yield_pct',ord:'code.asc',lim:300}).catch(()=>[]),
       sbG('bom_master',{s:'sku_code,mat_code,qty_per_batch,pct_of_batch,unit,section',ord:'sku_code.asc',lim:2000}).catch(()=>[]),
       sbG('wip_bom',{s:'wip_code,rm_code,qty_per_batch,pct_of_batch,unit,section',ord:'wip_code.asc',lim:2000}).catch(()=>[]),
       sbG('master_material',{s:'code,name,unit,price_per_unit,category',lim:500}).catch(()=>[])
@@ -16266,9 +16280,11 @@ async function bomShowCostSummary(){
     const fgRows=_fgMaster.map(m=>{
       const rows=fgBomMap[m.sku]||[];
       const c=calcCost(rows,Number(m.batch_kg)||50,Number(m.yield_pct)||95,Number(m.pcs_per_batch)||0);
-      return{type:'FG',code:m.sku,name:m.name_en||m.sku,
+      return{type:'FG',code:m.sku,name:m.name_en||m.name_th||m.sku,
         batchKg:Number(m.batch_kg)||50, yieldPct:Number(m.yield_pct)||95,
-        pcsPerBatch:Number(m.pcs_per_batch)||0, bomCount:rows.length, ...c};
+        pcsPerBatch:Number(m.pcs_per_batch)||0,
+        netWeightG:Number(m.net_weight_g||m.size_g)||0,
+        bomCount:rows.length, ...c};
     });
 
     // WIP
@@ -16277,7 +16293,9 @@ async function bomShowCostSummary(){
       const c=calcCost(rows,Number(m.batch_kg)||50,Number(m.yield_pct)||95,Number(m.pcs_per_batch)||0);
       return{type:'WIP',code:m.code,name:m.name||m.code,
         batchKg:Number(m.batch_kg)||50, yieldPct:Number(m.yield_pct)||95,
-        pcsPerBatch:Number(m.pcs_per_batch)||0, bomCount:rows.length, ...c};
+        pcsPerBatch:Number(m.pcs_per_batch)||0,
+        netWeightG:Number(m.net_weight_g||m.size_g)||0,
+        bomCount:rows.length, ...c};
     });
 
     const allRows=[...fgRows,...wipRows];
@@ -16302,6 +16320,10 @@ async function bomShowCostSummary(){
 
     panel.innerHTML=`
       <!-- Header -->
+      <div style="background:#FFF7ED;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:#92400E">
+        💡 เพื่อแสดง <b>ต้นทุน/ชิ้น</b> ให้กรอก <b>pcs_per_batch</b> (จำนวนชิ้น/Batch) ใน Master Product
+        <span style="margin-left:8px;opacity:.7">หรือรัน SQL ก่อน: ALTER TABLE master_product ADD COLUMN IF NOT EXISTS pcs_per_batch INTEGER DEFAULT 0;</span>
+      </div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
         <div>
           <div style="font-weight:800;font-size:14px;color:#1B3A5C">💰 สรุปต้นทุน BOM ทั้งหมด</div>
@@ -16414,7 +16436,12 @@ function bomRenderCostTable(){
             <td style="padding:5px 8px;text-align:right;font-size:11px;color:${r.pricePerKgOut>0?'#16a34a':'#9CA3AF'}">
               ${thb2(r.pricePerKgOut)}/kg</td>
             <td style="padding:5px 8px;text-align:right;font-size:11px;color:${r.pricePerPcs>0?'#D97706':'#9CA3AF'}">
-              ${r.pricePerPcs>0?thb2(r.pricePerPcs)+'/pcs':'—'}</td>
+              ${r.pricePerPcs>0
+                ?thb2(r.pricePerPcs)+'/pcs'
+                :r.bomCount>0&&totalCost>0
+                  ?'<span style="font-size:9px">กรอก pcs_per_batch</span>'
+                  :'—'
+              }</td>
             <td style="padding:4px 6px;text-align:center;white-space:nowrap">
               <button onclick="bomOpenFromSummary('${r.code}','${r.type}')"
                 style="border:none;background:#EFF6FF;color:#2563EB;border-radius:4px;
@@ -24583,7 +24610,7 @@ async function prptLoadLog(){
           ${filtered.map(l=>{
             const isWIP=l.sku_code?.startsWith('WIP');
             const oeeColor=l.oee_pct>=85?'#16a34a':l.oee_pct>=65?'#D97706':'#DC2626';
-            const startT=l.start_time?new Date(l.start_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'—';
+            const startT=l.start_time?new Date(l.start_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false}):'—';
             return`<tr>
               <td style="font-size:11px;white-space:nowrap">${startT}</td>
               <td style="font-family:monospace;font-size:11px;color:#1B5EC7">${l.pp_no||'—'}</td>
@@ -25437,8 +25464,8 @@ async function prptSaveEntry(){
     return{
       stepNo:i+1,
       stepName:document.getElementById(`pne-sname-${idx}`)?.value||'',
-      startTime:startT?`${date}T${startT}:00`:null,
-      endTime:endT?`${date}T${endT}:00`:null,
+      startTime:startT?`${date}T${startT}:00+07:00`:null,
+      endTime:endT?`${date}T${endT}:00+07:00`:null,
       dur:parseFloat(document.getElementById(`pne-smin-${idx}`)?.value)||0,
       wk:parseInt(document.getElementById(`pne-swk-${idx}`)?.value)||1,
       inp:parseFloat(document.getElementById(`pne-sinput-${idx}`)?.value)||0,
@@ -25484,8 +25511,8 @@ async function prptSaveEntry(){
       pp_no:woPP, sku_code:skuCode, product_name:prodName,
       batch_no:batchNo,
       plan_date:startTime?.slice(0,10)||new Date().toISOString().slice(0,10),
-      start_time:startTime?new Date(startTime).toISOString():null,
-      end_time:endTime?new Date(endTime).toISOString():null,
+      start_time:startTime?startTime.length===16?startTime+':00+07:00':startTime:null,
+      end_time:endTime?endTime.length===16?endTime+':00+07:00':endTime:null,
       total_minutes:totalMin, shift,
       machine_code:machine,
       planned_production_min:plannedMin,
@@ -25983,7 +26010,12 @@ function pedAddStepRow(data){
   _pedStepCount++;
   const idx=_pedStepCount;
   const d=data||{};
-  const toT=dt=>dt?new Date(dt).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}):'';
+  const toT=dt=>{
+      if(!dt) return '';
+      // ถ้าเป็น ISO string → ดึง HH:MM โดยตรงโดยไม่ผ่าน Date object
+      if(typeof dt==='string'&&dt.includes('T')) return dt.slice(11,16);
+      return new Date(dt).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false});
+    };
   const tr=document.createElement('tr');
   tr.id=`ped-sr-${idx}`;
   tr.style.cssText='border-bottom:1px solid #D1FAE5;background:#F0FDF4';
@@ -26136,8 +26168,8 @@ async function pedSaveAll(id){
     return{
       log_id:id, pp_no:ppNo, step_no:i+1,
       step_name:getV(`ped-sname-${idx}`),
-      start_time:startV?`${date}T${startV}:00`:null,
-      end_time:endV?`${date}T${endV}:00`:null,
+      start_time:startV?`${date}T${startV}:00+07:00`:null,
+      end_time:endV?`${date}T${endV}:00+07:00`:null,
       duration_min:getN(`ped-smin-${idx}`), workers:getN(`ped-swk-${idx}`)||1,
       input_qty:getN(`ped-sinput-${idx}`), output_qty:getN(`ped-sout-${idx}`),
       defect_qty:getN(`ped-sdef-${idx}`), downtime_min:getN(`ped-sdt-${idx}`),
@@ -26564,7 +26596,7 @@ function prptPrintLog(){
   if(!d){alert('กด 🔍 ค้นหาก่อนพิมพ์');return;}
   const rows=d.filtered.map((l,i)=>{
     const oeeColor=l.oee_pct>=85?'green':l.oee_pct>=65?'orange':'red';
-    const startT=l.start_time?new Date(l.start_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'—';
+    const startT=l.start_time?new Date(l.start_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false}):'—';
     return`<tr>
       <td>${i+1}</td><td>${startT}</td><td>${l.pp_no}</td>
       <td>${l.product_name||l.sku_code}</td><td>${l.shift||'—'}</td>
@@ -26705,8 +26737,8 @@ async function prptPrintEntry(id){
 
   // Steps HTML
   const stepsHtml = steps.map(s=>{
-    const startT=s.start_time?new Date(s.start_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'—';
-    const endT=s.end_time?new Date(s.end_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'—';
+    const startT=s.start_time?new Date(s.start_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false}):'—';
+    const endT=s.end_time?new Date(s.end_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false}):'—';
     const mList=matsByStep[s.id]||[];
     return`<div style="border:1px solid #CBD5E1;border-radius:5px;margin-bottom:8px;overflow:hidden;page-break-inside:avoid">
       <div style="background:#1B3A5C;color:white;padding:5px 10px;font-weight:700;font-size:9.5pt">
@@ -26955,8 +26987,8 @@ GRANT USAGE,SELECT ON SEQUENCE prod_log_step_materials_id_seq TO anon,authentica
                 <div style="color:#6B7280;font-size:9px">⏱️ เวลา</div>
                 <div style="font-weight:700">${s.duration_min||'—'} นาที</div>
                 <div style="color:#9CA3AF;font-size:9px">
-                  ${s.start_time?new Date(s.start_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'—'}–
-                  ${s.end_time?new Date(s.end_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'—'}
+                  ${s.start_time?new Date(s.start_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false}):'—'}–
+                  ${s.end_time?new Date(s.end_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false}):'—'}
                 </div>
               </div>
               <div style="background:#F0FDF4;border-radius:6px;padding:6px;text-align:center">
@@ -27128,8 +27160,8 @@ async function nsSaveStep(logId, ppNo){
     await sbP('prod_log_steps',{
       log_id:logId, pp_no:ppNo, step_no:stepNo,
       step_name:stepName,
-      start_time:start?new Date(start).toISOString():null,
-      end_time:end?new Date(end).toISOString():null,
+      start_time:start?`${start.slice(0,10)}T${start.slice(11,16)}:00+07:00`:null,
+      end_time:end?`${end.slice(0,10)}T${end.slice(11,16)}:00+07:00`:null,
       duration_min:dur||null, workers,
       input_qty:input, output_qty:output,
       defect_qty:defect, defect_reason:defectReason,
@@ -27343,8 +27375,8 @@ async function prptPrintSteps(logId, ppNo){
           <td style="padding:2px 6px">${m.unit||'kg'}</td>
         </tr>`).join('')}
       </table>`:''  ;
-    const startT=s.start_time?new Date(s.start_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'—';
-    const endT=s.end_time?new Date(s.end_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'—';
+    const startT=s.start_time?new Date(s.start_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false}):'—';
+    const endT=s.end_time?new Date(s.end_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false}):'—';
     return`
       <div style="border:1px solid #CBD5E1;border-radius:6px;margin-bottom:10px;overflow:hidden;page-break-inside:avoid">
         <div style="background:#1B3A5C;color:white;padding:6px 10px">
@@ -27637,7 +27669,7 @@ setInterval(tickClock,1000);tickClock();
       const isMe=m.sender===me;
       const t=new Date(m.created_at);
       const dateStr=t.toLocaleDateString('th-TH',{day:'numeric',month:'short'});
-      const timeStr=t.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+      const timeStr=t.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false});
       let dateSep='';
       if(dateStr!==prevDate){
         prevDate=dateStr;
