@@ -25295,6 +25295,34 @@ async function prptEditEntry(id){
         <div class="fgrp"><label class="flbl">📅 EXP Date</label>
           <input type="date" class="fc2" id="ped-exp-date" value="${l.exp_date||''}"></div>
       </div>
+      <!-- Photos -->
+      <div style="font-size:11px;font-weight:600;color:#166534;margin-bottom:6px;margin-top:8px">📸 รูปสินค้าหลังบรรจุ (สูงสุด 4 รูป)</div>
+      <div id="ped-photo-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+        <div id="ped-photo-wrap-1" onclick="document.getElementById('ped-photo-input-1').click()"
+          style="border:2px dashed #86EFAC;border-radius:8px;aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;position:relative;background:#F9FAFB">
+          <div id="ped-photo-preview-1" style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center"><div style="font-size:24px">📷</div><div style="font-size:9px;color:#9CA3AF;margin-top:3px">รูปที่ 1</div></div>
+          <input type="file" id="ped-photo-input-1" accept="image/*" style="display:none" onchange="pedLoadPhoto(1,this)">
+          <button id="ped-photo-del-1" type="button" onclick="event.stopPropagation();pedClearPhoto(1)" style="display:none;position:absolute;top:3px;right:3px;border:none;background:#DC2626;color:white;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer">✕</button>
+        </div>
+        <div id="ped-photo-wrap-2" onclick="document.getElementById('ped-photo-input-2').click()"
+          style="border:2px dashed #86EFAC;border-radius:8px;aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;position:relative;background:#F9FAFB">
+          <div id="ped-photo-preview-2" style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center"><div style="font-size:24px">📷</div><div style="font-size:9px;color:#9CA3AF;margin-top:3px">รูปที่ 2</div></div>
+          <input type="file" id="ped-photo-input-2" accept="image/*" style="display:none" onchange="pedLoadPhoto(2,this)">
+          <button id="ped-photo-del-2" type="button" onclick="event.stopPropagation();pedClearPhoto(2)" style="display:none;position:absolute;top:3px;right:3px;border:none;background:#DC2626;color:white;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer">✕</button>
+        </div>
+        <div id="ped-photo-wrap-3" onclick="document.getElementById('ped-photo-input-3').click()"
+          style="border:2px dashed #86EFAC;border-radius:8px;aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;position:relative;background:#F9FAFB">
+          <div id="ped-photo-preview-3" style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center"><div style="font-size:24px">📷</div><div style="font-size:9px;color:#9CA3AF;margin-top:3px">รูปที่ 3</div></div>
+          <input type="file" id="ped-photo-input-3" accept="image/*" style="display:none" onchange="pedLoadPhoto(3,this)">
+          <button id="ped-photo-del-3" type="button" onclick="event.stopPropagation();pedClearPhoto(3)" style="display:none;position:absolute;top:3px;right:3px;border:none;background:#DC2626;color:white;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer">✕</button>
+        </div>
+        <div id="ped-photo-wrap-4" onclick="document.getElementById('ped-photo-input-4').click()"
+          style="border:2px dashed #86EFAC;border-radius:8px;aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;position:relative;background:#F9FAFB">
+          <div id="ped-photo-preview-4" style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center"><div style="font-size:24px">📷</div><div style="font-size:9px;color:#9CA3AF;margin-top:3px">รูปที่ 4</div></div>
+          <input type="file" id="ped-photo-input-4" accept="image/*" style="display:none" onchange="pedLoadPhoto(4,this)">
+          <button id="ped-photo-del-4" type="button" onclick="event.stopPropagation();pedClearPhoto(4)" style="display:none;position:absolute;top:3px;right:3px;border:none;background:#DC2626;color:white;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer">✕</button>
+        </div>
+      </div>
     </div>
 
     <div class="fgrp"><label class="flbl">หมายเหตุ</label>
@@ -25312,12 +25340,19 @@ async function prptEditEntry(id){
 
   // populate steps / mats / qc หลัง modal เปิด
   // data injected via window._pedData in the function body below
-  window._pedData={steps:0,mats:0,qcRows:0,
-    qcSpec:0,id:0,ppNo:0};
+  // inject real data ผ่าน window._pedData
+  window._pedData={
+    steps   : steps,
+    mats    : mats,
+    qcRows  : qcRows,
+    qcSpec  : qcRows[0]?.spec||{},
+    id      : id,
+    ppNo    : l.pp_no,
+    photos  : photoRaw
+  };
 
   setTimeout(()=>{
-    const d={steps:_pedInjectSteps,mats:_pedInjectMats,qcRows:_pedInjectQC,
-      qcSpec:_pedInjectSpec,id:_pedInjectId,ppNo:_pedInjectPPNo,photos:_pedInjectPhotos};
+    const d=window._pedData||{};
     window._pedEditId=d.id;
     window._pedPPNo  =d.ppNo;
 
