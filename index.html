@@ -24562,92 +24562,175 @@ function pneCalcQuality(){ pneCalcOEE(); }
 
 // ── Preview before save ──────────────────────────────────────
 async function prptPreviewEntry(){
-  const woPP=document.getElementById('pne-wo')?.value;
-  const batchNo=document.getElementById('pne-batch')?.value;
-  const actual=document.getElementById('pne-actual')?.value||0;
-  const good=document.getElementById('pne-good')?.value||0;
-  const oeeEl=document.getElementById('pne-oee-oee');
-  const oee=oeeEl?.textContent||'—';
-  const stepRows=[...document.querySelectorAll('#pne-step-tbody tr[id^="pne-sr-"]')];
-  const matRows=[...document.querySelectorAll('#pne-mat-tbody tr[id^="pne-mr-"]')];
-  const qcRows=[...document.querySelectorAll('#pne-qc-tbody tr[id^="pne-qr-"]')];
-  const ngQC=qcRows.filter(r=>r.querySelector('[id^="pne-qresult-"]')?.textContent?.includes('❌')).length;
-
+  const woPP = document.getElementById('pne-wo')?.value;
   if(!woPP){ alert('เลือก Work Order ก่อนครับ'); return; }
 
-  const confirm_html=`
-    <div style="background:#EFF6FF;border-radius:8px;padding:12px;margin-bottom:12px;font-size:12px">
-      <div style="font-weight:700;color:#1B3A5C;font-size:14px;margin-bottom:8px">
+  const batchNo  = document.getElementById('pne-batch')?.value||'1';
+  const actual   = document.getElementById('pne-actual')?.value||0;
+  const good     = document.getElementById('pne-good')?.value||0;
+  const oeeEl    = document.getElementById('pne-oee-oee');
+  const oee      = oeeEl?.textContent||'—';
+  const stepRows = [...document.querySelectorAll('#pne-step-tbody tr[id^="pne-sr-"]')];
+  const matRows  = [...document.querySelectorAll('#pne-mat-tbody tr[id^="pne-mr-"]')];
+  const qcRows   = [...document.querySelectorAll('#pne-qc-tbody tr[id^="pne-qr-"]')];
+  const ngQC     = qcRows.filter(r=>
+    r.querySelector('[id^="pne-qresult-"]')?.textContent?.includes('❌')).length;
+  const photos   = [1,2,3,4].filter(i=>window[`_pnePhoto${i}`]).length;
+
+  const woObj = (window._pneWOCache||[]).find(w=>w.pp_no===woPP)||{};
+
+  // แสดง confirm dialog แบบ overlay บน form เดิม (ไม่ openMo ใหม่)
+  const overlay = document.createElement('div');
+  overlay.id='pne-confirm-overlay';
+  overlay.style.cssText=`position:fixed;inset:0;background:rgba(0,0,0,.6);
+    z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px`;
+  overlay.innerHTML=`
+    <div style="background:white;border-radius:12px;padding:24px;width:100%;max-width:440px;
+      box-shadow:0 20px 60px rgba(0,0,0,.3)">
+      <div style="font-weight:800;color:#1B3A5C;font-size:15px;margin-bottom:14px">
         📋 สรุปข้อมูลที่จะบันทึก
       </div>
       <table style="width:100%;font-size:12px;border-collapse:collapse">
-        <tr><td style="padding:3px 8px;color:#6B7280;width:40%">Work Order</td>
-            <td style="font-weight:700;color:#1B3A5C">${woPP}</td></tr>
-        <tr><td style="padding:3px 8px;color:#6B7280">Batch</td>
-            <td style="font-weight:700">${batchNo||'1'}</td></tr>
-        <tr><td style="padding:3px 8px;color:#6B7280">ผลิตได้</td>
-            <td style="font-weight:700;color:#2563EB">${actual} หน่วย</td></tr>
-        <tr><td style="padding:3px 8px;color:#6B7280">QC Pass</td>
-            <td style="font-weight:700;color:#16a34a">${good} หน่วย</td></tr>
-        <tr><td style="padding:3px 8px;color:#6B7280">OEE</td>
-            <td style="font-weight:700;color:#7C3AED">${oee}</td></tr>
-        <tr><td style="padding:3px 8px;color:#6B7280">ขั้นตอน</td>
-            <td>${stepRows.length} ขั้นตอน</td></tr>
-        <tr><td style="padding:3px 8px;color:#6B7280">วัสดุ</td>
-            <td>${matRows.length} รายการ</td></tr>
-        <tr><td style="padding:3px 8px;color:#6B7280">QC Samples</td>
-            <td>${qcRows.length} แถว ${ngQC>0?`<span style="color:#DC2626">⚠️ NG: ${ngQC}</span>`:''}</td></tr>
+        ${[
+          ['Work Order', `<b style="color:#1B3A5C">${woPP}</b>`],
+          ['สินค้า', woObj.product_name||woObj.sku_code||'—'],
+          ['Batch', `<b>${batchNo}</b> / ${woObj.num_batches||1}`],
+          ['ผลิตได้', `<b style="color:#2563EB">${actual}</b> หน่วย`],
+          ['QC Pass', `<b style="color:#16a34a">${good}</b> หน่วย`],
+          ['OEE', `<b style="color:#7C3AED">${oee}</b>`],
+          ['ขั้นตอน', `${stepRows.length} ขั้นตอน`],
+          ['วัสดุ', `${matRows.length} รายการ`],
+          ['QC Samples', `${qcRows.length} แถว${ngQC>0?` <span style="color:#DC2626">⚠️ NG: ${ngQC}</span>`:''}`],
+          ['รูปภาพ', `${photos} รูป`],
+        ].map(([k,v])=>`<tr style="border-bottom:1px solid #F1F5F9">
+          <td style="padding:4px 8px;color:#6B7280;width:40%">${k}</td>
+          <td style="padding:4px 8px">${v}</td>
+        </tr>`).join('')}
       </table>
-    </div>
-    <div style="font-size:12px;color:#6B7280;margin-bottom:12px">
-      ตรวจสอบข้อมูลด้านบนแล้ว กด ✅ ยืนยันบันทึก หรือ ✏️ กลับแก้ไข
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <button class="btn btnS" style="padding:10px" onclick="closeMo()">
-        ✏️ กลับแก้ไข
-      </button>
-      <button class="btn btnP" style="padding:10px;font-size:13px" onclick="prptSaveEntry()">
-        ✅ ยืนยันบันทึก
-      </button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px">
+        <button onclick="document.getElementById('pne-confirm-overlay')?.remove()"
+          style="border:1px solid #E5E7EB;background:white;border-radius:8px;
+          padding:10px;font-size:13px;cursor:pointer">
+          ✏️ กลับแก้ไข
+        </button>
+        <button onclick="document.getElementById('pne-confirm-overlay')?.remove();prptSaveEntry();"
+          style="background:#1B3A5C;color:white;border:none;border-radius:8px;
+          padding:10px;font-size:13px;cursor:pointer;font-weight:700">
+          ✅ ยืนยันบันทึก
+        </button>
+      </div>
     </div>`;
-
-  openMo('✅ ยืนยันการบันทึก', confirm_html);
+  document.body.appendChild(overlay);
 }
+
+function prptConfirmSave(){ prptPreviewEntry(); }
+
+
 
 function prptConfirmSave(){
   prptPreviewEntry();
 }
 
 async function prptSaveEntry(){
+  // อ่านค่าจาก DOM (ถ้า modal ยังเปิดอยู่) หรือจาก backup
+  const getV = id => document.getElementById(id)?.value||'';
+  const getN = id => parseFloat(document.getElementById(id)?.value)||0;
 
-  const woPP=document.getElementById('pne-wo')?.value;
-  if(!woPP){ msgEl('pne-msg','เลือก Work Order ก่อน','e'); return; }
-  msgEl('pne-msg','<span class="spin"></span> กำลังบันทึก...','i');
-  const sel=document.querySelector('#pne-wo option:checked');
-  const skuCode=sel?.dataset.sku||'';
-  const prodName=sel?.dataset.name||'';
-  const startTime=document.getElementById('pne-start')?.value;
-  const endTime=document.getElementById('pne-end')?.value;
-  const shift=document.getElementById('pne-shift')?.value||'morning';
-  const batchNo=parseInt(document.getElementById('pne-batch')?.value)||1;
-  const machine=document.getElementById('pne-machine')?.value||'';
-  const planned=parseFloat(document.getElementById('pne-planned')?.value)||0;
-  const actual=parseFloat(document.getElementById('pne-actual')?.value)||0;
-  const good=parseFloat(document.getElementById('pne-good')?.value)||0;
-  const reject=parseFloat(document.getElementById('pne-reject')?.value)||0;
-  const plannedMin=parseFloat(document.getElementById('pne-planned')?.value)||480;
-  const runtime=parseFloat(document.getElementById('pne-runtime')?.value)||0;
-  const downtime=parseFloat(document.getElementById('pne-downtime')?.value)||0;
-  const reason=document.getElementById('pne-reason')?.value||'';
-  const note=document.getElementById('pne-note')?.value||'';
+  const woPP = getV('pne-wo');
+  if(!woPP){ msgEl('pne-msg','⚠️ เลือก Work Order ก่อนครับ','e'); return; }
 
-  const avail=plannedMin>0?Math.min(100,runtime/plannedMin*100):0;
-  const perf=planned>0?Math.min(100,actual/planned*100):100;
-  const qual=actual>0?Math.min(100,good/actual*100):100;
-  const oee=avail*perf*qual/10000;
-  const totalMin=runtime+downtime;
+  // อ่าน skuCode/prodName จาก _pneWOCache แทน option:checked (เพราะเป็น hidden input)
+  const woObj = (window._pneWOCache||[]).find(w=>w.pp_no===woPP)||{};
+  const skuCode = woObj.sku_code||'';
+  const prodName = woObj.product_name||skuCode||'';
 
-  msgEl('pne-msg','<span class="spin"></span> Saving...','i');
+  const startTime = getV('pne-start');
+  const endTime   = getV('pne-end');
+  const shift     = getV('pne-shift')||'morning';
+  const batchNo   = parseInt(getV('pne-batch'))||1;
+  const machine   = getV('pne-machine')||'';
+  const planned   = getN('pne-planned')||0;
+  const actual    = getN('pne-actual');
+  const good      = getN('pne-good');
+  const reject    = getN('pne-reject');
+  const plannedMin= getN('pne-planned')||480;
+  const runtime   = getN('pne-runtime');
+  const downtime  = getN('pne-downtime');
+  const reason    = getV('pne-reason');
+  const note      = getV('pne-note');
+  const lotNo     = getV('pne-lot');
+  const mfgDate   = getV('pne-mfg-date');
+  const expDate   = getV('pne-exp-date');
+
+  const avail = plannedMin>0 ? Math.min(100,runtime/plannedMin*100) : 0;
+  const perf  = planned>0 ? Math.min(100,actual/planned*100) : 100;
+  const qual  = actual>0  ? Math.min(100,good/actual*100)    : 100;
+  const oee   = avail*perf*qual/10000;
+  const totalMin = runtime+downtime;
+
+  // เก็บ step/mat/qc rows ก่อน modal ถูกเปิดทับ
+  const stepRowEls = [...document.querySelectorAll('#pne-step-tbody tr[id^="pne-sr-"]')];
+  const matRowEls  = [...document.querySelectorAll('#pne-mat-tbody tr[id^="pne-mr-"]')];
+  const qcData     = pneCollectQCData();
+
+  // เก็บ photos
+  const photos = [];
+  for(let pi=1;pi<=4;pi++){
+    const b64=window[`_pnePhoto${pi}`];
+    if(b64) photos.push({idx:pi, b64});
+  }
+
+  // เก็บ steps
+  const stepsData = stepRowEls.map((tr,i)=>{
+    const idx=tr.id.replace('pne-sr-','');
+    const startT=document.getElementById(`pne-sstart-${idx}`)?.value;
+    const endT  =document.getElementById(`pne-send-${idx}`)?.value;
+    const date  =startTime?.slice(0,10)||new Date().toISOString().slice(0,10);
+    return{
+      stepNo:i+1,
+      stepName:document.getElementById(`pne-sname-${idx}`)?.value||'',
+      startTime:startT?`${date}T${startT}:00`:null,
+      endTime:endT?`${date}T${endT}:00`:null,
+      dur:parseFloat(document.getElementById(`pne-smin-${idx}`)?.value)||0,
+      wk:parseInt(document.getElementById(`pne-swk-${idx}`)?.value)||1,
+      inp:parseFloat(document.getElementById(`pne-sinput-${idx}`)?.value)||0,
+      out:parseFloat(document.getElementById(`pne-sout-${idx}`)?.value)||0,
+      def:parseFloat(document.getElementById(`pne-sdef-${idx}`)?.value)||0,
+      dt:parseFloat(document.getElementById(`pne-sdt-${idx}`)?.value)||0,
+      reason:document.getElementById(`pne-sreason-${idx}`)?.value||''
+    };
+  });
+
+  // เก็บ materials
+  const matsData = matRowEls.map(tr=>{
+    const idx=tr.id.replace('pne-mr-','');
+    const codeSel=document.getElementById(`pne-mcode-${idx}`);
+    const code=codeSel?.value==='__custom__'
+      ?document.getElementById(`pne-mcustom-${idx}`)?.value
+      :codeSel?.value||'';
+    if(!code) return null;
+    return{
+      stepName:document.getElementById(`pne-mstep-${idx}`)?.value||'',
+      code, name:document.getElementById(`pne-mname-${idx}`)?.value||'',
+      plan:parseFloat(document.getElementById(`pne-mplan-${idx}`)?.value)||0,
+      used:parseFloat(document.getElementById(`pne-mused-${idx}`)?.value)||0,
+      rem:parseFloat(document.getElementById(`pne-mrem-${idx}`)?.value)||0,
+      waste:parseFloat(document.getElementById(`pne-mwaste-${idx}`)?.value)||0,
+      unit:document.getElementById(`pne-munit-${idx}`)?.value||'kg'
+    };
+  }).filter(Boolean);
+
+  // ปิด modal เดิมก่อน save
+  closeMo();
+
+  // แสดง loading toast
+  const toast = document.createElement('div');
+  toast.id='save-toast';
+  toast.style.cssText='position:fixed;bottom:24px;right:24px;background:#1B3A5C;color:white;'+
+    'border-radius:10px;padding:14px 20px;z-index:9999;font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,.3)';
+  toast.innerHTML='<span class="spin"></span> กำลังบันทึก...';
+  document.body.appendChild(toast);
+
   try{
     const savedLog = await sbP('production_log',{
       pp_no:woPP, sku_code:skuCode, product_name:prodName,
@@ -24665,114 +24748,79 @@ async function prptSaveEntry(){
       yield_pct:actual>0?good/actual*100:0,
       availability_pct:avail, performance_pct:perf,
       quality_pct:qual, oee_pct:oee,
+      lot_no:lotNo||null, mfg_date:mfgDate||null, exp_date:expDate||null,
       note, recorded_by:CU?.full_name||'', status:'completed'
     });
+
     const savedId = Array.isArray(savedLog) ? (savedLog[0]?.id||0) : (savedLog?.id||0);
-    await logA('CREATE','production',`บันทึกผลผลิต ${woPP} Batch${batchNo}: ${actual} units OEE:${fmt(oee,1)}%`,woPP);
+    await logA('CREATE','production',
+      `บันทึกผลผลิต ${woPP} Batch${batchNo}: ${actual} units OEE:${fmt(oee,1)}%`,woPP);
 
     // บันทึก Steps
-    const stepRows=[...document.querySelectorAll('#pne-step-tbody tr[id^="pne-sr-"]')];
-    const stepsOK=await checkStepsTable();
-    if(stepsOK&&stepRows.length){
-      let stepNo=0;
-      for(const tr of stepRows){
-        stepNo++;
-        const idx=tr.id.replace('pne-sr-','');
-        const stepName=document.getElementById(`pne-sname-${idx}`)?.value||'';
-        const startT=document.getElementById(`pne-sstart-${idx}`)?.value;
-        const endT=document.getElementById(`pne-send-${idx}`)?.value;
-        const dur=parseFloat(document.getElementById(`pne-smin-${idx}`)?.value)||0;
-        const wk=parseInt(document.getElementById(`pne-swk-${idx}`)?.value)||1;
-        const inp=parseFloat(document.getElementById(`pne-sinput-${idx}`)?.value)||0;
-        const out=parseFloat(document.getElementById(`pne-sout-${idx}`)?.value)||0;
-        const def=parseFloat(document.getElementById(`pne-sdef-${idx}`)?.value)||0;
-        const dt=parseFloat(document.getElementById(`pne-sdt-${idx}`)?.value)||0;
-        const reason=document.getElementById(`pne-sreason-${idx}`)?.value||'';
-        const date=startTime?.slice(0,10)||new Date().toISOString().slice(0,10);
+    const stepsOK = await checkStepsTable();
+    if(stepsOK && savedId && stepsData.length){
+      for(const s of stepsData){
         await sbP('prod_log_steps',{
-          log_id:savedId, pp_no:woPP, step_no:stepNo, step_name:stepName,
-          start_time:startT?`${date}T${startT}:00`:null,
-          end_time:endT?`${date}T${endT}:00`:null,
-          duration_min:dur, workers:wk,
-          input_qty:inp, output_qty:out,
-          defect_qty:def, downtime_min:dt, downtime_reason:reason
-        }).catch(e=>console.warn('step save:',e));
+          log_id:savedId, pp_no:woPP, step_no:s.stepNo, step_name:s.stepName,
+          start_time:s.startTime, end_time:s.endTime,
+          duration_min:s.dur, workers:s.wk,
+          input_qty:s.inp, output_qty:s.out,
+          defect_qty:s.def, downtime_min:s.dt, downtime_reason:s.reason
+        }).catch(e=>console.warn('step:',e));
       }
     }
 
     // บันทึก Materials
-    const matRows=[...document.querySelectorAll('#pne-mat-tbody tr[id^="pne-mr-"]')];
-    if(stepsOK&&matRows.length){
-      for(const tr of matRows){
-        const idx=tr.id.replace('pne-mr-','');
-        const stepName=document.getElementById(`pne-mstep-${idx}`)?.value||'';
-        const codeSel=document.getElementById(`pne-mcode-${idx}`);
-        const code=codeSel?.value==='__custom__'
-          ?document.getElementById(`pne-mcustom-${idx}`)?.value
-          :codeSel?.value||'';
-        if(!code) continue;
-        const name=document.getElementById(`pne-mname-${idx}`)?.value||'';
-        const plan=parseFloat(document.getElementById(`pne-mplan-${idx}`)?.value)||0;
-        const used=parseFloat(document.getElementById(`pne-mused-${idx}`)?.value)||0;
-        const rem=parseFloat(document.getElementById(`pne-mrem-${idx}`)?.value)||0;
-        const waste=parseFloat(document.getElementById(`pne-mwaste-${idx}`)?.value)||(used-rem>0?used-rem:0);
-        const unit=document.getElementById(`pne-munit-${idx}`)?.value||'kg';
+    if(stepsOK && savedId && matsData.length){
+      for(const m of matsData){
         await sbP('prod_log_step_materials',{
-          step_id:0, log_id:savedId, pp_no:woPP, step_name:stepName,
-          material_code:code, material_name:name,
-          planned_qty:plan, used_qty:used,
-          remaining_qty:rem, waste_qty:waste, unit
-        }).catch(e=>console.warn('mat save:',e));
+          step_id:0, log_id:savedId, pp_no:woPP, step_name:m.stepName,
+          material_code:m.code, material_name:m.name,
+          planned_qty:m.plan, used_qty:m.used,
+          remaining_qty:m.rem, waste_qty:m.waste, unit:m.unit
+        }).catch(e=>console.warn('mat:',e));
       }
     }
 
-    // บันทึก QC data ใน prod_log_step_materials (step_id=0, step_name='__QC__')
-    const qcData=pneCollectQCData();
-    const stepsOK2=await checkStepsTable();
-    if(qcData.length&&savedId&&stepsOK2){
-      // ลบ QC rows เก่าก่อน (ถ้ามี)
-      await sbD('prod_log_step_materials',`log_id=eq.${savedId}&step_name=eq.__QC__`).catch(()=>{});
-      // insert ใหม่
+    // บันทึก QC
+    if(stepsOK && savedId && qcData.length){
+      await sbD('prod_log_step_materials',
+        `log_id=eq.${savedId}&step_name=eq.__QC__`).catch(()=>{});
       for(const q of qcData){
         await sbP('prod_log_step_materials',{
           step_id:0, log_id:savedId, pp_no:woPP, step_name:'__QC__',
-          material_code:q.time||'',
-          material_name:JSON.stringify(q),
+          material_code:q.time||'', material_name:JSON.stringify(q),
           planned_qty:0, used_qty:0, remaining_qty:0, waste_qty:0, unit:'qc'
-        }).catch(()=>{});
+        }).catch(e=>console.warn('qc:',e));
       }
     }
-    // บันทึก photos + lot info
-    const lotNo=document.getElementById('pne-lot')?.value||'';
-    const mfgDate=document.getElementById('pne-mfg-date')?.value||'';
-    const expDate=document.getElementById('pne-exp-date')?.value||'';
-    if((lotNo||mfgDate||expDate)&&savedId){
-      await sbU('production_log',{
-        lot_no:lotNo||null, mfg_date:mfgDate||null, exp_date:expDate||null
-      },`id=eq.${savedId}`).catch(()=>{
-        // fallback: ไม่มี column → เก็บใน note
-        if(savedId) console.log('[Lot] lot_no/dates stored separately');
-      });
-    }
-    // บันทึกรูปภาพ
-    const stepsOK3=await checkStepsTable();
-    if(stepsOK3&&savedId){
-      for(let pi=1;pi<=4;pi++){
-        const b64=window[`_pnePhoto${pi}`];
-        if(!b64) continue;
+
+    // บันทึก Photos
+    if(stepsOK && savedId && photos.length){
+      for(const ph of photos){
         await sbP('prod_log_step_materials',{
           step_id:0, log_id:savedId, pp_no:woPP, step_name:'__PHOTO__',
-          material_code:`photo_${pi}`, material_name:b64,
+          material_code:`photo_${ph.idx}`, material_name:ph.b64,
           planned_qty:0, used_qty:0, remaining_qty:0, waste_qty:0, unit:'img'
-        }).catch(e=>console.warn('photo save:',e));
+        }).catch(e=>console.warn('photo:',e));
       }
     }
-    msgEl('pne-msg',`✅ บันทึกเรียบร้อย (${stepRows.length} ขั้นตอน, ${matRows.length} วัสดุ, ${qcData.length} QC rows)`,'s');
+
     // clear photos
     for(let pi=1;pi<=4;pi++) window[`_pnePhoto${pi}`]=null;
-    setTimeout(()=>{ closeMo(); prptLoadLog(); },800);
-  }catch(e){ msgEl('pne-msg','❌ '+e.message,'e'); }
+
+    toast.style.background='#166534';
+    toast.innerHTML=`✅ บันทึกเรียบร้อย! (${stepsData.length} ขั้นตอน · ${matsData.length} วัสดุ · ${qcData.length} QC)`;
+    setTimeout(()=>{ toast.remove(); prptLoadLog(); },2000);
+
+  }catch(e){
+    toast.style.background='#DC2626';
+    toast.innerHTML=`❌ บันทึกไม่สำเร็จ: ${e.message}`;
+    setTimeout(()=>toast.remove(),4000);
+    console.error('prptSaveEntry error:',e);
+  }
 }
+
 
 async function prptViewEntry(id){
   const l=(await sbG('production_log',{f:[`id=eq.${id}`]}).catch(()=>[]))[0];
