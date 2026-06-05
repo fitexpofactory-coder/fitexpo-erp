@@ -3661,8 +3661,8 @@ async function loadBOMDetail(code){
     const codeField=isFG?'sku_code':'wip_code';
     const [rows,master,matPrices]=await Promise.all([
       sbG(bomTable,{f:[`${codeField}=eq.${code}`],ord:'id.asc'}),
-      isFG?sbG('master_product',{f:[`sku=eq.${code}`]}):sbG('wip_master',{f:[`code=eq.${code}`]}),
-      sbG('master_material',{s:'code,price_per_unit'}).catch(()=>[]),
+      isFG?sbG('master_product',{f:[`sku=eq.${code}`],s:'*'}):sbG('wip_master',{f:[`code=eq.${code}`],s:'*'}),
+      sbG('master_material',{s:'code,name,unit,category,price_per_unit'}).catch(()=>[]),
     ]);
     // สร้าง price map
     const _priceMap={};
@@ -3762,11 +3762,45 @@ async function loadBOMDetail(code){
         if(matCode&&!price) missingPrice.push(matCode);
         totalCost+=kgPB*price;
       });
-      const yieldPct2=m?.yield_pct||m?.yield_percent||95;
-      const pricePerKgInput = batchKg>0 ? totalCost/batchKg : 0;
+      const yieldPct2  = Number(m?.yield_pct||m?.yield_percent||95);
+      const pcsPerBatch = Number(m?.pcs_per_batch||m?.qty_per_batch||0);
+      const weightPcs   = Number(m?.weight_per_pcs||m?.net_weight_g||m?.weight_pcs||0); // g/pcs
+      const pricePerKgInput  = batchKg>0 ? totalCost/batchKg : 0;
       const pricePerKgOutput = yieldPct2>0 ? pricePerKgInput/(yieldPct2/100) : pricePerKgInput;
-      const missingNote = missingPrice.length>0 ? `<div style="color:var(--amber);font-size:11px;margin-top:4px">⚠️ ไม่มีราคา: ${[...new Set(missingPrice)].join(', ')}</div>` : '';
-      const costColor = pricePerKgOutput>0 ? 'var(--green)' : 'var(--text3)';
+
+      // คำนวณ ราคา/ชิ้น
+      // วิธี 1: จาก pcs_per_batch ตรงๆ
+      const pricePerPcs1 = pcsPerBatch>0 ? totalCost/pcsPerBatch : 0;
+      // วิธี 2: จาก weight/pcs และ yield
+      const outputKg = batchKg*(yieldPct2/100);
+      const pcsFromWeight = (weightPcs>0&&outputKg>0) ? (outputKg*1000/weightPcs) : 0;
+      const pricePerPcs2 = pcsFromWeight>0 ? totalCost/pcsFromWeight : 0;
+      const pricePerPcs  = pricePerPcs1>0 ? pricePerPcs1 : pricePerPcs2;
+
+      // breakdown ต้นทุนตาม section
+      const costBySection={};
+      rows.forEach(r=>{
+        const sec=(r.section||r.note||'หลัก').trim()||'หลัก';
+        const matCode=r.mat_code||r.rm_code||'';
+        const pct=Number(r.pct_of_batch||0);
+        const qty=Number(r.qty_per_batch||0);
+        let kgPB=pct>0?pct/100*batchKg:qty*scaleFactor;
+        const unitL=(r.unit||'kg').toLowerCase();
+        if(unitL==='g'||unitL==='ml') kgPB/=1000;
+        const price=_priceMap[matCode]||0;
+        const cost=kgPB*price;
+        if(!costBySection[sec]) costBySection[sec]={cost:0,count:0};
+        costBySection[sec].cost+=cost;
+        costBySection[sec].count++;
+      });
+
+      const missingNote = missingPrice.length>0 ?
+        `<div style="background:#FFF7ED;border-radius:6px;padding:6px 8px;margin-top:6px;font-size:10px;color:#92400E">
+          ⚠️ ไม่มีราคา ${missingPrice.length} รายการ: ${[...new Set(missingPrice)].slice(0,5).join(', ')}
+          ${missingPrice.length>5?'...':''}
+          <br><span style="color:#6B7280">กรุณากรอกราคาใน Master Material</span>
+        </div>` : '';
+      const costColor = totalCost>0 ? '#16a34a' : 'var(--text3)';
 
       html+=`<div style="background:var(--bg3);border-radius:6px;padding:10px;margin-top:10px;font-size:12px">
         <div style="display:flex;justify-content:space-between"><span>รวม RM:</span><span class="mn">${fmt(totalRM,3)} kg</span></div>
@@ -3774,13 +3808,82 @@ async function loadBOMDetail(code){
         <div style="display:flex;justify-content:space-between;font-weight:700;margin-top:4px;border-top:1px solid var(--border);padding-top:4px"><span>รวม/Batch:</span><span class="mn">${fmt(totalRM+totalWIP,3)} kg / ${batchKg} kg target</span></div>
         ${!isFG?`
         <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px">
-          <div style="font-weight:700;color:var(--navy);margin-bottom:6px">💰 ต้นทุนวัตถุดิบ</div>
-          <div style="display:grid;grid-template-columns:1fr auto;gap:4px;font-size:11px">
-            <span>ต้นทุนรวม/Batch:</span><span class="mn" style="font-weight:700">${thb(totalCost)}</span>
-            <span>ต้นทุน/kg (input):</span><span class="mn">${thb(pricePerKgInput)}/kg</span>
-            <span style="color:var(--navy);font-weight:700">ต้นทุน/kg output (÷${yieldPct2}%):</span>
-            <span class="mn" style="font-weight:800;font-size:13px;color:${costColor}">${thb(pricePerKgOutput)}/kg</span>
+          <div style="font-weight:700;color:#1B3A5C;margin-bottom:8px;font-size:12px">💰 ต้นทุนวัตถุดิบ / RM Cost Analysis</div>
+
+          <!-- KPI Cards -->
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px">
+            <div style="background:#EFF6FF;border-radius:8px;padding:8px;text-align:center">
+              <div style="font-size:9px;color:#6B7280">ต้นทุนรวม/Batch</div>
+              <div style="font-weight:800;font-size:14px;color:#1B3A5C">${thb(totalCost)}</div>
+              <div style="font-size:9px;color:#6B7280">${batchKg} kg input</div>
+            </div>
+            <div style="background:${pricePerKgOutput>0?'#F0FDF4':'#F9FAFB'};border-radius:8px;padding:8px;text-align:center">
+              <div style="font-size:9px;color:#6B7280">ต้นทุน/kg (output)</div>
+              <div style="font-weight:800;font-size:14px;color:${pricePerKgOutput>0?'#16a34a':'#9CA3AF'}">${thb(pricePerKgOutput)}/kg</div>
+              <div style="font-size:9px;color:#6B7280">Yield ${yieldPct2}%</div>
+            </div>
+            <div style="background:${pricePerPcs>0?'#FEF3C7':'#F9FAFB'};border-radius:8px;padding:8px;text-align:center">
+              <div style="font-size:9px;color:#6B7280">ต้นทุน/ชิ้น</div>
+              <div style="font-weight:800;font-size:14px;color:${pricePerPcs>0?'#D97706':'#9CA3AF'}">${pricePerPcs>0?thb(pricePerPcs):'—'}</div>
+              <div style="font-size:9px;color:#6B7280">${pcsPerBatch>0?pcsPerBatch+' ชิ้น/batch':weightPcs>0?fmt(weightPcs,1)+' g/pcs':'กรอก pcs_per_batch'}</div>
+            </div>
           </div>
+
+          <!-- Breakdown by section -->
+          ${Object.keys(costBySection).length>1?`
+          <div style="margin-bottom:8px">
+            <div style="font-size:10px;font-weight:600;color:#6B7280;margin-bottom:4px">📊 Breakdown ตาม Section</div>
+            ${Object.entries(costBySection).map(([sec,d])=>`
+              <div style="display:flex;justify-content:space-between;font-size:10px;padding:2px 0">
+                <span style="color:#374151">${sec}</span>
+                <span style="font-weight:600">${thb(d.cost)}
+                  <span style="color:#9CA3AF;font-weight:400"> (${totalCost>0?fmt(d.cost/totalCost*100,1)+'%':'—'})</span>
+                </span>
+              </div>`).join('')}
+          </div>`:``}
+
+          <!-- Detail rows -->
+          <div style="font-size:10px;color:#6B7280;margin-bottom:4px">รายละเอียดต้นทุนต่อวัสดุ:</div>
+          <div style="max-height:160px;overflow-y:auto;border:1px solid #E5E7EB;border-radius:6px">
+            <table style="width:100%;border-collapse:collapse;font-size:10px">
+              <thead><tr style="background:#F1F5F9;position:sticky;top:0">
+                <th style="padding:3px 6px;text-align:left">รหัส / ชื่อ</th>
+                <th style="padding:3px 6px;text-align:right">ปริมาณ/Batch</th>
+                <th style="padding:3px 6px;text-align:right">ราคา/หน่วย</th>
+                <th style="padding:3px 6px;text-align:right">ต้นทุน</th>
+                <th style="padding:3px 6px;text-align:right">%</th>
+              </tr></thead>
+              <tbody>
+                ${rows.map(r=>{
+                  const mc=r.mat_code||r.rm_code||'';
+                  const pct2=Number(r.pct_of_batch||0);
+                  const qty2=Number(r.qty_per_batch||0);
+                  let kgPB=pct2>0?pct2/100*batchKg:qty2*scaleFactor;
+                  const unitL2=(r.unit||'kg').toLowerCase();
+                  if(unitL2==='g'||unitL2==='ml') kgPB/=1000;
+                  const price2=_priceMap[mc]||0;
+                  const cost2=kgPB*price2;
+                  const matInfo=_matInfoMap[mc]||{};
+                  return`<tr style="border-bottom:1px solid #F1F5F9;${!price2?'color:#9CA3AF':''}">
+                    <td style="padding:3px 6px">
+                      <span style="font-family:monospace;color:${mc.startsWith('PK')?'#D97706':'#1B5EC7'}">${mc}</span>
+                      <span style="color:#6B7280;margin-left:4px">${matInfo.name||r.mat_name||r.rm_name||''}</span>
+                    </td>
+                    <td style="text-align:right;padding:3px 6px">${fmt(kgPB,3)} kg</td>
+                    <td style="text-align:right;padding:3px 6px;color:${price2>0?'#374151':'#DC2626'}">${price2>0?thb(price2)+'/kg':'ไม่มีราคา'}</td>
+                    <td style="text-align:right;padding:3px 6px;font-weight:${cost2>0?'600':'400'}">${cost2>0?thb(cost2):'—'}</td>
+                    <td style="text-align:right;padding:3px 6px;color:#6B7280">${totalCost>0&&cost2>0?fmt(cost2/totalCost*100,1)+'%':'—'}</td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+              <tfoot><tr style="background:#EFF6FF;font-weight:700">
+                <td style="padding:3px 6px" colspan="3">รวมต้นทุน/Batch</td>
+                <td style="text-align:right;padding:3px 6px;color:#1B3A5C">${thb(totalCost)}</td>
+                <td style="text-align:right;padding:3px 6px">100%</td>
+              </tr></tfoot>
+            </table>
+          </div>
+
           ${missingNote}
           <button class="btn btnG" style="width:100%;margin-top:8px;font-size:12px"
             onclick="saveBOMCostToWIP('${code}',${pricePerKgOutput.toFixed(4)})">
@@ -26841,5 +26944,383 @@ function tickClock(){
 }
 setInterval(tickClock,1000);tickClock();
 </script>
+  <!-- ████ PRESENCE + CHAT WIDGET ████ -->
+  <div id="presence-bar" style="position:fixed;bottom:0;left:0;right:0;height:38px;
+    background:rgba(27,58,92,.96);backdrop-filter:blur(8px);
+    display:flex;align-items:center;padding:0 14px;gap:10px;z-index:800;
+    border-top:1px solid rgba(255,255,255,.12)">
+    <!-- Online users -->
+    <div style="font-size:10px;color:rgba(255,255,255,.6);white-space:nowrap">🟢 ออนไลน์:</div>
+    <div id="pb-users" style="display:flex;gap:6px;flex:1;overflow:hidden;align-items:center">
+      <span style="color:rgba(255,255,255,.4);font-size:10px">กำลังโหลด...</span>
+    </div>
+    <!-- Chat button -->
+    <button id="pb-chat-btn" onclick="pbToggleChat()"
+      style="border:none;background:rgba(255,255,255,.15);color:white;border-radius:20px;
+      padding:5px 14px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:6px;
+      white-space:nowrap;transition:background .2s">
+      💬 แชต
+      <span id="pb-unread" style="display:none;background:#DC2626;color:white;
+        border-radius:50%;width:16px;height:16px;font-size:9px;display:none;
+        align-items:center;justify-content:center;font-weight:700">0</span>
+    </button>
+    <!-- Current page indicator -->
+    <div id="pb-page-tag" style="font-size:10px;color:rgba(255,255,255,.5);white-space:nowrap"></div>
+  </div>
+
+  <!-- ████ CHAT PANEL ████ -->
+  <div id="chat-panel" style="display:none;position:fixed;bottom:38px;right:0;width:340px;
+    height:480px;background:white;border:1px solid var(--border);
+    box-shadow:-4px -4px 20px rgba(0,0,0,.15);
+    display:flex;flex-direction:column;z-index:799;border-radius:10px 0 0 0">
+    <!-- Header -->
+    <div style="background:#1B3A5C;color:white;padding:10px 14px;
+      display:flex;justify-content:space-between;align-items:center;border-radius:10px 0 0 0;flex-shrink:0">
+      <div style="font-weight:700;font-size:13px">💬 Team Chat</div>
+      <div style="display:flex;gap:6px">
+        <span id="chat-online-count" style="font-size:10px;background:rgba(255,255,255,.15);
+          padding:2px 8px;border-radius:10px">● 0 ออนไลน์</span>
+        <button onclick="pbToggleChat()" style="border:none;background:none;color:white;
+          font-size:16px;cursor:pointer;padding:0 4px">✕</button>
+      </div>
+    </div>
+    <!-- Messages -->
+    <div id="chat-messages" style="flex:1;overflow-y:auto;padding:10px;
+      display:flex;flex-direction:column;gap:6px;background:#F8FAFC"></div>
+    <!-- Input -->
+    <div style="padding:8px;border-top:1px solid var(--border);background:white;flex-shrink:0">
+      <!-- Tag WO -->
+      <div id="chat-tag-bar" style="display:none;background:#EFF6FF;border-radius:6px;
+        padding:4px 8px;margin-bottom:6px;font-size:10px;color:#1B3A5C;
+        display:flex;justify-content:space-between;align-items:center">
+        <span id="chat-tag-label"></span>
+        <button onclick="pbClearTag()" style="border:none;background:none;color:#9CA3AF;cursor:pointer;font-size:11px">✕</button>
+      </div>
+      <div style="display:flex;gap:6px">
+        <input type="text" id="chat-input" placeholder="พิมพ์ข้อความ... @mention #WO"
+          style="flex:1;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();pbSendMessage();}"
+          oninput="pbCheckMention(this.value)">
+        <button onclick="pbSendMessage()"
+          style="border:none;background:#1B3A5C;color:white;border-radius:8px;
+          padding:6px 12px;cursor:pointer;font-size:12px">➤</button>
+      </div>
+      <!-- Mention suggestions -->
+      <div id="chat-mention-list" style="display:none;position:absolute;bottom:80px;right:8px;
+        background:white;border:1px solid var(--border);border-radius:8px;
+        box-shadow:0 4px 12px rgba(0,0,0,.15);min-width:160px;z-index:801;overflow:hidden"></div>
+    </div>
+  </div>
+
+  <!-- PRESENCE + CHAT SCRIPT -->
+  <script>
+  // ── State ──────────────────────────────────────────────────
+  let _pbOnline=[], _pbMessages=[], _pbUnread=0;
+  let _pbChatOpen=false, _pbTagWO='', _pbTagUser='';
+  let _pbInterval=null, _pbSessionId='s'+Date.now();
+  let _pbLastMsgId=0;
+
+  // ── Init ───────────────────────────────────────────────────
+  function pbInit(){
+    if(!CU) return;
+    pbUpdatePresence();
+    pbLoadMessages();
+    // update presence ทุก 30s
+    _pbInterval=setInterval(()=>{
+      pbUpdatePresence();
+      pbPollMessages();
+    },15000);
+    // เมื่อออกจากหน้า
+    window.addEventListener('beforeunload',()=>{
+      if(CU?.username) sbD('user_presence',`username=eq.${CU.username}`).catch(()=>{});
+    });
+  }
+
+  // ── Presence ───────────────────────────────────────────────
+  async function pbUpdatePresence(){
+    if(!CU?.username) return;
+    const pageName={
+      dashboard:'📊 Dashboard',rm:'🧱 Stock RM',
+      'wip-stock':'🏭 Stock WIP',fg:'📦 Stock FG',
+      production:'🔧 Production',forecast:'📈 Forecast',
+      'prod-report':'📋 Production Report','oee-log':'⏱ OEE',
+      hr:'👥 HR','stock-report':'📊 Stock Report',pm:'🔧 PM'
+    }[CUR]||CUR;
+    try{
+      // upsert presence
+      const existing=(await sbG('user_presence',{f:[`username=eq.${CU.username}`]}).catch(()=>[]))[0];
+      if(existing){
+        await sbU('user_presence',{
+          current_page:CUR, last_seen:new Date().toISOString(),
+          full_name:CU.full_name||CU.username, session_id:_pbSessionId
+        },`username=eq.${CU.username}`).catch(()=>{});
+      }else{
+        await sbP('user_presence',{
+          username:CU.username, full_name:CU.full_name||CU.username,
+          current_page:CUR, last_seen:new Date().toISOString(), session_id:_pbSessionId
+        }).catch(()=>{});
+      }
+      // โหลด online users (active ใน 2 นาที)
+      const since=new Date(Date.now()-2*60*1000).toISOString();
+      const users=await sbG('user_presence',{
+        f:[`last_seen=gte.${since}`], ord:'last_seen.desc'
+      }).catch(()=>[]);
+      _pbOnline=users;
+      pbRenderPresence(users, pageName);
+    }catch(e){}
+  }
+
+  function pbRenderPresence(users, pageName){
+    const bar=document.getElementById('pb-users');
+    const countEl=document.getElementById('chat-online-count');
+    const pageEl=document.getElementById('pb-page-tag');
+    if(!bar) return;
+    if(pageEl) pageEl.textContent=pageName;
+    if(countEl) countEl.textContent=`● ${users.length} ออนไลน์`;
+
+    // แสดง users บน presence bar
+    const samePage=users.filter(u=>u.current_page===CUR&&u.username!==CU?.username);
+    const others  =users.filter(u=>u.current_page!==CUR&&u.username!==CU?.username);
+    const me      =users.find(u=>u.username===CU?.username);
+
+    let html='';
+    if(me) html+=`<span style="background:rgba(255,255,255,.2);border-radius:12px;
+      padding:2px 8px;font-size:10px;color:white;white-space:nowrap">
+      🟢 ${me.full_name||me.username} (ฉัน)</span>`;
+
+    samePage.forEach(u=>{
+      html+=`<span title="${u.current_page}" style="background:#16a34a;border-radius:12px;
+        padding:2px 8px;font-size:10px;color:white;white-space:nowrap;cursor:pointer"
+        onclick="pbQuickTag('@${u.username}')">
+        🟢 ${u.full_name||u.username} <span style="opacity:.7;font-size:9px">หน้าเดียวกัน</span>
+      </span>`;
+    });
+    others.forEach(u=>{
+      const pm={dashboard:'📊',rm:'🧱','wip-stock':'🏭',fg:'📦',
+        production:'🔧','prod-report':'📋',hr:'👥'}[u.current_page]||'📌';
+      html+=`<span title="กำลังใช้: ${u.current_page}" style="background:rgba(255,255,255,.1);
+        border-radius:12px;padding:2px 8px;font-size:10px;color:rgba(255,255,255,.7);
+        white-space:nowrap;cursor:pointer" onclick="pbQuickTag('@${u.username}')">
+        ${pm} ${u.full_name||u.username}
+      </span>`;
+    });
+    if(!html) html='<span style="color:rgba(255,255,255,.3);font-size:10px">ไม่มีผู้ใช้อื่นออนไลน์</span>';
+    bar.innerHTML=html;
+  }
+
+  // ── Messages ───────────────────────────────────────────────
+  async function pbLoadMessages(){
+    try{
+      const msgs=await sbG('chat_messages',{
+        ord:'created_at.desc', lim:50
+      }).catch(()=>[]);
+      _pbMessages=msgs.reverse();
+      if(msgs.length>0) _pbLastMsgId=msgs[msgs.length-1].id;
+      pbRenderMessages();
+    }catch(e){}
+  }
+
+  async function pbPollMessages(){
+    if(!_pbLastMsgId) return;
+    try{
+      const newMsgs=await sbG('chat_messages',{
+        f:[`id=gt.${_pbLastMsgId}`], ord:'created_at.asc'
+      }).catch(()=>[]);
+      if(!newMsgs.length) return;
+      _pbMessages.push(...newMsgs);
+      _pbLastMsgId=newMsgs[newMsgs.length-1].id;
+      if(_pbChatOpen){
+        pbRenderMessages();
+      }else{
+        // นับ unread
+        _pbUnread+=newMsgs.length;
+        const badge=document.getElementById('pb-unread');
+        if(badge){
+          badge.style.display='inline-flex';
+          badge.textContent=_pbUnread>9?'9+':_pbUnread;
+        }
+        // show toast สำหรับข้อความที่กล่าวถึงเรา
+        const me=CU?.username||'';
+        newMsgs.forEach(m=>{
+          if(m.sender!==me&&(m.message.includes('@'+me)||m.tagged_users?.includes(me))){
+            pbShowToast(`💬 ${m.sender_name||m.sender}: ${m.message.slice(0,60)}`,m.id);
+          }
+        });
+      }
+    }catch(e){}
+  }
+
+  function pbRenderMessages(){
+    const el=document.getElementById('chat-messages');
+    if(!el) return;
+    if(!_pbMessages.length){
+      el.innerHTML='<div style="text-align:center;color:#9CA3AF;font-size:11px;padding:20px">ยังไม่มีข้อความ</div>';
+      return;
+    }
+    const me=CU?.username||'';
+    let prevDate='';
+    el.innerHTML=_pbMessages.map(m=>{
+      const isMe=m.sender===me;
+      const t=new Date(m.created_at);
+      const dateStr=t.toLocaleDateString('th-TH',{day:'numeric',month:'short'});
+      const timeStr=t.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+      let dateSep='';
+      if(dateStr!==prevDate){
+        prevDate=dateStr;
+        dateSep=`<div style="text-align:center;font-size:9px;color:#9CA3AF;margin:6px 0">${dateStr}</div>`;
+      }
+      // highlight mentions
+      let txt=m.message
+        .replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/@(\w+)/g,'<span style="color:#2563EB;font-weight:600">@$1</span>')
+        .replace(/#([\w-]+)/g,'<span style="color:#7C3AED;font-weight:600">#$1</span>');
+      // tag WO
+      const tagHtml=m.tagged_wo?`<div style="background:#EFF6FF;border-radius:4px;
+        padding:2px 6px;font-size:9px;color:#1B5EC7;margin-top:3px;display:inline-block">
+        📋 ${m.tagged_wo}</div>`:'';
+      // page context
+      const ctxHtml=m.page_context?`<span style="font-size:8px;color:#9CA3AF;margin-left:6px">📌 ${m.page_context}</span>`:'';
+      return`${dateSep}
+        <div style="display:flex;flex-direction:column;
+          align-items:${isMe?'flex-end':'flex-start'};margin-bottom:2px">
+          ${!isMe?`<div style="font-size:9px;color:#6B7280;margin-bottom:2px">${m.sender_name||m.sender}${ctxHtml}</div>`:''}
+          <div style="max-width:80%;background:${isMe?'#1B3A5C':'white'};color:${isMe?'white':'#1F2937'};
+            border-radius:${isMe?'12px 12px 2px 12px':'12px 12px 12px 2px'};
+            padding:7px 10px;font-size:11px;line-height:1.5;
+            box-shadow:0 1px 3px rgba(0,0,0,.1);word-break:break-word">
+            ${txt}
+            ${tagHtml}
+          </div>
+          <div style="font-size:8px;color:#9CA3AF;margin-top:2px">${timeStr}</div>
+        </div>`;
+    }).join('');
+    el.scrollTop=el.scrollHeight;
+  }
+
+  async function pbSendMessage(){
+    const inp=document.getElementById('chat-input');
+    const msg=(inp?.value||'').trim();
+    if(!msg||!CU) return;
+    inp.value='';
+    // parse @mentions
+    const mentionMatch=msg.match(/@(\w+)/g);
+    const tagged=(mentionMatch||[]).map(m=>m.slice(1)).join(',');
+    // parse #WO
+    const woMatch=msg.match(/#([\w-]+)/);
+    const taggedWO=_pbTagWO||(woMatch?woMatch[1]:'');
+    try{
+      await sbP('chat_messages',{
+        sender:CU.username, sender_name:CU.full_name||CU.username,
+        message:msg, page_context:CUR,
+        tagged_wo:taggedWO, tagged_users:tagged
+      });
+      _pbTagWO='';
+      document.getElementById('chat-tag-bar').style.display='none';
+      await pbPollMessages();
+    }catch(e){ inp.value=msg; }
+  }
+
+  function pbToggleChat(){
+    _pbChatOpen=!_pbChatOpen;
+    const panel=document.getElementById('chat-panel');
+    if(!panel) return;
+    panel.style.display=_pbChatOpen?'flex':'none';
+    if(_pbChatOpen){
+      _pbUnread=0;
+      const badge=document.getElementById('pb-unread');
+      if(badge) badge.style.display='none';
+      pbRenderMessages();
+      setTimeout(()=>document.getElementById('chat-input')?.focus(),100);
+    }
+  }
+
+  function pbQuickTag(mention){
+    const inp=document.getElementById('chat-input');
+    if(!inp) return;
+    if(!_pbChatOpen) pbToggleChat();
+    inp.value=(inp.value+' '+mention+' ').trim()+' ';
+    inp.focus();
+  }
+
+  function pbTagWO(ppNo){
+    _pbTagWO=ppNo;
+    const bar=document.getElementById('chat-tag-bar');
+    const label=document.getElementById('chat-tag-label');
+    if(bar){ bar.style.display='flex'; }
+    if(label) label.textContent='📋 Tag WO: '+ppNo;
+    if(!_pbChatOpen) pbToggleChat();
+    document.getElementById('chat-input')?.focus();
+  }
+
+  function pbClearTag(){
+    _pbTagWO='';
+    const bar=document.getElementById('chat-tag-bar');
+    if(bar) bar.style.display='none';
+  }
+
+  function pbCheckMention(val){
+    const list=document.getElementById('chat-mention-list');
+    if(!list) return;
+    const lastWord=val.split(/\s/).pop();
+    if(lastWord.startsWith('@')&&lastWord.length>1){
+      const q=lastWord.slice(1).toLowerCase();
+      const matches=_pbOnline.filter(u=>
+        u.username.toLowerCase().includes(q)||
+        (u.full_name||'').toLowerCase().includes(q)
+      ).slice(0,5);
+      if(matches.length){
+        list.style.display='block';
+        list.innerHTML=matches.map(u=>`
+          <div onclick="pbInsertMention('${u.username}')"
+            style="padding:6px 12px;cursor:pointer;font-size:11px;
+            display:flex;align-items:center;gap:8px"
+            onmouseover="this.style.background='#F1F5F9'"
+            onmouseout="this.style.background=''">
+            <span style="background:#1B3A5C;color:white;border-radius:50%;
+              width:22px;height:22px;display:inline-flex;align-items:center;
+              justify-content:center;font-size:9px;font-weight:700">
+              ${(u.full_name||u.username).charAt(0).toUpperCase()}
+            </span>
+            <div>
+              <div style="font-weight:600">${u.full_name||u.username}</div>
+              <div style="font-size:9px;color:#6B7280">@${u.username}</div>
+            </div>
+          </div>`).join('');
+      }else{
+        list.style.display='none';
+      }
+    }else{
+      list.style.display='none';
+    }
+  }
+
+  function pbInsertMention(username){
+    const inp=document.getElementById('chat-input');
+    if(!inp) return;
+    inp.value=inp.value.replace(/@\w*$/,'@'+username+' ');
+    document.getElementById('chat-mention-list').style.display='none';
+    inp.focus();
+  }
+
+  function pbShowToast(msg, id){
+    const t=document.createElement('div');
+    t.style.cssText='position:fixed;bottom:50px;right:14px;background:#1B3A5C;color:white;'+
+      'border-radius:10px;padding:10px 14px;z-index:900;font-size:12px;cursor:pointer;'+
+      'box-shadow:0 4px 16px rgba(0,0,0,.3);max-width:280px;animation:fadeIn .3s';
+    t.innerHTML='<div>'+msg+'</div><div style="font-size:9px;opacity:.6;margin-top:2px">คลิกเพื่อดู</div>';
+    t.onclick=()=>{ pbToggleChat(); t.remove(); };
+    document.body.appendChild(t);
+    setTimeout(()=>t.remove&&t.remove(),5000);
+  }
+
+  // เพิ่ม margin-bottom ให้ body เพื่อกัน presence bar ทับ content
+  document.body.style.paddingBottom='44px';
+
+  // init เมื่อ login แล้ว
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(pbInit, 2000);
+  });
+  </script>
+
 </body>
 </html>
