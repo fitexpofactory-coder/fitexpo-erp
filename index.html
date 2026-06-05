@@ -4374,8 +4374,8 @@ async function createWorkOrder(){
       operator:op,
       note:[machine?`เครื่องจักร: ${machine}`:'',method?`วิธี: ${method}`:''].filter(Boolean).join(' | ')
     };
-    await sbP('production_plan',woData);
-    const savedId=(Array.isArray(savedLog)?savedLog[0]?.id:savedLog?.id)||0;
+    const savedLog = await sbP('production_plan',woData);
+    const savedId = (Array.isArray(savedLog)?savedLog[0]?.id:savedLog?.id)||0;
     await logA('CREATE','production',`สร้าง WO ${ppNo} ${sku} ${n}batch (จอง Stock)`,ppNo);
     msgEl('mrc-result',`
       <div style="background:rgba(27,122,62,.1);border:1px solid var(--green);border-radius:8px;padding:14px">
