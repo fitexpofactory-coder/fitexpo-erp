@@ -325,6 +325,18 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:15
   cursor:pointer;text-align:center;transition:.15s}
 .count-type-card:hover,.count-type-card.selected{border-color:var(--accent);
   background:var(--navy-light)}
+/* Force 24-hour time on all time inputs */
+input[type="time"],
+input[type="datetime-local"] {
+  -webkit-appearance: none;
+}
+/* Hide AM/PM indicator on datetime-local */
+input[type="datetime-local"]::-webkit-datetime-edit-ampm-field {
+  display: none;
+}
+input[type="time"]::-webkit-datetime-edit-ampm-field {
+  display: none;
+}
 </style>
   <!-- QR Code Generator — Embedded (100% Offline, No CDN needed) -->
   <script>
@@ -16200,8 +16212,8 @@ async function bomShowCostSummary(){
   try{
     // โหลดทุกอย่างพร้อมกัน
     const [fgMaster, wipMaster, fgBom, wipBom, matPrices] = await Promise.all([
-      sbG('master_product',{s:'sku,name_en,batch_kg,yield_pct,pcs_per_batch,weight_per_pcs,stock_unit',ord:'sku.asc',lim:200}).catch(()=>[]),
-      sbG('wip_master',{s:'code,name,batch_kg,yield_pct,pcs_per_batch',ord:'code.asc',lim:200}).catch(()=>[]),
+      sbG('master_product',{ord:'sku.asc',lim:300}).catch(()=>[]),
+      sbG('wip_master',{ord:'code.asc',lim:300}).catch(()=>[]),
       sbG('bom_master',{s:'sku_code,mat_code,qty_per_batch,pct_of_batch,unit,section',ord:'sku_code.asc',lim:2000}).catch(()=>[]),
       sbG('wip_bom',{s:'wip_code,rm_code,qty_per_batch,pct_of_batch,unit,section',ord:'wip_code.asc',lim:2000}).catch(()=>[]),
       sbG('master_material',{s:'code,name,unit,price_per_unit,category',lim:500}).catch(()=>[])
@@ -16247,22 +16259,22 @@ async function bomShowCostSummary(){
     }
 
     // FG
-    const fgRows=fgMaster.map(m=>{
+    const fgRows=_fgMaster.map(m=>{
       const rows=fgBomMap[m.sku]||[];
       const c=calcCost(rows,Number(m.batch_kg)||50,Number(m.yield_pct)||95,Number(m.pcs_per_batch)||0);
       return{type:'FG',code:m.sku,name:m.name_en||m.sku,
         batchKg:Number(m.batch_kg)||50, yieldPct:Number(m.yield_pct)||95,
         pcsPerBatch:Number(m.pcs_per_batch)||0, bomCount:rows.length, ...c};
-    }).filter(r=>r.bomCount>0);
+    });
 
     // WIP
-    const wipRows=wipMaster.map(m=>{
+    const wipRows=_wipMaster.map(m=>{
       const rows=wipBomMap[m.code]||[];
       const c=calcCost(rows,Number(m.batch_kg)||50,Number(m.yield_pct)||95,Number(m.pcs_per_batch)||0);
       return{type:'WIP',code:m.code,name:m.name||m.code,
         batchKg:Number(m.batch_kg)||50, yieldPct:Number(m.yield_pct)||95,
         pcsPerBatch:Number(m.pcs_per_batch)||0, bomCount:rows.length, ...c};
-    }).filter(r=>r.bomCount>0);
+    });
 
     const allRows=[...fgRows,...wipRows];
     const grandTotal=allRows.reduce((s,r)=>s+r.totalCost,0);
@@ -16272,13 +16284,25 @@ async function bomShowCostSummary(){
     window._bomCostData={allRows,priceMap,matInfoMap};
     window._bomCostSort='code';
 
+    // Debug log
+    console.log('[BOM Cost] fgMaster:',fgMaster.length,'wipMaster:',wipMaster.length,
+      'fgBom:',fgBom.length,'wipBom:',wipBom.length,'prices:',matPrices.filter(m=>m.price_per_unit>0).length);
+
+    // Fallback: ถ้า master ว่าง → สร้าง master จาก BOM keys โดยตรง
+    const _fgMaster = fgMaster.length>0 ? fgMaster :
+      [...new Set(fgBom.map(r=>r.sku_code))].map(code=>({sku:code,name_en:code,batch_kg:50,yield_pct:95}));
+    const _wipMaster = wipMaster.length>0 ? wipMaster :
+      [...new Set(wipBom.map(r=>r.wip_code))].map(code=>({code,name:code,batch_kg:50,yield_pct:95}));
+
+    console.log('[BOM Cost] effective masters: fg=',_fgMaster.length,'wip=',_wipMaster.length);
+
     panel.innerHTML=`
       <!-- Header -->
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
         <div>
           <div style="font-weight:800;font-size:14px;color:#1B3A5C">💰 สรุปต้นทุน BOM ทั้งหมด</div>
           <div style="font-size:11px;color:#6B7280;margin-top:2px">
-            FG: ${fgRows.length} SKU | WIP: ${wipRows.length} รายการ | รวม ${allRows.length}
+            FG: ${fgRows.length} SKU | WIP: ${wipRows.length} รายการ | รวม ${allRows.length} (มี BOM: ${allRows.length})
             ${missingTotal>0?`<span style="color:#DC2626"> | ⚠️ ไม่มีราคา: ${missingTotal} รายการ</span>`:''}
           </div>
         </div>
@@ -24667,9 +24691,19 @@ async function prptNewEntry(){
         <div class="fgrp"><label class="flbl">เครื่องจักรหลัก</label>
           <select class="fc2" id="pne-machine">${machOpts}</select></div>
         <div class="fgrp"><label class="flbl">เวลาเริ่ม</label>
-          <input type="datetime-local" class="fc2" id="pne-start" value="${nowDT}"></div>
+          <div style="display:flex;gap:4px">
+            <input type="date" class="fc2" id="pne-start-date" style="flex:1">
+            <input type="time" class="fc2" id="pne-start-time" value="08:00"
+              style="width:80px" step="60">
+          </div>
+          <input type="hidden" id="pne-start" value="${nowDT}"></div>
         <div class="fgrp"><label class="flbl">เวลาสิ้นสุด</label>
-          <input type="datetime-local" class="fc2" id="pne-end"></div>
+          <div style="display:flex;gap:4px">
+            <input type="date" class="fc2" id="pne-end-date" style="flex:1">
+            <input type="time" class="fc2" id="pne-end-time"
+              style="width:80px" step="60">
+          </div>
+          <input type="hidden" id="pne-end" value=""></div>
         <div class="fgrp"><label class="flbl">แผนผลิต (หน่วย)</label>
           <input type="number" class="fc2" id="pne-plan" placeholder="0"></div>
         <div class="fgrp"><label class="flbl">ผลิตได้จริง (หน่วย)</label>
@@ -24911,6 +24945,33 @@ async function prptNewEntry(){
     </div>
   `,{full:true});
 
+  // set date/time inputs after modal opens
+  setTimeout(()=>{
+    const sd=document.getElementById('pne-start-date');
+    const st=document.getElementById('pne-start-time');
+    const sh=document.getElementById('pne-start');
+    if(sd) sd.value=nowDate;
+    if(st) st.value=nowTime;
+    // sync hidden on change
+    const syncStart=()=>{
+      const d=document.getElementById('pne-start-date')?.value;
+      const t=document.getElementById('pne-start-time')?.value||'00:00';
+      const h=document.getElementById('pne-start');
+      if(h&&d) h.value=d+'T'+t;
+    };
+    const syncEnd=()=>{
+      const d=document.getElementById('pne-end-date')?.value||nowDate;
+      const t=document.getElementById('pne-end-time')?.value||'00:00';
+      const h=document.getElementById('pne-end');
+      if(h&&t) h.value=d+'T'+t;
+      pneCalcOEE();
+    };
+    sd?.addEventListener('change', syncStart);
+    st?.addEventListener('change', syncStart);
+    syncStart();
+    document.getElementById('pne-end-date')?.addEventListener('change', syncEnd);
+    document.getElementById('pne-end-time')?.addEventListener('change', syncEnd);
+  },100);
   // init select2-style mat opts cache
   window._pneMatOpts = matOpts;
 }
@@ -25322,6 +25383,11 @@ async function prptSaveEntry(){
   const skuCode = woObj.sku_code||'';
   const prodName = woObj.product_name||skuCode||'';
 
+  // sync datetime ก่อน save
+  const sDate=getV('pne-start-date'), sTime=getV('pne-start-time');
+  const eDate=getV('pne-end-date'),   eTime=getV('pne-end-time');
+  if(sDate&&sTime){ const el=document.getElementById('pne-start'); if(el) el.value=sDate+'T'+sTime; }
+  if(eTime){ const el=document.getElementById('pne-end'); if(el) el.value=(eDate||sDate||sDate)+'T'+eTime; }
   const startTime = getV('pne-start');
   const endTime   = getV('pne-end');
   const shift     = getV('pne-shift')||'morning';
@@ -25608,9 +25674,23 @@ async function prptEditEntry(id){
             <option value="night" ${l.shift==='night'?'selected':''}>🌙 ดึก</option>
           </select></div>
         <div class="fgrp"><label class="flbl">เวลาเริ่ม</label>
-          <input type="datetime-local" class="fc2" id="ped-start" value="${toLocal(l.start_time)}"></div>
+          <div style="display:flex;gap:4px">
+          <input type="date" class="fc2" id="ped-start-date"
+            value="${toLocal(l.start_time).slice(0,10)}" style="flex:1">
+          <input type="time" class="fc2" id="ped-start-time"
+            value="${toLocal(l.start_time).slice(11,16)||'08:00'}"
+            style="width:80px" step="60">
+        </div>
+        <input type="hidden" id="ped-start" value="${toLocal(l.start_time)}"></div>
         <div class="fgrp"><label class="flbl">เวลาสิ้นสุด</label>
-          <input type="datetime-local" class="fc2" id="ped-end" value="${toLocal(l.end_time)}"></div>
+          <div style="display:flex;gap:4px">
+          <input type="date" class="fc2" id="ped-end-date"
+            value="${toLocal(l.end_time).slice(0,10)}" style="flex:1">
+          <input type="time" class="fc2" id="ped-end-time"
+            value="${toLocal(l.end_time).slice(11,16)||''}"
+            style="width:80px" step="60">
+        </div>
+        <input type="hidden" id="ped-end" value="${toLocal(l.end_time)}"></div>
         <div class="fgrp"><label class="flbl">เครื่องจักร</label>
           <select class="fc2" id="ped-machine">${machOpts}</select></div>
         <div class="fgrp"><label class="flbl">แผนผลิต</label>
@@ -25838,6 +25918,16 @@ async function prptEditEntry(id){
     const d=window._pedData||{};
     window._pedEditId=d.id;
     window._pedPPNo  =d.ppNo;
+    // sync datetime hidden inputs
+    const syncPedDT=(idDate,idTime,idHidden)=>{
+      const el=document.getElementById(idHidden);
+      const de=document.getElementById(idDate);
+      const te=document.getElementById(idTime);
+      const update=()=>{ if(el&&de?.value) el.value=de.value+'T'+(te?.value||'00:00'); };
+      de?.addEventListener('change',update); te?.addEventListener('change',update);
+    };
+    syncPedDT('ped-start-date','ped-start-time','ped-start');
+    syncPedDT('ped-end-date','ped-end-time','ped-end');
 
     if(d.steps.length>0) document.getElementById('ped-step-empty')?.remove();
     _pedStepCount=0;
