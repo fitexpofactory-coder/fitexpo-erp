@@ -24863,42 +24863,66 @@ async function prptViewEntry(id){
 }
 
 async function prptEditEntry(id){
-  const l=(await sbG('production_log',{f:[`id=eq.${id}`]}).catch(()=>[]))[0];
+  // ── โหลดข้อมูลทั้งหมด ────────────────────────────────────
+  const [logArr, steps, allMats] = await Promise.all([
+    sbG('production_log',{f:[`id=eq.${id}`]}).catch(()=>[]),
+    sbG('prod_log_steps',{f:[`log_id=eq.${id}`],ord:'step_no.asc'}).catch(()=>[]),
+    sbG('prod_log_step_materials',{f:[`log_id=eq.${id}`],ord:'id.asc'}).catch(()=>[])
+  ]);
+  const l=logArr[0];
   if(!l){ alert('ไม่พบบันทึก'); return; }
-  // โหลด batch list ของ WO
-  const wo=(await sbG('production_plan',{
-    f:[`pp_no=eq.${l.pp_no}`],s:'num_batches'}).catch(()=>[]))[0];
-  const nb=parseInt(wo?.num_batches)||1;
-  const batchOpts=Array.from({length:nb},(_,i)=>
-    `<option value="${i+1}" ${parseInt(l.batch_no)===i+1?'selected':''}>Batch ${i+1}/${nb}</option>`
-  ).join('');
-  // โหลด QC data จาก note หรือ qc_records
-  // โหลด QC data จาก prod_log_step_materials
-  const allMatsEdit=await sbG('prod_log_step_materials',{
-    f:[`log_id=eq.${id}`], lim:500}).catch(()=>[]);
-  const qcRawEdit=allMatsEdit.filter(m=>m.step_name==='__QC__');
+
+  const mats = allMats.filter(m=>m.step_name!=='__QC__'&&m.step_name!=='__PHOTO__');
+  const qcRaw= allMats.filter(m=>m.step_name==='__QC__');
+  const photoRaw=allMats.filter(m=>m.step_name==='__PHOTO__');
   let qcRows=[];
-  qcRawEdit.forEach(r=>{ try{ qcRows.push(JSON.parse(r.material_name||'{}')); }catch(e){} });
-  if(!qcRows.length){ try{ if(l.qc_records) qcRows=JSON.parse(l.qc_records); }catch(e){} }
+  qcRaw.forEach(r=>{ try{ qcRows.push(JSON.parse(r.material_name||'{}')); }catch(e){} });
+
+  // โหลด batch list สำหรับ WO นี้
+  const wo=(await sbG('production_plan',{
+    f:[`pp_no=eq.${l.pp_no}`],s:'num_batches,batch_kg,sku_code,product_name'
+  }).catch(()=>[]))[0]||{};
+  const nb=parseInt(wo.num_batches)||1;
+  const logged=await sbG('production_log',{
+    f:[`pp_no=eq.${l.pp_no}`],s:'batch_no'}).catch(()=>[]);
+  const loggedNos=new Set(logged.map(x=>parseInt(x.batch_no)||0));
+
+  const batchOpts=Array.from({length:nb},(_,i)=>{
+    const bn=i+1;
+    const done=loggedNos.has(bn)&&bn!==parseInt(l.batch_no);
+    return`<option value="${bn}" ${bn===parseInt(l.batch_no)?'selected':''}>`+
+      `Batch ${bn}/${nb}${done?' ✅':''}</option>`;
+  }).join('');
+
+  // Machine options
+  const machines=await sbG('machines',{s:'code,name',ord:'code.asc'}).catch(()=>[]);
+  const machOpts=['',  ...(machines.map(m=>m.code)||[]) ]
+    .map(c=>`<option ${c===l.machine_code?'selected':''}>${c}</option>`).join('');
+
   const toLocal=dt=>dt?new Date(dt).toISOString().slice(0,16):'';
 
-  openMo(`✏️ แก้ไขบันทึก — ${l.pp_no}`,`
-    <!-- Header info -->
-    <div style="background:#EFF6FF;border-radius:8px;padding:8px;margin-bottom:10px;font-size:11px">
-      <b>${l.product_name||l.sku_code}</b> | ${l.plan_date||''}
-    </div>
-
-    <!-- Tabs -->
-    <div class="ftabs mb3" id="ped-tabs" style="font-size:11px">
-      <div class="ftab on" onclick="pedTab('main')">📋 ข้อมูลหลัก</div>
-      <div class="ftab" onclick="pedTab('qc')">🔍 QC / ขนาด</div>
-    </div>
-
-    <!-- Main Tab -->
-    <div id="ped-tab-main">
+  openMo(`✏️ แก้ไขรายงาน — ${l.pp_no} Batch ${l.batch_no||1}`,`
+    <!-- ═══ ข้อมูลหลัก ══════════════════════════════ -->
+    <div style="background:#EFF6FF;border-radius:8px;padding:10px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-weight:700;color:#1B3A5C;font-size:12px">📋 ข้อมูลใบสั่งผลิต</div>
+        <div style="font-size:11px;color:#7C3AED;background:#EDE9FE;border-radius:4px;padding:2px 8px">
+          📝 แก้ไขรายการ #${id}
+        </div>
+      </div>
+      <div style="background:#DBEAFE;border-radius:6px;padding:8px;margin-bottom:8px;font-size:11px">
+        <b style="color:#1B3A5C">${l.pp_no}</b>
+        <span style="color:#6B7280;margin-left:6px">${l.product_name||l.sku_code||'—'}</span>
+        <span style="background:#EDE9FE;color:#7C3AED;border-radius:3px;padding:1px 5px;
+          font-size:9px;margin-left:6px">${l.sku_code?.startsWith('WIP')?'WIP':'FG'}</span>
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div class="fgrp"><label class="flbl">Batch No.</label>
-          <select class="fc2" id="ped-batch">${batchOpts}</select></div>
+        <div class="fgrp"><label class="flbl">Batch / แบทที่</label>
+          <select class="fc2" id="ped-batch">${batchOpts}</select>
+          <div id="ped-batch-info" style="font-size:10px;color:#6B7280;margin-top:2px">
+            บันทึกแล้ว ${loggedNos.size}/${nb} Batch
+          </div>
+        </div>
         <div class="fgrp"><label class="flbl">กะ / Shift</label>
           <select class="fc2" id="ped-shift">
             <option value="morning" ${l.shift==='morning'?'selected':''}>🌤️ เช้า</option>
@@ -24910,7 +24934,7 @@ async function prptEditEntry(id){
         <div class="fgrp"><label class="flbl">เวลาสิ้นสุด</label>
           <input type="datetime-local" class="fc2" id="ped-end" value="${toLocal(l.end_time)}"></div>
         <div class="fgrp"><label class="flbl">เครื่องจักร</label>
-          <input type="text" class="fc2" id="ped-machine" value="${l.machine_code||''}"></div>
+          <select class="fc2" id="ped-machine">${machOpts}</select></div>
         <div class="fgrp"><label class="flbl">แผนผลิต</label>
           <input type="number" class="fc2" id="ped-plan" value="${l.plan_qty||0}"></div>
         <div class="fgrp"><label class="flbl">📦 ผลิตได้จริง</label>
@@ -24923,46 +24947,89 @@ async function prptEditEntry(id){
           <input type="number" class="fc2" id="ped-planned" value="${l.planned_production_min||480}" oninput="pedCalcOEE()"></div>
         <div class="fgrp"><label class="flbl">Run Time (นาที)</label>
           <input type="number" class="fc2" id="ped-runtime" value="${l.run_time_min||0}" oninput="pedCalcOEE()"></div>
-        <div class="fgrp"><label class="flbl">Downtime (นาที)</label>
+        <div class="fgrp"><label class="flbl">⏸ Downtime (นาที)</label>
           <input type="number" class="fc2" id="ped-downtime" value="${l.downtime_min||0}"></div>
         <div class="fgrp"><label class="flbl">สาเหตุ Downtime</label>
           <input type="text" class="fc2" id="ped-reason" value="${l.downtime_reason||''}"></div>
       </div>
-      <div style="background:#F5F3FF;border-radius:6px;padding:8px;margin:8px 0;
+      <div style="background:#F5F3FF;border-radius:6px;padding:8px;margin-top:8px;
         display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
         ${['avail','perf','qual','oee'].map((k,i)=>`
           <div style="text-align:center">
             <div style="font-size:9px;color:#7C3AED">${['Avail','Perf','Quality','OEE'][i]}</div>
-            <div id="ped-${k}" style="font-weight:800;font-size:14px">${fmt(l[['availability_pct','performance_pct','quality_pct','oee_pct'][i]]||0,1)}%</div>
+            <div id="ped-${k}" style="font-weight:800;font-size:14px">
+              ${fmt(l[['availability_pct','performance_pct','quality_pct','oee_pct'][i]]||0,1)}%
+            </div>
           </div>`).join('')}
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;
-        background:#F0FDF4;border-radius:6px;padding:8px;margin-top:4px;margin-bottom:8px">
-        <div class="fgrp"><label style="font-size:10px;color:#166534;font-weight:600">🏷️ Lot No.</label>
-          <input type="text" class="fc2" id="ped-lot" value="${l.lot_no||''}"></div>
-        <div class="fgrp"><label style="font-size:10px;color:#166534;font-weight:600">🏭 วันผลิต</label>
-          <input type="date" class="fc2" id="ped-mfg-date" value="${l.mfg_date||l.plan_date||''}"></div>
-        <div class="fgrp"><label style="font-size:10px;color:#166534;font-weight:600">📅 EXP Date</label>
-          <input type="date" class="fc2" id="ped-exp-date" value="${l.exp_date||''}"></div>
-      </div>
-      <div class="fgrp"><label class="flbl">หมายเหตุ</label>
-        <input type="text" class="fc2" id="ped-note" value="${l.note||''}"></div>
-      <button class="btn btnN sm" style="width:100%;margin-top:6px"
-        onclick="prptViewSteps(${id},'${l.pp_no}')">🔧 แก้ไขขั้นตอนการผลิต</button>
     </div>
 
-    <!-- QC Tab -->
-    <div id="ped-tab-qc" style="display:none">
+    <!-- ═══ ขั้นตอนการผลิต ══════════════════════════ -->
+    <div style="background:#F0FDF4;border-radius:8px;padding:10px;margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div style="font-size:12px;font-weight:700;color:#9F1239">🔍 QC / การวัดขนาด</div>
-        <div style="display:flex;gap:4px">
-          <button class="btn sm" type="button" onclick="pedAddQCRow()"
-            style="background:#9F1239;color:white;border:none;border-radius:5px;padding:3px 9px;font-size:11px;cursor:pointer">
-            + เพิ่มแถว
-          </button>
-        </div>
+        <div style="font-weight:700;color:#166534;font-size:12px">🔧 ขั้นตอนการผลิต</div>
+        <button class="btn btnP sm" type="button" onclick="pedAddStepRow()">+ เพิ่มขั้นตอน</button>
       </div>
-      <!-- Spec row -->
+      <div style="overflow-x:auto">
+        <table id="ped-step-table" style="width:100%;border-collapse:collapse;min-width:780px">
+          <thead><tr style="background:#166534;color:white;font-size:10px">
+            <th style="padding:4px 6px;width:140px">ขั้นตอน</th>
+            <th style="padding:4px 6px;width:78px">เริ่ม</th>
+            <th style="padding:4px 6px;width:78px">สิ้นสุด</th>
+            <th style="padding:4px 6px;width:48px;text-align:right">นาที</th>
+            <th style="padding:4px 6px;width:42px;text-align:right">👤คน</th>
+            <th style="padding:4px 6px;width:62px;text-align:right">Input</th>
+            <th style="padding:4px 6px;width:62px;text-align:right">Output</th>
+            <th style="padding:4px 6px;width:58px;text-align:right">Defect</th>
+            <th style="padding:4px 6px;width:52px;text-align:right">DT(นาที)</th>
+            <th style="padding:4px 6px">สาเหตุ</th>
+            <th style="padding:4px 6px;width:26px"></th>
+          </tr></thead>
+          <tbody id="ped-step-tbody">
+            <tr id="ped-step-empty"><td colspan="11" style="text-align:center;color:#9CA3AF;
+              font-size:11px;padding:10px">ยังไม่มีขั้นตอน — กด + เพิ่ม</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ วัสดุที่ใช้ ════════════════════════════ -->
+    <div style="background:#FFF7ED;border-radius:8px;padding:10px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-weight:700;color:#92400E;font-size:12px">📦 วัสดุและบรรจุภัณฑ์</div>
+        <button class="btn btnS sm" type="button" onclick="pedAddMatRow()">+ เพิ่มวัสดุ</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table id="ped-mat-table" style="width:100%;border-collapse:collapse;min-width:680px">
+          <thead><tr style="background:#92400E;color:white;font-size:10px">
+            <th style="padding:4px 6px">ขั้นตอน</th>
+            <th style="padding:4px 6px;width:130px">รหัสวัสดุ</th>
+            <th style="padding:4px 6px">ชื่อ</th>
+            <th style="padding:4px 6px;width:62px;text-align:right">แผน</th>
+            <th style="padding:4px 6px;width:62px;text-align:right">ใช้จริง</th>
+            <th style="padding:4px 6px;width:62px;text-align:right">เหลือ</th>
+            <th style="padding:4px 6px;width:52px;text-align:right">เสีย</th>
+            <th style="padding:4px 6px;width:48px">หน่วย</th>
+            <th style="padding:4px 6px;width:26px"></th>
+          </tr></thead>
+          <tbody id="ped-mat-tbody">
+            <tr id="ped-mat-empty"><td colspan="9" style="text-align:center;color:#9CA3AF;
+              font-size:11px;padding:10px">ยังไม่มีวัสดุ — กด + เพิ่ม</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ QC ════════════════════════════════════ -->
+    <div style="background:#FFF1F2;border-radius:8px;padding:10px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-weight:700;color:#9F1239;font-size:12px">🔍 QC / การวัดขนาด</div>
+        <button class="btn sm" type="button" onclick="pedAddQCRow()"
+          style="background:#9F1239;color:white;border:none;border-radius:5px;padding:3px 9px;font-size:11px;cursor:pointer">
+          + เพิ่มแถว
+        </button>
+      </div>
+      <!-- Spec -->
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px;
         background:#FFF5F7;border-radius:6px;padding:8px;font-size:10px">
         <div><label style="color:#9F1239">น้ำหนักบรรจุ ±(g)</label>
@@ -24971,32 +25038,28 @@ async function prptEditEntry(id){
               style="flex:1;border:1px solid #FECDD3;border-radius:3px;padding:2px;font-size:10px">
             <input type="number" id="ped-spec-wt-tol" placeholder="±2"
               style="width:38px;border:1px solid #FECDD3;border-radius:3px;padding:2px;font-size:10px;color:#DC2626">
-          </div>
-        </div>
+          </div></div>
         <div><label style="color:#9F1239">กว้าง ±(mm)</label>
           <div style="display:flex;gap:3px">
             <input type="number" id="ped-spec-w" placeholder="30"
               style="flex:1;border:1px solid #FECDD3;border-radius:3px;padding:2px;font-size:10px">
             <input type="number" id="ped-spec-w-tol" placeholder="±1"
               style="width:38px;border:1px solid #FECDD3;border-radius:3px;padding:2px;font-size:10px;color:#DC2626">
-          </div>
-        </div>
+          </div></div>
         <div><label style="color:#9F1239">ยาว ±(mm)</label>
           <div style="display:flex;gap:3px">
             <input type="number" id="ped-spec-l" placeholder="50"
               style="flex:1;border:1px solid #FECDD3;border-radius:3px;padding:2px;font-size:10px">
             <input type="number" id="ped-spec-l-tol" placeholder="±1"
               style="width:38px;border:1px solid #FECDD3;border-radius:3px;padding:2px;font-size:10px;color:#DC2626">
-          </div>
-        </div>
+          </div></div>
         <div><label style="color:#9F1239">ก่อนเคลือบ ±(g)</label>
           <div style="display:flex;gap:3px">
             <input type="number" id="ped-spec-pre" placeholder="48"
               style="flex:1;border:1px solid #FECDD3;border-radius:3px;padding:2px;font-size:10px">
             <input type="number" id="ped-spec-pre-tol" placeholder="±2"
               style="width:38px;border:1px solid #FECDD3;border-radius:3px;padding:2px;font-size:10px;color:#DC2626">
-          </div>
-        </div>
+          </div></div>
       </div>
       <div style="overflow-x:auto">
         <table id="ped-qc-table" style="width:100%;border-collapse:collapse;min-width:750px">
@@ -25005,9 +25068,9 @@ async function prptEditEntry(id){
             <th style="padding:3px 5px;width:55px;text-align:right">บรรจุ(g)</th>
             <th style="padding:3px 5px;width:55px;text-align:right">ก่อนเคลือบ(g)</th>
             <th style="padding:3px 5px;width:55px;text-align:right">หลังเคลือบ(g)</th>
-            <th style="padding:3px 5px;width:48px;text-align:right">กว้าง(mm)</th>
-            <th style="padding:3px 5px;width:48px;text-align:right">ยาว(mm)</th>
-            <th style="padding:3px 5px;width:48px;text-align:right">หนา(mm)</th>
+            <th style="padding:3px 5px;width:48px;text-align:right">กว้าง</th>
+            <th style="padding:3px 5px;width:48px;text-align:right">ยาว</th>
+            <th style="padding:3px 5px;width:48px;text-align:right">หนา</th>
             <th style="padding:3px 5px;width:60px;text-align:center">รสชาติ</th>
             <th style="padding:3px 5px;width:50px;text-align:center">สี</th>
             <th style="padding:3px 5px;width:50px;text-align:center">กลิ่น</th>
@@ -25018,51 +25081,336 @@ async function prptEditEntry(id){
             <th style="padding:3px 5px;width:22px"></th>
           </tr></thead>
           <tbody id="ped-qc-tbody">
-            ${qcRows.length?
-              qcRows.map((_,i)=>`<tr id="ped-qr-placeholder-${i}"></tr>`).join('')
-              :'<tr id="ped-qc-empty"><td colspan="15" style="text-align:center;color:#9CA3AF;font-size:11px;padding:12px">ยังไม่มีข้อมูล QC — กด + เพิ่มแถว</td></tr>'}
+            <tr id="ped-qc-empty"><td colspan="15" style="text-align:center;color:#9CA3AF;
+              font-size:11px;padding:10px">ยังไม่มี QC — กด + เพิ่มแถว</td></tr>
           </tbody>
         </table>
       </div>
     </div>
 
-    <div id="ped-msg" style="margin-top:8px"></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
-      <button class="btn btnS" onclick="closeMo()">✕ ยกเลิก</button>
-      <button class="btn btnP" onclick="prptUpdateEntry(${id})">💾 บันทึกการแก้ไข</button>
+    <!-- ═══ Lot / Date / Info ══════════════════ -->
+    <div style="background:#F0FDF4;border-radius:8px;padding:10px;margin-bottom:12px">
+      <div style="font-weight:700;color:#166534;font-size:12px;margin-bottom:8px">🏷️ ข้อมูลสินค้าสำเร็จ</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <div class="fgrp"><label class="flbl">📦 Lot No.</label>
+          <input type="text" class="fc2" id="ped-lot" value="${l.lot_no||''}"></div>
+        <div class="fgrp"><label class="flbl">🏭 วันผลิต</label>
+          <input type="date" class="fc2" id="ped-mfg-date" value="${l.mfg_date||l.plan_date||''}"></div>
+        <div class="fgrp"><label class="flbl">📅 EXP Date</label>
+          <input type="date" class="fc2" id="ped-exp-date" value="${l.exp_date||''}"></div>
+      </div>
     </div>
-  `);
 
-  // populate QC rows after modal opens
+    <div class="fgrp"><label class="flbl">หมายเหตุ</label>
+      <input type="text" class="fc2" id="ped-note" value="${l.note||''}"></div>
+    <div id="ped-msg" style="margin-top:6px"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
+      <button class="btn btnS" style="padding:12px" onclick="pedPreview(${id})">
+        👁 ตรวจสอบ
+      </button>
+      <button class="btn btnP" style="padding:12px;font-size:13px" onclick="pedSaveAll(${id})">
+        💾 บันทึกการแก้ไขทั้งหมด
+      </button>
+    </div>
+  `,{full:true});
+
+  // populate steps / mats / qc หลัง modal เปิด
+  // data injected via window._pedData in the function body below
+  window._pedData={steps:0,mats:0,qcRows:0,
+    qcSpec:0,id:0,ppNo:0};
+
   setTimeout(()=>{
-    // ลบ placeholder rows
-    document.querySelectorAll('[id^="ped-qr-placeholder-"]').forEach(r=>r.remove());
-    const tbody=document.getElementById('ped-qc-tbody');
-    if(!tbody) return;
-    if(qcRows.length){
-      const emp=document.getElementById('ped-qc-empty');
-      if(emp) emp.style.display='none';
-      window._pedQCCount=0;
-      qcRows.forEach(q=>{
-        window._pedQCCount=(window._pedQCCount||0)+1;
-        const idx=window._pedQCCount;
-        pedAddQCRow(q.time, q);
+    const d={steps:_pedInjectSteps,mats:_pedInjectMats,qcRows:_pedInjectQC,
+      qcSpec:_pedInjectSpec,id:_pedInjectId,ppNo:_pedInjectPPNo};
+    window._pedEditId=d.id;
+    window._pedPPNo  =d.ppNo;
+
+    if(d.steps.length>0) document.getElementById('ped-step-empty')?.remove();
+    _pedStepCount=0;
+    d.steps.forEach(s=>pedAddStepRow(s));
+
+    if(d.mats.length>0) document.getElementById('ped-mat-empty')?.remove();
+    _pedMatCount=0;
+    d.mats.forEach(m=>pedAddMatRow(m));
+
+    if(d.qcRows.length>0){
+      const e=document.getElementById('ped-qc-empty');
+      if(e) e.style.display='none';
+    }
+    window._pedQCCount=0;
+    d.qcRows.forEach(q=>pedAddQCRow(q.time,q));
+
+    if(d.qcSpec&&d.qcSpec.wt){
+      ['wt','w','l','pre'].forEach(k=>{
+        const el=document.getElementById('ped-spec-'+k);
+        const tl=document.getElementById('ped-spec-'+k+'-tol');
+        if(el) el.value=d.qcSpec[k]||'';
+        if(tl) tl.value=d.qcSpec[k+'Tol']||'';
       });
     }
-    // set spec values if stored in first row
-    if(qcRows[0]?.spec){
-      const sp=qcRows[0].spec;
-      document.getElementById('ped-spec-wt')?.setAttribute('value',sp.wt||'');
-      document.getElementById('ped-spec-wt-tol')?.setAttribute('value',sp.wtTol||'');
-      document.getElementById('ped-spec-w')?.setAttribute('value',sp.w||'');
-      document.getElementById('ped-spec-w-tol')?.setAttribute('value',sp.wTol||'');
-      document.getElementById('ped-spec-l')?.setAttribute('value',sp.l||'');
-      document.getElementById('ped-spec-l-tol')?.setAttribute('value',sp.lTol||'');
-      document.getElementById('ped-spec-pre')?.setAttribute('value',sp.pre||'');
-      document.getElementById('ped-spec-pre-tol')?.setAttribute('value',sp.preTol||'');
-    }
-  },200);
+  },150);
 }
+
+// ── pedAddStepRow ────────────────────────────────────────────
+let _pedStepCount=0;
+function pedAddStepRow(data){
+  const tbody=document.getElementById('ped-step-tbody');
+  if(!tbody) return;
+  _pedStepCount++;
+  const idx=_pedStepCount;
+  const d=data||{};
+  const toT=dt=>dt?new Date(dt).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}):'';
+  const tr=document.createElement('tr');
+  tr.id=`ped-sr-${idx}`;
+  tr.style.cssText='border-bottom:1px solid #D1FAE5;background:#F0FDF4';
+  tr.innerHTML=`
+    <td style="padding:3px 4px">
+      <select id="ped-sname-${idx}" style="width:130px;font-size:10px;border:1px solid #A7F3D0;border-radius:4px;padding:2px">
+        ${STEP_NAMES.map(n=>`<option ${n===d.step_name?'selected':''}>${n}</option>`).join('')}
+        <option ${!STEP_NAMES.includes(d.step_name)&&d.step_name?'selected':''}>${d.step_name||''}</option>
+      </select>
+    </td>
+    <td style="padding:3px 4px"><input type="time" id="ped-sstart-${idx}" value="${toT(d.start_time)}"
+      onchange="pedCalcStepMin(${idx})"
+      style="width:72px;font-size:10px;border:1px solid #A7F3D0;border-radius:4px;padding:2px"></td>
+    <td style="padding:3px 4px"><input type="time" id="ped-send-${idx}" value="${toT(d.end_time)}"
+      onchange="pedCalcStepMin(${idx})"
+      style="width:72px;font-size:10px;border:1px solid #A7F3D0;border-radius:4px;padding:2px"></td>
+    <td style="padding:3px 4px"><input type="number" id="ped-smin-${idx}" value="${d.duration_min||''}"
+      placeholder="0" style="width:45px;font-size:10px;border:1px solid #A7F3D0;border-radius:4px;padding:2px;text-align:right"></td>
+    <td style="padding:3px 4px"><input type="number" id="ped-swk-${idx}" value="${d.workers||1}"
+      style="width:38px;font-size:10px;border:1px solid #A7F3D0;border-radius:4px;padding:2px;text-align:right"></td>
+    <td style="padding:3px 4px"><input type="number" id="ped-sinput-${idx}" value="${d.input_qty||''}"
+      step="0.01" style="width:58px;font-size:10px;border:1px solid #A7F3D0;border-radius:4px;padding:2px;text-align:right"></td>
+    <td style="padding:3px 4px"><input type="number" id="ped-sout-${idx}" value="${d.output_qty||''}"
+      step="0.01" style="width:58px;font-size:10px;border:1px solid #A7F3D0;border-radius:4px;padding:2px;text-align:right"></td>
+    <td style="padding:3px 4px"><input type="number" id="ped-sdef-${idx}" value="${d.defect_qty||''}"
+      step="0.01" style="width:55px;font-size:10px;border:1px solid #A7F3D0;border-radius:4px;padding:2px;text-align:right"></td>
+    <td style="padding:3px 4px"><input type="number" id="ped-sdt-${idx}" value="${d.downtime_min||''}"
+      style="width:50px;font-size:10px;border:1px solid #A7F3D0;border-radius:4px;padding:2px;text-align:right"></td>
+    <td style="padding:3px 4px"><input type="text" id="ped-sreason-${idx}" value="${(d.downtime_reason||'').replace(/"/g,'&quot;')}"
+      style="width:90px;font-size:10px;border:1px solid #A7F3D0;border-radius:4px;padding:2px"></td>
+    <td style="padding:3px 4px;text-align:center">
+      <button type="button" onclick="document.getElementById('ped-sr-${idx}').remove()"
+        style="border:none;background:#FEE2E2;color:#DC2626;border-radius:3px;padding:2px 5px;cursor:pointer;font-size:11px">✕</button>
+    </td>`;
+  tbody.appendChild(tr);
+}
+
+function pedCalcStepMin(idx){
+  const s=document.getElementById(`ped-sstart-${idx}`)?.value;
+  const e=document.getElementById(`ped-send-${idx}`)?.value;
+  if(s&&e){
+    const [sh,sm]=s.split(':').map(Number);
+    const [eh,em]=e.split(':').map(Number);
+    const diff=(eh*60+em)-(sh*60+sm);
+    if(diff>0){
+      const el=document.getElementById(`ped-smin-${idx}`);
+      if(el) el.value=diff;
+    }
+  }
+}
+
+// ── pedAddMatRow ─────────────────────────────────────────────
+let _pedMatCount=0;
+function pedAddMatRow(data){
+  const tbody=document.getElementById('ped-mat-tbody');
+  if(!tbody) return;
+  _pedMatCount++;
+  const idx=_pedMatCount;
+  const d=data||{};
+  const stepNames=['(ทั้งหมด)',...STEP_NAMES.slice(0,7)];
+  const tr=document.createElement('tr');
+  tr.id=`ped-mr-${idx}`;
+  tr.style.cssText='border-bottom:1px solid #FEF3C7;background:#FFFBEB';
+  tr.innerHTML=`
+    <td style="padding:3px 4px">
+      <select id="ped-mstep-${idx}" style="width:100px;font-size:10px;border:1px solid #FCD34D;border-radius:4px;padding:2px">
+        ${stepNames.map(n=>`<option ${n===d.step_name?'selected':''}>${n}</option>`).join('')}
+      </select>
+    </td>
+    <td style="padding:3px 4px">
+      <input type="text" id="ped-mcode-${idx}" value="${d.material_code||''}"
+        style="width:125px;font-size:10px;border:1px solid #FCD34D;border-radius:4px;padding:2px">
+    </td>
+    <td style="padding:3px 4px">
+      <input type="text" id="ped-mname-${idx}" value="${(d.material_name||'').replace(/"/g,'&quot;')}"
+        style="width:110px;font-size:10px;border:1px solid #FCD34D;border-radius:4px;padding:2px">
+    </td>
+    <td style="padding:3px 4px"><input type="number" id="ped-mplan-${idx}" value="${d.planned_qty||''}"
+      step="0.001" style="width:60px;font-size:10px;border:1px solid #FCD34D;border-radius:4px;padding:2px;text-align:right"></td>
+    <td style="padding:3px 4px"><input type="number" id="ped-mused-${idx}" value="${d.used_qty||''}"
+      step="0.001" style="width:60px;font-size:10px;border:1px solid #FCD34D;border-radius:4px;padding:2px;text-align:right"></td>
+    <td style="padding:3px 4px"><input type="number" id="ped-mrem-${idx}" value="${d.remaining_qty||''}"
+      step="0.001" style="width:60px;font-size:10px;border:1px solid #FCD34D;border-radius:4px;padding:2px;text-align:right"></td>
+    <td style="padding:3px 4px"><input type="number" id="ped-mwaste-${idx}" value="${d.waste_qty||''}"
+      step="0.001" style="width:50px;font-size:10px;border:1px solid #FCD34D;border-radius:4px;padding:2px;text-align:right"></td>
+    <td style="padding:3px 4px">
+      <select id="ped-munit-${idx}" style="width:48px;font-size:10px;border:1px solid #FCD34D;border-radius:4px;padding:2px">
+        ${['kg','g','L','pcs','roll','box'].map(u=>`<option ${u===(d.unit||'kg')?'selected':''}>${u}</option>`).join('')}
+      </select>
+    </td>
+    <td style="padding:3px 4px;text-align:center">
+      <button type="button" onclick="document.getElementById('ped-mr-${idx}').remove()"
+        style="border:none;background:#FEE2E2;color:#DC2626;border-radius:3px;padding:2px 5px;cursor:pointer;font-size:11px">✕</button>
+    </td>`;
+  tbody.appendChild(tr);
+}
+
+// ── pedSaveAll ───────────────────────────────────────────────
+async function pedSaveAll(id){
+  const getV=eid=>document.getElementById(eid)?.value||'';
+  const getN=eid=>parseFloat(document.getElementById(eid)?.value)||0;
+  const actual=getN('ped-actual'), good=getN('ped-good'), reject=getN('ped-reject');
+  const planned=getN('ped-planned'), runtime=getN('ped-runtime'), dt=getN('ped-downtime');
+  const avail=planned>0?Math.min(100,runtime/planned*100):0;
+  const perf=planned>0?Math.min(100,actual/planned*100):100;
+  const qual=actual>0?Math.min(100,good/actual*100):100;
+  const oee=avail*perf*qual/10000;
+  const ppNo=window._pedPPNo||'';
+
+  // Collect steps
+  const stepEls=[...document.querySelectorAll('#ped-step-tbody tr[id^="ped-sr-"]')];
+  const matsEls=[...document.querySelectorAll('#ped-mat-tbody tr[id^="ped-mr-"]')];
+  const qcEls  =[...document.querySelectorAll('#ped-qc-tbody tr[id^="ped-qr-"]')];
+
+  const stepsData=stepEls.map((tr,i)=>{
+    const idx=tr.id.replace('ped-sr-','');
+    const startV=getV(`ped-sstart-${idx}`);
+    const endV  =getV(`ped-send-${idx}`);
+    const date  =getV('ped-start')?.slice(0,10)||new Date().toISOString().slice(0,10);
+    return{
+      log_id:id, pp_no:ppNo, step_no:i+1,
+      step_name:getV(`ped-sname-${idx}`),
+      start_time:startV?`${date}T${startV}:00`:null,
+      end_time:endV?`${date}T${endV}:00`:null,
+      duration_min:getN(`ped-smin-${idx}`), workers:getN(`ped-swk-${idx}`)||1,
+      input_qty:getN(`ped-sinput-${idx}`), output_qty:getN(`ped-sout-${idx}`),
+      defect_qty:getN(`ped-sdef-${idx}`), downtime_min:getN(`ped-sdt-${idx}`),
+      downtime_reason:getV(`ped-sreason-${idx}`)
+    };
+  });
+
+  const matsData=matsEls.map(tr=>{
+    const idx=tr.id.replace('ped-mr-','');
+    const code=getV(`ped-mcode-${idx}`);
+    if(!code) return null;
+    return{
+      step_id:0, log_id:id, pp_no:ppNo, step_name:getV(`ped-mstep-${idx}`),
+      material_code:code, material_name:getV(`ped-mname-${idx}`),
+      planned_qty:getN(`ped-mplan-${idx}`), used_qty:getN(`ped-mused-${idx}`),
+      remaining_qty:getN(`ped-mrem-${idx}`), waste_qty:getN(`ped-mwaste-${idx}`),
+      unit:getV(`ped-munit-${idx}`)||'kg'
+    };
+  }).filter(Boolean);
+
+  const qcData=qcEls.map(tr=>{
+    const idx=tr.id.replace('ped-qr-','');
+    const gv=k=>document.getElementById(`ped-q${k}-${idx}`)?.value||null;
+    return{
+      time:gv('t'), wt_packed:gv('wt'), wt_pre_coat:gv('pre'), wt_post_coat:gv('post'),
+      width:gv('w'), length:gv('l'), thickness:gv('thk'),
+      taste:gv('taste'), color:gv('color'), odor:gv('odor'),
+      filling_ok:gv('fill'), choc_ok:gv('choc'), crispy_ok:gv('crispy'),
+      result:document.getElementById(`ped-qresult-${idx}`)?.textContent||'—',
+      spec:{
+        wt:getN('ped-spec-wt'), wtTol:getN('ped-spec-wt-tol'),
+        w:getN('ped-spec-w'),   wTol:getN('ped-spec-w-tol'),
+        l:getN('ped-spec-l'),   lTol:getN('ped-spec-l-tol'),
+        pre:getN('ped-spec-pre'),preTol:getN('ped-spec-pre-tol')
+      }
+    };
+  });
+
+  closeMo();
+
+  const toast=document.createElement('div');
+  toast.style.cssText='position:fixed;bottom:24px;right:24px;background:#1B3A5C;color:white;'+
+    'border-radius:10px;padding:14px 20px;z-index:9999;font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,.3)';
+  toast.innerHTML='<span class="spin"></span> กำลังบันทึก...';
+  document.body.appendChild(toast);
+
+  try{
+    // อัปเดต production_log หลัก
+    await sbU('production_log',{
+      batch_no:parseInt(getV('ped-batch'))||1,
+      start_time:getV('ped-start')?new Date(getV('ped-start')).toISOString():null,
+      end_time:getV('ped-end')?new Date(getV('ped-end')).toISOString():null,
+      shift:getV('ped-shift'), machine_code:getV('ped-machine'),
+      plan_qty:getN('ped-plan'), actual_qty:actual,
+      good_qty:good, reject_qty:reject,
+      planned_production_min:planned, run_time_min:runtime,
+      downtime_min:dt, downtime_reason:getV('ped-reason'),
+      yield_pct:qual, availability_pct:avail,
+      performance_pct:perf, quality_pct:qual, oee_pct:oee,
+      lot_no:getV('ped-lot')||null,
+      mfg_date:getV('ped-mfg-date')||null,
+      exp_date:getV('ped-exp-date')||null,
+      note:getV('ped-note')
+    },`id=eq.${id}`);
+
+    const stepsOK=await checkStepsTable();
+    if(stepsOK){
+      // ลบ steps/mats/qc เก่า แล้ว insert ใหม่ทั้งหมด
+      await sbD('prod_log_steps',`log_id=eq.${id}`).catch(()=>{});
+      await sbD('prod_log_step_materials',`log_id=eq.${id}`).catch(()=>{});
+
+      for(const s of stepsData)
+        await sbP('prod_log_steps',s).catch(e=>console.warn('step:',e));
+
+      for(const m of matsData)
+        await sbP('prod_log_step_materials',m).catch(e=>console.warn('mat:',e));
+
+      for(const q of qcData)
+        await sbP('prod_log_step_materials',{
+          step_id:0, log_id:id, pp_no:ppNo, step_name:'__QC__',
+          material_code:q.time||'', material_name:JSON.stringify(q),
+          planned_qty:0, used_qty:0, remaining_qty:0, waste_qty:0, unit:'qc'
+        }).catch(e=>console.warn('qc:',e));
+    }
+
+    await logA('UPDATE','production',`แก้ไขรายงาน log#${id} ${ppNo}`,ppNo);
+    toast.style.background='#166534';
+    toast.innerHTML=`✅ อัปเดตเรียบร้อย (${stepsData.length} ขั้นตอน · ${matsData.length} วัสดุ · ${qcData.length} QC)`;
+    setTimeout(()=>{ toast.remove(); prptLoadLog(); },2000);
+  }catch(e){
+    toast.style.background='#DC2626';
+    toast.innerHTML='❌ บันทึกไม่สำเร็จ: '+e.message;
+    setTimeout(()=>toast.remove(),4000);
+  }
+}
+
+async function pedPreview(id){
+  const actual=document.getElementById('ped-actual')?.value||0;
+  const good  =document.getElementById('ped-good')?.value||0;
+  const batch =document.getElementById('ped-batch')?.value||1;
+  const steps =[...document.querySelectorAll('#ped-step-tbody tr[id^="ped-sr-"]')].length;
+  const mats  =[...document.querySelectorAll('#ped-mat-tbody tr[id^="ped-mr-"]')].length;
+  const qcs   =[...document.querySelectorAll('#ped-qc-tbody tr[id^="ped-qr-"]')].length;
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML=`<div style="background:white;border-radius:12px;padding:24px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="font-weight:800;font-size:15px;color:#1B3A5C;margin-bottom:12px">📋 ยืนยันบันทึกการแก้ไข</div>
+    <table style="width:100%;font-size:12px">
+      ${[['Batch',batch],['ผลิตได้',actual+' หน่วย'],['QC Pass',good+' หน่วย'],
+         ['ขั้นตอน',steps],['วัสดุ',mats],['QC',qcs+' แถว']]
+        .map(([k,v])=>`<tr style="border-bottom:1px solid #F1F5F9"><td style="padding:4px 8px;color:#6B7280">${k}</td><td style="padding:4px 8px;font-weight:600">${v}</td></tr>`).join('')}
+    </table>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px">
+      <button onclick="this.closest('div[style*=fixed]').remove()"
+        style="border:1px solid #E5E7EB;background:white;border-radius:8px;padding:10px;font-size:13px;cursor:pointer">
+        ✏️ กลับแก้ไข
+      </button>
+      <button onclick="this.closest('div[style*=fixed]').remove();pedSaveAll(${id});"
+        style="background:#1B3A5C;color:white;border:none;border-radius:8px;padding:10px;font-size:13px;cursor:pointer;font-weight:700">
+        ✅ ยืนยันบันทึก
+      </button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+}
+
+
 
 function pedTab(tab){
   ['main','qc'].forEach(t=>{
@@ -25154,77 +25502,7 @@ function pedCalcOEE(){
   oeeEl.style.color=oee>=85?'#16a34a':oee>=65?'#D97706':'#DC2626';
 }
 
-async function prptUpdateEntry(id){
-  const v=eid=>document.getElementById(eid)?.value||'';
-  const n=eid=>parseFloat(document.getElementById(eid)?.value)||0;
-  const actual=n('ped-actual'), good=n('ped-good'), reject=n('ped-reject');
-  const planned=n('ped-planned'), runtime=n('ped-runtime'), dt=n('ped-downtime');
-  const avail=planned>0?Math.min(100,runtime/planned*100):0;
-  const perf=planned>0?Math.min(100,actual/planned*100):100;
-  const qual=actual>0?Math.min(100,good/actual*100):100;
-  const oee=avail*perf*qual/10000;
-  const startV=v('ped-start'), endV=v('ped-end');
-  const batchNo=parseInt(v('ped-batch'))||1;
 
-  // Collect QC data from edit form
-  const qcEdRows=[...document.querySelectorAll('#ped-qc-tbody tr[id^="ped-qr-"]')];
-  const qcData=qcEdRows.map(tr=>{
-    const idx=tr.id.replace('ped-qr-','');
-    const gv=fid=>document.getElementById(`ped-q${fid}-${idx}`)?.value||null;
-    return{
-      time:gv('t'),
-      wt_packed:gv('wt'), wt_pre_coat:gv('pre'), wt_post_coat:gv('post'),
-      width:gv('w'), length:gv('l'), thickness:gv('thk'),
-      taste:gv('taste'), color:gv('color'), odor:gv('odor'),
-      filling_ok:gv('fill'), choc_ok:gv('choc'), crispy_ok:gv('crispy'),
-      result:document.getElementById(`ped-qresult-${idx}`)?.textContent||'—',
-      spec:{
-        wt:n('ped-spec-wt'), wtTol:n('ped-spec-wt-tol'),
-        w:n('ped-spec-w'),   wTol:n('ped-spec-w-tol'),
-        l:n('ped-spec-l'),   lTol:n('ped-spec-l-tol'),
-        pre:n('ped-spec-pre'),preTol:n('ped-spec-pre-tol')
-      }
-    };
-  });
-
-  msgEl('ped-msg','<span class="spin"></span> Saving...','i');
-  try{
-    const updateData={
-      batch_no:batchNo,
-      start_time:startV?new Date(startV).toISOString():null,
-      end_time:endV?new Date(endV).toISOString():null,
-      shift:v('ped-shift'), machine_code:v('ped-machine'),
-      plan_qty:n('ped-plan'), actual_qty:actual,
-      good_qty:good, reject_qty:reject,
-      planned_production_min:planned, run_time_min:runtime,
-      downtime_min:dt, downtime_reason:v('ped-reason'),
-      yield_pct:qual, availability_pct:avail,
-      performance_pct:perf, quality_pct:qual, oee_pct:oee,
-      note:v('ped-note')
-    };
-    // เพิ่ม lot/date ถ้ามีค่า
-    const lotVal=v('ped-lot'), mfgVal=v('ped-mfg-date'), expVal=v('ped-exp-date');
-    if(lotVal) updateData.lot_no=lotVal;
-    if(mfgVal) updateData.mfg_date=mfgVal;
-    if(expVal)  updateData.exp_date=expVal;
-    await sbU('production_log', updateData, `id=eq.${id}`);
-    // บันทึก QC data
-    const stepsOKed=await checkStepsTable();
-    if(qcData.length&&stepsOKed){
-      await sbD('prod_log_step_materials',`log_id=eq.${id}&step_name=eq.__QC__`).catch(()=>{});
-      for(const q of qcData){
-        await sbP('prod_log_step_materials',{
-          step_id:0, log_id:id, pp_no:updateData.pp_no||'', step_name:'__QC__',
-          material_code:q.time||'', material_name:JSON.stringify(q),
-          planned_qty:0,used_qty:0,remaining_qty:0,waste_qty:0,unit:'qc'
-        }).catch(()=>{});
-      }
-    }
-    msgEl('ped-msg',`✅ อัปเดตเรียบร้อย (QC: ${qcData.length} แถว)`,'s');
-    await logA('UPDATE','production',`แก้ไขบันทึก log#${id} Batch${batchNo}`,`log:${id}`);
-    setTimeout(()=>{ closeMo(); prptLoadLog(); },500);
-  }catch(e){ msgEl('ped-msg','❌ '+e.message,'e'); }
-}
 
 // ════════════════════════════════════════════════════════════
 //  SUMMARY REPORT
