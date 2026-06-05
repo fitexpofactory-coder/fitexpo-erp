@@ -3166,6 +3166,23 @@ let _payrollData=[], _lastMRC=null;
 //  ⚙️ CONFIG — ใส่ anon key ที่นี่
 // ════════════════════════════════════════════════════════════
 const SB='https://meehbfcmnmposarkejuh.supabase.co';
+
+// ── Time helper: extract HH:MM from any ISO datetime string ──
+// ไม่ผ่าน Date object เพื่อป้องกัน timezone shift
+function extractHHMM(dt){
+  if(!dt) return '—';
+  if(typeof dt==='string'){
+    var m=dt.match(/T(\d{2}:\d{2})/);
+    if(m) return m[1];
+    if(/^\d{2}:\d{2}/.test(dt)) return dt.slice(0,5);
+  }
+  try{
+    var d=new Date(dt);
+    var h=String(d.getHours()).padStart(2,'0');
+    var mi=String(d.getMinutes()).padStart(2,'0');
+    return h+':'+mi;
+  }catch(e){ return '—'; }
+}
 let KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1lZWhiZmNtbm1wb3NhcmtlanVoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NjQyNTMsImV4cCI6MjA5MDA0MDI1M30.vbd9TxJr4D4ccPqjm1lw9XD4FwgrCOErqjXkKpUzLkk'; //
 
 // ════════════════════════════════════════════════════════════
@@ -16398,6 +16415,7 @@ function bomRenderCostTable(){
   const sortBtn=(key,label)=>`<span onclick="window._bomCostSort='${key}';bomRenderCostTable()"
     style="cursor:pointer;color:white;${window._bomCostSort===key?'text-decoration:underline;font-weight:900':''}">${label}${window._bomCostSort===key?' ▲':''}</span>`;
 
+  const _rowsTotal = rows.reduce((s,r)=>s+r.totalCost,0);
   wrap.innerHTML=`
     <table style="width:100%;border-collapse:collapse;min-width:800px">
       <thead style="position:sticky;top:0">
@@ -16439,7 +16457,7 @@ function bomRenderCostTable(){
             <td style="padding:5px 8px;text-align:right;font-size:11px;color:${r.pricePerPcs>0?'#D97706':'#9CA3AF'}">
               ${r.pricePerPcs>0
                 ?thb2(r.pricePerPcs)+'/pcs'
-                :r.bomCount>0&&totalCost>0
+                :r.bomCount>0&&_rowsTotal>0
                   ?'<span style="font-size:9px">กรอก pcs_per_batch</span>'
                   :'—'
               }</td>
