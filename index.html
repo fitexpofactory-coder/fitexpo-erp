@@ -3172,15 +3172,27 @@ const SB='https://meehbfcmnmposarkejuh.supabase.co';
 function extractHHMM(dt){
   if(!dt) return '—';
   if(typeof dt==='string'){
+    // ถ้า Supabase ส่ง UTC กลับมา (+00:00 หรือ Z) → แปลงเป็น local +07:00
+    if(dt.endsWith('+00:00')||dt.endsWith('Z')||dt.match(/\+00:00$/)){
+      try{
+        var d=new Date(dt);
+        // add 7 hours for Thailand
+        var local=new Date(d.getTime()+7*3600000);
+        var h=String(local.getUTCHours()).padStart(2,'0');
+        var mi=String(local.getUTCMinutes()).padStart(2,'0');
+        return h+':'+mi;
+      }catch(e){}
+    }
+    // ถ้ามี +07:00 หรือ naive → ดึง T→HH:MM โดยตรง
     var m=dt.match(/T(\d{2}:\d{2})/);
     if(m) return m[1];
+    // time only: "08:05"
     if(/^\d{2}:\d{2}/.test(dt)) return dt.slice(0,5);
   }
   try{
+    // fallback: ใช้ getHours (local timezone)
     var d=new Date(dt);
-    var h=String(d.getHours()).padStart(2,'0');
-    var mi=String(d.getMinutes()).padStart(2,'0');
-    return h+':'+mi;
+    return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
   }catch(e){ return '—'; }
 }
 let KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1lZWhiZmNtbm1wb3NhcmtlanVoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NjQyNTMsImV4cCI6MjA5MDA0MDI1M30.vbd9TxJr4D4ccPqjm1lw9XD4FwgrCOErqjXkKpUzLkk'; //
@@ -25483,14 +25495,13 @@ async function prptSaveEntry(){
     return{
       stepNo:i+1,
       stepName:document.getElementById(`pne-sname-${idx}`)?.value||'',
-      startTime:startT?`${date}T${startT}:00+07:00`:null,
+      startTime:startT?`${date} ${startT}:00`:null,
       endTime:endT?(()=>{
-        // ถ้า end < start = ข้ามวัน → date +1
         const toMin=t=>{const [h,m]=t.split(':').map(Number);return h*60+m;};
         const endDate=startT&&toMin(endT)<toMin(startT)
-          ?new Date(new Date(date+'T00:00:00').getTime()+86400000).toISOString().slice(0,10)
+          ?(()=>{const d=new Date(date);d.setDate(d.getDate()+1);return d.toISOString().slice(0,10);})()
           :date;
-        return endDate+'T'+endT+':00+07:00';
+        return endDate+' '+endT+':00';
       })():null,
       dur:parseFloat(document.getElementById(`pne-smin-${idx}`)?.value)||0,
       wk:parseInt(document.getElementById(`pne-swk-${idx}`)?.value)||1,
@@ -25537,8 +25548,8 @@ async function prptSaveEntry(){
       pp_no:woPP, sku_code:skuCode, product_name:prodName,
       batch_no:batchNo,
       plan_date:startTime?.slice(0,10)||new Date().toISOString().slice(0,10),
-      start_time:startTime?startTime.length===16?startTime+':00+07:00':startTime:null,
-      end_time:endTime?endTime.length===16?endTime+':00+07:00':endTime:null,
+      start_time:startTime?startTime.replace('T',' ').slice(0,16):null,
+      end_time:endTime?endTime.replace('T',' ').slice(0,16):null,
       total_minutes:totalMin, shift,
       machine_code:machine,
       planned_production_min:plannedMin,
@@ -25703,11 +25714,23 @@ async function prptEditEntry(id){
   const toLocal=dt=>{
     if(!dt) return '';
     if(typeof dt==='string'){
-      // "2026-06-05T14:30:00+07:00" → "2026-06-05T14:30"
+      // UTC → +07:00 local
+      if(dt.endsWith('+00:00')||dt.endsWith('Z')){
+        try{
+          const d=new Date(dt);
+          const local=new Date(d.getTime()+7*3600000);
+          return local.toISOString().slice(0,16).replace('Z','');
+        }catch(e){}
+      }
+      // +07:00 หรือ naive → ดึงตรงๆ
       const m=dt.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})/);
       if(m) return m[1];
     }
-    return new Date(dt).toISOString().slice(0,16);
+    try{
+      const d=new Date(dt);
+      const local=new Date(d.getTime()+7*3600000);
+      return local.toISOString().slice(0,16).replace('Z','');
+    }catch(e){ return ''; }
   };
 
   openMo(`✏️ แก้ไขรายงาน — ${l.pp_no} Batch ${l.batch_no||1}`,`
@@ -26197,8 +26220,8 @@ async function pedSaveAll(id){
     return{
       log_id:id, pp_no:ppNo, step_no:i+1,
       step_name:getV(`ped-sname-${idx}`),
-      start_time:startV?`${date}T${startV}:00+07:00`:null,
-      end_time:endV?`${date}T${endV}:00+07:00`:null,
+      start_time:startV?`${date} ${startV}:00`:null,
+      end_time:endV?`${date} ${endV}:00`:null,
       duration_min:getN(`ped-smin-${idx}`), workers:getN(`ped-swk-${idx}`)||1,
       input_qty:getN(`ped-sinput-${idx}`), output_qty:getN(`ped-sout-${idx}`),
       defect_qty:getN(`ped-sdef-${idx}`), downtime_min:getN(`ped-sdt-${idx}`),
@@ -26250,8 +26273,8 @@ async function pedSaveAll(id){
     // อัปเดต production_log หลัก
     await sbU('production_log',{
       batch_no:parseInt(getV('ped-batch'))||1,
-      start_time:getV('ped-start')?new Date(getV('ped-start')).toISOString():null,
-      end_time:getV('ped-end')?new Date(getV('ped-end')).toISOString():null,
+      start_time:getV('ped-start')?getV('ped-start').replace('T',' ').slice(0,16):null,
+      end_time:getV('ped-end')?getV('ped-end').replace('T',' ').slice(0,16):null,
       shift:getV('ped-shift'), machine_code:getV('ped-machine'),
       plan_qty:getN('ped-plan'), actual_qty:actual,
       good_qty:good, reject_qty:reject,
@@ -27190,8 +27213,8 @@ async function nsSaveStep(logId, ppNo){
     await sbP('prod_log_steps',{
       log_id:logId, pp_no:ppNo, step_no:stepNo,
       step_name:stepName,
-      start_time:start?`${start.slice(0,10)}T${start.slice(11,16)}:00+07:00`:null,
-      end_time:end?`${end.slice(0,10)}T${end.slice(11,16)}:00+07:00`:null,
+      start_time:start?start.slice(0,16):null,
+      end_time:end?end.slice(0,16):null,
       duration_min:dur||null, workers,
       input_qty:input, output_qty:output,
       defect_qty:defect, defect_reason:defectReason,
