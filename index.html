@@ -16858,71 +16858,65 @@ function showToast(msg, type='s'){
   setTimeout(()=>t.remove&&t.remove(),3000);
 }
 async function bomSaveMatPrices(matCodes){
-  msgEl('bep-msg','<span class="spin"></span> กำลังบันทึก...','i');
-
-  // รวบรวมค่าที่ต้องบันทึก
-  const toSave=[];
-  for(const code of matCodes){
-    const inputEl=document.getElementById('bep-price-'+code);
-    if(!inputEl) continue;
-    const raw=inputEl.value.trim();
-    if(raw===''||raw===null) continue;
-    const price=parseFloat(raw);
-    if(isNaN(price)||price<0) continue;
-    toSave.push({code,price});
-  }
-
-  if(!toSave.length){
-    msgEl('bep-msg','⚠️ ไม่มีราคาที่ต้องบันทึก','i');
+  // Guard: ตรวจ matCodes
+  if(!matCodes||!Array.isArray(matCodes)||!matCodes.length){
+    alert('ไม่มีรายการวัสดุ (matCodes undefined)');
     return;
   }
 
-  msgEl('bep-msg','<span class="spin"></span> กำลังบันทึก '+toSave.length+' รายการ...','i');
+  const msgBox=document.getElementById('bep-msg');
+  const setMsg=(txt,cls='i')=>{
+    if(msgBox) msgBox.innerHTML='<div class="al al'+cls+'">'+txt+'</div>';
+  };
 
-  try{
-    // โหลด existing codes ครั้งเดียว
-    const codes=toSave.map(x=>x.code);
-    const existing=await sbG('master_material',{
-      f:['code=in.('+codes.join(',')+')'],
-      s:'code'
-    }).catch(()=>[]);
-    const existSet=new Set((existing||[]).map(m=>m.code));
+  setMsg('<span class="spin"></span> เตรียมบันทึก...');
 
-    // แยก update vs insert
-    const updates=toSave.filter(x=>existSet.has(x.code));
-    const inserts=toSave.filter(x=>!existSet.has(x.code));
+  // รวบรวมค่าจาก input
+  const toSave=[];
+  for(const code of matCodes){
+    const el=document.getElementById('bep-price-'+code);
+    if(!el){ console.warn('no input for',code); continue; }
+    const price=parseFloat(el.value);
+    if(!isNaN(price)&&price>=0) toSave.push({code,price});
+  }
 
-    let saved=0, errors=0;
+  if(!toSave.length){
+    setMsg('⚠️ กรุณากรอกราคาอย่างน้อย 1 รายการ');
+    return;
+  }
 
-    // UPDATE ทีละรายการ (ต้องระบุ filter แยก)
-    for(const {code,price} of updates){
-      try{
+  setMsg('<span class="spin"></span> กำลังตรวจสอบ '+toSave.length+' รายการ...');
+
+  let saved=0, errors=0;
+  const results=[];
+
+  for(const {code,price} of toSave){
+    try{
+      // ตรวจว่ามีอยู่ใน master_material
+      const chk=await sbG('master_material',{f:['code=eq.'+code],s:'code'}).catch(()=>[]);
+      if(chk&&chk.length>0){
         await sbU('master_material',{price_per_unit:price},'code=eq.'+code);
         saved++;
-        if(saved%5===0) msgEl('bep-msg','<span class="spin"></span> บันทึกแล้ว '+saved+'/'+toSave.length+'...','i');
-      }catch(e){ console.error('update:',code,e); errors++; }
-    }
-
-    // INSERT รายการใหม่
-    for(const {code,price} of inserts){
-      try{
-        await sbP('master_material',{
-          code:code, name:code, unit:'kg',
-          price_per_unit:price, category:''
-        });
+        results.push('✅ '+code+' = ฿'+price);
+      }else{
+        // insert ใหม่
+        await sbP('master_material',{code,name:code,unit:'kg',price_per_unit:price,category:''});
         saved++;
-      }catch(e){ console.error('insert:',code,e); errors++; }
+        results.push('✅+ '+code+' = ฿'+price);
+      }
+      setMsg('<span class="spin"></span> บันทึก '+saved+'/'+toSave.length+'...');
+    }catch(e){
+      errors++;
+      results.push('❌ '+code+': '+e.message);
+      console.error('save price error',code,e);
     }
+  }
 
-    if(errors>0){
-      msgEl('bep-msg','⚠️ บันทึก '+saved+'/'+toSave.length+' รายการ (ผิดพลาด '+errors+')','e');
-    }else{
-      msgEl('bep-msg','✅ บันทึกราคา '+saved+' รายการเรียบร้อย','s');
-      setTimeout(()=>{ closeMo(); bomShowCostSummary(); },800);
-    }
-  }catch(err){
-    console.error('bomSaveMatPrices:',err);
-    msgEl('bep-msg','❌ บันทึกไม่สำเร็จ: '+err.message,'e');
+  if(errors>0){
+    setMsg('⚠️ สำเร็จ '+saved+' / ผิดพลาด '+errors+'<br>'+results.slice(-3).join('<br>'),'e');
+  }else{
+    setMsg('✅ บันทึกราคา '+saved+' รายการเรียบร้อย!','s');
+    setTimeout(()=>{ closeMo(); bomShowCostSummary(); },1000);
   }
 }
 
