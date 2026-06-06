@@ -16425,28 +16425,63 @@ async function bomShowCostSummary(){
     wipBom.forEach(r=>{ if(!wipBomMap[r.wip_code]) wipBomMap[r.wip_code]=[]; wipBomMap[r.wip_code].push(r); });
 
     // คำนวณต้นทุนต่อ product
-    function calcCost(rows, batchKg, yieldPct, pcsPerBatch){
-      const scaleFactor = batchKg>0 ? 1 : 1; // qty ใน BOM = qty per batch_kg
+    // ──── คำนวณ WIP cost per kg (ก่อน calcCost) ────────────────
+    // Step 1: คำนวณต้นทุน WIP แต่ละตัวจาก wipBom + priceMap
+    const wipCostPerKg={};
+    if(wipBom.length){
+      const _wBomByCode={};
+      wipBom.forEach(r=>{
+        const wc=r.wip_code||'';
+        if(!_wBomByCode[wc]) _wBomByCode[wc]=[];
+        _wBomByCode[wc].push(r);
+      });
+      wipMaster.forEach(wm=>{
+        const wc=wm.code||'';
+        const wBkg=Number(wm.batch_kg)||50;
+        const wYield=Number(wm.yield_pct)||95;
+        let wTotalCost=0;
+        (_wBomByCode[wc]||[]).forEach(wr=>{
+          const rmCode=wr.rm_code||'';
+          const wPct=Number(wr.pct_of_batch||0);
+          const wQty=Number(wr.qty_per_batch||0);
+          let wKg=wPct>0 ? wPct/100*wBkg : wQty;
+          const wUnit=(wr.unit||'kg').toLowerCase();
+          if(wUnit==='g'||wUnit==='ml') wKg/=1000;
+          wTotalCost+=wKg*(priceMap[rmCode]||0);
+        });
+        const wOutKg=wBkg*(wYield/100);
+        if(wOutKg>0) wipCostPerKg[wc]=wTotalCost/wOutKg;  // ฿/kg output
+      });
+    }
+    console.log('[BOM] WIP cost/kg:',Object.keys(wipCostPerKg).length,'WIPs priced');
+
+    // ──── calcCost: คำนวณต้นทุนต่อ FG/WIP ────────────────────
+    function calcCost(rows, batchKg, yieldPct, pcsPerBatch, sizeG){
       let totalCost=0, missingCount=0;
       const byMat=[];
       rows.forEach(r=>{
         const code=r.mat_code||r.rm_code||'';
         const pct=Number(r.pct_of_batch||0);
         const qty=Number(r.qty_per_batch||0);
-        let kgPB=pct>0?pct/100*batchKg:qty;  // qty_per_batch = qty ต่อ batch_kg นั้นอยู่แล้ว
+        let kgPB=pct>0 ? pct/100*batchKg : qty;
         const unitL=(r.unit||'kg').toLowerCase();
         if(unitL==='g'||unitL==='ml') kgPB/=1000;
-        const price=priceMap[code]||0;
+        // ราคา: ลอง wipCostPerKg ก่อน → priceMap → 0
+        const price = (wipCostPerKg[code]>0 ? wipCostPerKg[code] : 0) || priceMap[code] || 0;
         const cost=kgPB*price;
+        const isWIP=wipCostPerKg[code]>0;
         if(code&&!price) missingCount++;
         totalCost+=cost;
-        byMat.push({code,kgPB,price,cost});
+        byMat.push({code,kgPB,price,cost,isWIP});
       });
       const pricePerKgIn  = batchKg>0?totalCost/batchKg:0;
-      const yp=yieldPct||95;
-      const pricePerKgOut = pricePerKgIn/(yp/100);
-      const pcs=pcsPerBatch||0;
-      const pricePerPcs   = pcs>0?totalCost/pcs:0;
+      const yp=Number(yieldPct)||95;
+      const pricePerKgOut = yp>0?pricePerKgIn/(yp/100):pricePerKgIn;
+      const pcs=Number(pcsPerBatch)||0;
+      const effectiveG=Number(sizeG)||0;
+      const outputKg=batchKg*(yp/100);
+      const pcsFromG=effectiveG>0&&outputKg>0?outputKg*1000/effectiveG:0;
+      const pricePerPcs = pcs>0 ? totalCost/pcs : pcsFromG>0 ? totalCost/pcsFromG : 0;
       return{totalCost,pricePerKgIn,pricePerKgOut,pricePerPcs,missingCount,byMat};
     }
 
@@ -16460,7 +16495,7 @@ async function bomShowCostSummary(){
 
     const fgRows=_fgMaster.map(m=>{
       const rows=fgBomMap[m.sku]||[];
-      const c=calcCost(rows,Number(m.batch_kg)||50,Number(m.yield_pct)||95,Number(m.pcs_per_batch)||0,Number(m.size_g)||0);
+      const c=calcCost(rows,Number(m.batch_kg)||50,Number(m.yield_pct)||95,Number(m.pcs_per_batch)||0,Number(m.size_g)||0,Number(m.size_g)||0);
       return{type:'FG',code:m.sku,name:m.name_en||m.name_th||m.sku,
         batchKg:Number(m.batch_kg)||50, yieldPct:Number(m.yield_pct)||95,
         pcsPerBatch:Number(m.pcs_per_batch)||0,
@@ -16471,7 +16506,7 @@ async function bomShowCostSummary(){
     // WIP
     const wipRows=_wipMaster.map(m=>{
       const rows=wipBomMap[m.code]||[];
-      const c=calcCost(rows,Number(m.batch_kg)||50,Number(m.yield_pct)||95,Number(m.pcs_per_batch)||0,0);
+      const c=calcCost(rows,Number(m.batch_kg)||50,Number(m.yield_pct)||95,Number(m.pcs_per_batch)||0,0,0);
       return{type:'WIP',code:m.code,name:m.name||m.code,
         batchKg:Number(m.batch_kg)||50, yieldPct:Number(m.yield_pct)||95,
         pcsPerBatch:Number(m.pcs_per_batch)||0,
