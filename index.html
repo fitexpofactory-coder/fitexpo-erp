@@ -16818,9 +16818,10 @@ async function bomEditMatPrices(code, type){
     '<div id="bep-msg" style="margin-top:8px"></div>'+
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">'+
     '<button class="btn btnS" onclick="closeMo()">&#10005; ยกเลิก</button>'+
-    '<button class="btn btnP" onclick="bomSaveMatPrices('+JSON.stringify(rmCodes)+')">'+
+    '<button class="btn btnP" onclick="bomSaveMatPrices(window._bomRmCodes)">'+
     '&#128190; บันทึกราคา RM/PK</button></div>';
 
+  window._bomRmCodes=rmCodes;  // เก็บไว้ให้ onclick ใช้
   openMo('&#9999; แก้ไขราคาวัสดุ &#8212; '+code, modalBody);
 }
 
