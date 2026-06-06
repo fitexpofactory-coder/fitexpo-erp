@@ -3740,8 +3740,11 @@ async function loadBOMDetail(code){
       });
     }
     // สร้าง price map
-    const _priceMap={};
-    (matPrices||[]).forEach(m=>{ if(m.price_per_unit) _priceMap[m.code]=Number(m.price_per_unit); });
+    const _priceMap={}, _matInfoMap={};
+    (matPrices||[]).forEach(m=>{
+      if(m.price_per_unit) _priceMap[m.code]=Number(m.price_per_unit);
+      _matInfoMap[m.code]={name:m.name||'',unit:m.unit||'kg',category:m.category||''};
+    });
     // เพิ่มราคา WIP จาก cache
     (window._cachedWIPs||[]).forEach(w=>{ if(w.price_per_kg) _priceMap[w.code]=Number(w.price_per_kg); });
     const m=master[0];
@@ -16855,41 +16858,70 @@ function showToast(msg, type='s'){
 }
 async function bomSaveMatPrices(matCodes){
   msgEl('bep-msg','<span class="spin"></span> กำลังบันทึก...','i');
-  let saved=0, skipped=0, errors=0;
-  for(const code of matCodes){
-    const inputEl=document.getElementById(`bep-price-${code}`);
-    if(!inputEl) continue;
-    const price=parseFloat(inputEl.value);
-    if(isNaN(price)||price<0){ skipped++; continue; }
-    try{
-      // ลอง UPSERT: update ถ้ามี, insert ถ้าไม่มี
-      const existing=(await sbG('master_material',{
-        f:[`code=eq.${code}`],s:'id,code,name,unit'
-      }).catch(()=>[]))[0];
 
-      if(existing){
-        // update
-        await sbU('master_material',{price_per_unit:price},`code=eq.${code}`);
+  // รวบรวมค่าที่ต้องบันทึก
+  const toSave=[];
+  for(const code of matCodes){
+    const inputEl=document.getElementById('bep-price-'+code);
+    if(!inputEl) continue;
+    const raw=inputEl.value.trim();
+    if(raw===''||raw===null) continue;
+    const price=parseFloat(raw);
+    if(isNaN(price)||price<0) continue;
+    toSave.push({code,price});
+  }
+
+  if(!toSave.length){
+    msgEl('bep-msg','⚠️ ไม่มีราคาที่ต้องบันทึก','i');
+    return;
+  }
+
+  msgEl('bep-msg','<span class="spin"></span> กำลังบันทึก '+toSave.length+' รายการ...','i');
+
+  try{
+    // โหลด existing codes ครั้งเดียว
+    const codes=toSave.map(x=>x.code);
+    const existing=await sbG('master_material',{
+      f:['code=in.('+codes.join(',')+')'],
+      s:'code'
+    }).catch(()=>[]);
+    const existSet=new Set((existing||[]).map(m=>m.code));
+
+    // แยก update vs insert
+    const updates=toSave.filter(x=>existSet.has(x.code));
+    const inserts=toSave.filter(x=>!existSet.has(x.code));
+
+    let saved=0, errors=0;
+
+    // UPDATE ทีละรายการ (ต้องระบุ filter แยก)
+    for(const {code,price} of updates){
+      try{
+        await sbU('master_material',{price_per_unit:price},'code=eq.'+code);
         saved++;
-      }else{
-        // insert ใหม่ (วัสดุที่มีใน BOM แต่ยังไม่มีใน master_material)
+        if(saved%5===0) msgEl('bep-msg','<span class="spin"></span> บันทึกแล้ว '+saved+'/'+toSave.length+'...','i');
+      }catch(e){ console.error('update:',code,e); errors++; }
+    }
+
+    // INSERT รายการใหม่
+    for(const {code,price} of inserts){
+      try{
         await sbP('master_material',{
-          code, name:code, unit:'kg', price_per_unit:price, category:''
+          code:code, name:code, unit:'kg',
+          price_per_unit:price, category:''
         });
         saved++;
-      }
-    }catch(e){
-      console.error('bomSaveMatPrices error:',code,e);
-      errors++;
+      }catch(e){ console.error('insert:',code,e); errors++; }
     }
-  }
-  if(errors>0){
-    msgEl('bep-msg',`⚠️ บันทึก ${saved}/${matCodes.length} (ผิดพลาด ${errors})`, 'e');
-  }else if(saved===0){
-    msgEl('bep-msg',`⚠️ ไม่มีราคาที่ต้องบันทึก (กรอก 0 = ไม่บันทึก)`, 'i');
-  }else{
-    msgEl('bep-msg',`✅ บันทึกราคา ${saved} รายการเรียบร้อย`,'s');
-    setTimeout(()=>{ closeMo(); bomShowCostSummary(); },700);
+
+    if(errors>0){
+      msgEl('bep-msg','⚠️ บันทึก '+saved+'/'+toSave.length+' รายการ (ผิดพลาด '+errors+')','e');
+    }else{
+      msgEl('bep-msg','✅ บันทึกราคา '+saved+' รายการเรียบร้อย','s');
+      setTimeout(()=>{ closeMo(); bomShowCostSummary(); },800);
+    }
+  }catch(err){
+    console.error('bomSaveMatPrices:',err);
+    msgEl('bep-msg','❌ บันทึกไม่สำเร็จ: '+err.message,'e');
   }
 }
 
