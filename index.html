@@ -16690,35 +16690,88 @@ function bomOpenFromSummary(code, type){
 }
 
 async function bomEditMatPrices(code, type){
-  // เปิด modal แก้ไขราคาวัสดุของ BOM นี้
   const bomTable=type==='FG'?'bom_master':'wip_bom';
   const codeField=type==='FG'?'sku_code':'wip_code';
   const rows=await sbG(bomTable,{f:[`${codeField}=eq.${code}`],ord:'id.asc'}).catch(()=>[]);
   const matCodes=[...new Set(rows.map(r=>r.mat_code||r.rm_code||'').filter(Boolean))];
   if(!matCodes.length){ alert('BOM ว่างเปล่า'); return; }
-  const mats=await sbG('master_material',{
-    f:[`code=in.(${matCodes.join(',')})`],
-    s:'id,code,name,unit,price_per_unit,category'
-  }).catch(()=>[]);
 
+  // แยก WIP vs RM/PK
+  const wipCodes=matCodes.filter(c=>c.startsWith('WIP')||c.startsWith('wip'));
+  const rmCodes =matCodes.filter(c=>!c.startsWith('WIP')&&!c.startsWith('wip'));
+
+  // โหลด RM/PK จาก master_material
+  const [mats, wipMasters, allWipBom] = await Promise.all([
+    rmCodes.length
+      ?sbG('master_material',{f:[`code=in.(${rmCodes.join(',')})`],s:'id,code,name,unit,price_per_unit,category'}).catch(()=>[])
+      :[],
+    wipCodes.length
+      ?sbG('wip_master',{f:[`code=in.(${wipCodes.join(',')})`],s:'code,name,batch_kg,yield_pct'}).catch(()=>[])
+      :[],
+    wipCodes.length
+      ?sbG('wip_bom',{f:[`wip_code=in.(${wipCodes.join(',')})`]}).catch(()=>[])
+      :[]
+  ]);
+
+  // Map RM prices
   const matMap={};
   mats.forEach(m=>matMap[m.code]=m);
 
+  // คำนวณ WIP cost/kg
+  const wipCostMap={};
+  const _rmPriceMap={};
+  mats.forEach(m=>{ if(m.price_per_unit) _rmPriceMap[m.code]=Number(m.price_per_unit); });
+  // โหลด RM ที่ใช้ใน WIP (อาจไม่อยู่ใน mats list)
+  const wipRmCodes=[...new Set(allWipBom.map(r=>r.rm_code||'').filter(Boolean))];
+  const extraRm = wipRmCodes.length
+    ?await sbG('master_material',{f:[`code=in.(${wipRmCodes.join(',')})`],s:'code,price_per_unit'}).catch(()=>[])
+    :[];
+  extraRm.forEach(m=>{ if(m.price_per_unit) _rmPriceMap[m.code]=Number(m.price_per_unit); });
+
+  const wipBomByCode={};
+  allWipBom.forEach(r=>{ if(!wipBomByCode[r.wip_code]) wipBomByCode[r.wip_code]=[]; wipBomByCode[r.wip_code].push(r); });
+
+  wipMasters.forEach(wm=>{
+    const wBkg=Number(wm.batch_kg)||50;
+    const wYield=Number(wm.yield_pct)||95;
+    let wCost=0;
+    (wipBomByCode[wm.code]||[]).forEach(wr=>{
+      const rmCode=wr.rm_code||'';
+      const wPct=Number(wr.pct_of_batch||0);
+      const wQty=Number(wr.qty_per_batch||0);
+      let wKg=wPct>0?wPct/100*wBkg:wQty;
+      if((wr.unit||'kg').toLowerCase()==='g') wKg/=1000;
+      wCost+=wKg*(_rmPriceMap[rmCode]||0);
+    });
+    const wOutKg=wBkg*(wYield/100);
+    wipCostMap[wm.code]={
+      name:wm.name||wm.code,
+      costPerKg:wOutKg>0?wCost/wOutKg:0,
+      totalCost:wCost,
+      batchKg:wBkg, yieldPct:wYield,
+      rmCount:(wipBomByCode[wm.code]||[]).length,
+      hasMissingPrice:(wipBomByCode[wm.code]||[]).some(wr=>!_rmPriceMap[wr.rm_code||''])
+    };
+  });
+
+  const thb=v=>v>0?'฿'+Number(v).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
+
   openMo(`✏️ แก้ไขราคาวัสดุ — ${code}`,`
     <div style="font-size:11px;color:#6B7280;margin-bottom:10px">
-      แก้ไขราคาต่อหน่วย (kg/pcs) ของวัสดุใน BOM ${code}
+      แก้ไขราคา RM/PK | ราคา WIP คำนวณอัตโนมัติจาก BOM ของ WIP
     </div>
-    <div class="tw" style="max-height:420px;overflow-y:auto">
+    <div class="tw" style="max-height:480px;overflow-y:auto">
       <table style="width:100%;border-collapse:collapse">
         <thead><tr style="background:#1B3A5C;color:white;font-size:11px">
           <th style="padding:5px 8px;text-align:left">รหัส</th>
           <th style="padding:5px 8px;text-align:left">ชื่อ</th>
-          <th style="padding:5px 8px;text-align:left">หมวด</th>
-          <th style="padding:5px 8px;text-align:right;width:110px">ราคา/หน่วย (฿)</th>
-          <th style="padding:5px 8px;width:50px">หน่วย</th>
+          <th style="padding:5px 8px;text-align:left;width:70px">หมวด</th>
+          <th style="padding:5px 8px;text-align:right;width:120px">ราคา/หน่วย (฿)</th>
+          <th style="padding:5px 8px;width:45px">หน่วย</th>
         </tr></thead>
         <tbody>
-          ${matCodes.map(c=>{
+          <!-- RM/PK rows -->
+          ${rmCodes.map(c=>{
             const m=matMap[c]||{code:c,name:'ไม่พบ',unit:'kg',price_per_unit:0};
             return`<tr style="border-bottom:1px solid #F1F5F9">
               <td style="padding:5px 8px;font-family:monospace;font-size:11px;
@@ -16734,18 +16787,55 @@ async function bomEditMatPrices(code, type){
               <td style="padding:5px 8px;font-size:11px;color:#6B7280">${m.unit||'kg'}</td>
             </tr>`;
           }).join('')}
+
+          <!-- WIP rows — calculated, show detail -->
+          ${wipCodes.length?`
+          <tr><td colspan="5" style="padding:6px 8px;background:#EDE9FE;
+            font-weight:700;font-size:11px;color:#7C3AED">
+            🔗 WIP / Semi-finished (ราคาคำนวณจาก BOM ของ WIP อัตโนมัติ)
+          </td></tr>
+          ${wipCodes.map(c=>{
+            const wm=wipCostMap[c];
+            const notFound=!wm&&!wipMasters.find(m=>m.code===c);
+            if(notFound) return`<tr style="border-bottom:1px solid #F1F5F9">
+              <td style="padding:5px 8px;font-family:monospace;font-size:11px;color:#7C3AED">${c}</td>
+              <td colspan="4" style="padding:5px 8px;font-size:11px;color:#DC2626">
+                ⚠️ ไม่พบ WIP ใน wip_master — กรุณาเพิ่ม WIP นี้ก่อน
+              </td>
+            </tr>`;
+            const costPerKg=wm?.costPerKg||0;
+            return`<tr style="border-bottom:1px solid #F1F5F9;background:#FAF5FF">
+              <td style="padding:5px 8px;font-family:monospace;font-size:11px;color:#7C3AED">${c}</td>
+              <td style="padding:5px 8px;font-size:11px">
+                <div style="font-weight:600">${wm?.name||c}</div>
+                <div style="font-size:9px;color:#6B7280">
+                  batch ${wm?.batchKg||0}kg · yield ${wm?.yieldPct||0}% · BOM ${wm?.rmCount||0} รายการ
+                  ${wm?.hasMissingPrice?'<span style="color:#DC2626"> · ⚠️ RM บางตัวไม่มีราคา</span>':''}
+                </div>
+              </td>
+              <td style="padding:5px 8px;font-size:10px;color:#7C3AED">WIP</td>
+              <td style="padding:5px 8px;text-align:right">
+                <div style="font-weight:700;font-size:13px;color:${costPerKg>0?'#7C3AED':'#DC2626'}">
+                  ${costPerKg>0?thb(costPerKg):'ไม่มีราคา RM'}
+                </div>
+                <div style="font-size:9px;color:#6B7280">คำนวณจาก WIP BOM</div>
+              </td>
+              <td style="padding:5px 8px;font-size:11px;color:#6B7280">kg</td>
+            </tr>`;
+          }).join('')}`:''}
         </tbody>
       </table>
     </div>
     <div id="bep-msg" style="margin-top:8px"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
       <button class="btn btnS" onclick="closeMo()">✕ ยกเลิก</button>
-      <button class="btn btnP" onclick="bomSaveMatPrices(${JSON.stringify(matCodes)})">
-        💾 บันทึกราคาทั้งหมด
+      <button class="btn btnP" onclick="bomSaveMatPrices(${JSON.stringify(rmCodes)})">
+        💾 บันทึกราคา RM/PK
       </button>
     </div>
   `);
 }
+
 
 
 async function bomSavePcsBatch(code, table, field){
