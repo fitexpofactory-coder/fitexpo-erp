@@ -16867,20 +16867,38 @@ function showToast(msg, type='s'){
 }
 async function bomSaveMatPrices(matCodes){
   msgEl('bep-msg','<span class="spin"></span> กำลังบันทึก...','i');
-  let saved=0, errors=0;
+  let saved=0, skipped=0, errors=0;
   for(const code of matCodes){
-    const price=parseFloat(document.getElementById(`bep-price-${code}`)?.value)||0;
-    if(price<=0) continue;
+    const inputEl=document.getElementById(`bep-price-${code}`);
+    if(!inputEl) continue;
+    const price=parseFloat(inputEl.value);
+    if(isNaN(price)||price<0){ skipped++; continue; }
     try{
-      const existing=(await sbG('master_material',{f:[`code=eq.${code}`],s:'id'}).catch(()=>[]))[0];
+      // ลอง UPSERT: update ถ้ามี, insert ถ้าไม่มี
+      const existing=(await sbG('master_material',{
+        f:[`code=eq.${code}`],s:'id,code,name,unit'
+      }).catch(()=>[]))[0];
+
       if(existing){
+        // update
         await sbU('master_material',{price_per_unit:price},`code=eq.${code}`);
         saved++;
+      }else{
+        // insert ใหม่ (วัสดุที่มีใน BOM แต่ยังไม่มีใน master_material)
+        await sbP('master_material',{
+          code, name:code, unit:'kg', price_per_unit:price, category:''
+        });
+        saved++;
       }
-    }catch(e){ errors++; }
+    }catch(e){
+      console.error('bomSaveMatPrices error:',code,e);
+      errors++;
+    }
   }
   if(errors>0){
-    msgEl('bep-msg',`⚠️ บันทึก ${saved} รายการ (ผิดพลาด ${errors})`, 'i');
+    msgEl('bep-msg',`⚠️ บันทึก ${saved}/${matCodes.length} (ผิดพลาด ${errors})`, 'e');
+  }else if(saved===0){
+    msgEl('bep-msg',`⚠️ ไม่มีราคาที่ต้องบันทึก (กรอก 0 = ไม่บันทึก)`, 'i');
   }else{
     msgEl('bep-msg',`✅ บันทึกราคา ${saved} รายการเรียบร้อย`,'s');
     setTimeout(()=>{ closeMo(); bomShowCostSummary(); },700);
