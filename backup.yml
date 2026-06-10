@@ -1,0 +1,62 @@
+# FitExpo ERP - Weekly Database Backup
+# วางไฟล์นี้ที่: .github/workflows/backup.yml
+# ใน GitHub repo: fitexpofactory-coder/fitexpo-erp
+
+name: Weekly Database Backup
+
+on:
+  schedule:
+    - cron: '0 20 * * 0'   # ทุกวันอาทิตย์ เวลา 03:00 น. (Thailand UTC+7)
+  workflow_dispatch:         # รันด้วยตัวเองได้จาก GitHub Actions tab
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client
+
+      - name: Export database via pg_dump
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          FILENAME="fitexpo_backup_${TIMESTAMP}.sql"
+          
+          pg_dump \
+            --host=${{ secrets.SUPABASE_DB_HOST }} \
+            --port=5432 \
+            --username=postgres \
+            --dbname=postgres \
+            --no-password \
+            --format=plain \
+            --no-owner \
+            --no-acl \
+            --schema=public \
+            --file="${FILENAME}"
+          
+          echo "BACKUP_FILE=${FILENAME}" >> $GITHUB_ENV
+          echo "Backup size: $(wc -c < ${FILENAME}) bytes"
+
+      - name: Compress backup
+        run: |
+          gzip ${{ env.BACKUP_FILE }}
+          echo "Compressed: ${{ env.BACKUP_FILE }}.gz"
+          ls -lh *.gz
+
+      - name: Upload backup as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_number }}
+          path: "*.gz"
+          retention-days: 30    # เก็บไว้ 30 วัน
+
+      - name: Notify success
+        run: |
+          echo "✅ Backup completed: ${{ env.BACKUP_FILE }}.gz"
+          echo "Run: ${{ github.run_number }}"
+          echo "Date: $(date '+%Y-%m-%d %H:%M:%S UTC')"
