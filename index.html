@@ -16316,6 +16316,107 @@ function pneCollectQCData(){
 
 
 
+
+// ════════════════════════════════════════════════════════════
+//  MODULE TEST CHECKLIST
+// ════════════════════════════════════════════════════════════
+async function runModuleTests(){
+  openMo('🧪 ทดสอบระบบทุก Module',`
+    <div style="font-size:11px;color:#6B7280;margin-bottom:10px">
+      กด ▶ Run เพื่อทดสอบการเชื่อมต่อและ load ข้อมูล
+    </div>
+    <div id="test-results" style="display:flex;flex-direction:column;gap:6px"></div>
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button class="btn btnP" onclick="executeTests()">▶ Run All Tests</button>
+      <button class="btn btnS" onclick="closeMo()">✕ ปิด</button>
+    </div>
+  `);
+}
+
+const TEST_CASES = [
+  {name:'🔐 Users / Login',     fn: ()=>sbG('users',{lim:1})},
+  {name:'📦 Master Product',    fn: ()=>sbG('master_product',{lim:1})},
+  {name:'🧱 Master Material',   fn: ()=>sbG('master_material',{lim:1})},
+  {name:'🏭 WIP Master',        fn: ()=>sbG('wip_master',{lim:1})},
+  {name:'📋 BOM Master (FG)',   fn: ()=>sbG('bom_master',{lim:1})},
+  {name:'📋 BOM Master (WIP)',  fn: ()=>sbG('wip_bom',{lim:1})},
+  {name:'📊 Stock Product',     fn: ()=>sbG('stock_product',{lim:1})},
+  {name:'🏭 WIP Stock',         fn: ()=>sbG('wip_stock',{lim:1})},
+  {name:'🧱 Stock Material',    fn: ()=>sbG('stock_material',{lim:1})},
+  {name:'🔧 Production Plan',   fn: ()=>sbG('production_plan',{lim:1})},
+  {name:'📋 Production Log',    fn: ()=>sbG('production_log',{lim:1})},
+  {name:'📋 Log Steps',         fn: ()=>sbG('prod_log_steps',{lim:1})},
+  {name:'👥 Employees (HR)',    fn: ()=>sbG('employees',{lim:1})},
+  {name:'🌴 Leave Requests',    fn: ()=>sbG('leave_requests',{lim:1})},
+  {name:'⏰ OT Requests',       fn: ()=>sbG('ot_requests',{lim:1})},
+  {name:'✅ Attendance',        fn: ()=>sbG('attendance',{lim:1})},
+  {name:'🔧 PM Assets',         fn: ()=>sbG('pm_assets',{lim:1})},
+  {name:'🔧 PM Tasks',          fn: ()=>sbG('pm_tasks',{lim:1})},
+  {name:'📈 Forecast Orders',   fn: ()=>sbG('forecast_orders',{lim:1})},
+  {name:'⚖️ Weighing Logs',     fn: ()=>sbG('weighing_logs',{lim:1})},
+  {name:'💬 Chat Messages',     fn: ()=>sbG('chat_messages',{lim:1})},
+  {name:'🟢 User Presence',     fn: ()=>sbG('user_presence',{lim:1})},
+  {name:'🔑 Permission Matrix', fn: ()=>sbG('permission_matrix',{lim:1})},
+  {name:'⚙️ Machines',          fn: ()=>sbG('machines',{lim:1})},
+];
+
+async function executeTests(){
+  const box=document.getElementById('test-results');
+  if(!box) return;
+
+  // reset
+  box.innerHTML='<div style="color:#6B7280;font-size:11px">กำลังทดสอบ...</div>';
+  let pass=0, fail=0, warn=0;
+  const rows=[];
+
+  for(const tc of TEST_CASES){
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:8px;padding:5px 8px;'+
+      'background:#F8FAFC;border-radius:6px;font-size:11px';
+    row.innerHTML='<span class="spin" style="flex-shrink:0"></span>'+
+      '<span>'+tc.name+'</span>';
+    box.innerHTML=''; box.appendChild(row);
+    rows.push(row);
+
+    try{
+      const start=Date.now();
+      const data=await tc.fn();
+      const ms=Date.now()-start;
+      const count=Array.isArray(data)?data.length:0;
+      const color=ms>2000?'#D97706':ms>500?'#2563EB':'#16a34a';
+      const icon=ms>2000?'⚠️':'✅';
+      if(ms>2000) warn++; else pass++;
+      row.innerHTML=
+        '<span style="font-size:14px;flex-shrink:0">'+icon+'</span>'+
+        '<span style="flex:1">'+tc.name+'</span>'+
+        '<span style="color:'+color+';font-weight:600">'+ms+'ms</span>'+
+        '<span style="color:#9CA3AF;width:60px;text-align:right">'+count+' rows</span>';
+      row.style.background=ms>2000?'#FFFBEB':'#F0FDF4';
+    }catch(e){
+      fail++;
+      row.innerHTML=
+        '<span style="font-size:14px;flex-shrink:0">❌</span>'+
+        '<span style="flex:1">'+tc.name+'</span>'+
+        '<span style="color:#DC2626;font-size:10px">'+e.message.slice(0,40)+'</span>';
+      row.style.background='#FFF5F5';
+    }
+
+    // re-render all rows
+    box.innerHTML='';
+    rows.forEach(r=>box.appendChild(r));
+    await new Promise(res=>setTimeout(res,50));
+  }
+
+  // Summary
+  const sum=document.createElement('div');
+  sum.style.cssText='margin-top:8px;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;'+
+    'background:'+(fail>0?'#FFF5F5':warn>0?'#FFFBEB':'#F0FDF4')+';'+
+    'color:'+(fail>0?'#DC2626':warn>0?'#D97706':'#166534');
+  sum.innerHTML='✅ ผ่าน '+pass+' &nbsp;|&nbsp; ⚠️ ช้า '+warn+' &nbsp;|&nbsp; ❌ ล้มเหลว '+fail+
+    ' &nbsp;&nbsp; ('+TEST_CASES.length+' tests)';
+  box.appendChild(sum);
+}
+
 // ════════════════════════════════════════════════════════════
 //  COMPANY SETTINGS
 // ════════════════════════════════════════════════════════════
@@ -26342,7 +26443,31 @@ async function prptEditEntry(id){
 
     if(d.mats.length>0) document.getElementById('ped-mat-empty')?.remove();
     _pedMatCount=0;
+    // โหลด mat opts ถ้ายังไม่มี
+    if(!window._pneMatOpts&&window._cachedRMs&&window._cachedRMs.length){
+      window._pneMatOpts=window._cachedRMs.map(m=>`<option value="${m.code}" data-unit="${m.unit||'kg'}">${m.code} — ${m.name||''}</option>`).join('');
+    }
     d.mats.forEach(m=>pedAddMatRow(m));
+    // set select ให้ตรงกับค่าเดิม
+    setTimeout(()=>{
+      d.mats.forEach((m,i)=>{
+        const idx=i+1;
+        const sel=document.getElementById('ped-mcode-'+idx);
+        if(sel&&m.material_code){
+          // หา option ที่ตรง
+          const opt=[...sel.options].find(o=>o.value===m.material_code);
+          if(opt) sel.value=m.material_code;
+          else{
+            // ถ้าไม่พบใน dropdown → เพิ่ม option แล้ว select
+            const newOpt=document.createElement('option');
+            newOpt.value=m.material_code;
+            newOpt.textContent=m.material_code+(m.material_name?' — '+m.material_name:'');
+            sel.insertBefore(newOpt, sel.options[1]);
+            sel.value=m.material_code;
+          }
+        }
+      });
+    },100);
 
     if(d.qcRows.length>0){
       const e=document.getElementById('ped-qc-empty');
@@ -26454,6 +26579,35 @@ function pedClearPhoto(idx){
   const inp=document.getElementById(`ped-photo-input-${idx}`);
   if(inp) inp.value='';
 }
+function pedAutoFillMat(idx){
+  const sel=document.getElementById('ped-mcode-'+idx);
+  const customInput=document.getElementById('ped-mcustom-'+idx);
+  const nameEl=document.getElementById('ped-mname-'+idx);
+  const unitEl=document.getElementById('ped-munit-'+idx);
+  if(!sel) return;
+  if(sel.value==='__custom__'){
+    sel.style.display='none';
+    if(customInput){ customInput.style.display='block'; customInput.focus(); }
+    return;
+  }
+  if(customInput) customInput.style.display='none';
+  sel.style.display='block';
+  const opt=sel.options[sel.selectedIndex];
+  if(opt&&opt.value){
+    // autofill name จาก _cachedRMs
+    const rm=(window._cachedRMs||[]).find(r=>r.code===opt.value);
+    if(rm){
+      if(nameEl) nameEl.value=rm.name||rm.description||opt.text.split(' — ')[1]||'';
+      if(unitEl) unitEl.value=rm.unit||'kg';
+    }else{
+      // ดึงจาก option text "CODE — NAME"
+      const parts=opt.text.split(' — ');
+      if(nameEl&&parts[1]) nameEl.value=parts[1];
+      if(unitEl&&opt.dataset.unit) unitEl.value=opt.dataset.unit;
+    }
+  }
+}
+
 function pedCalcStepMin(idx){
   const s=document.getElementById(`ped-sstart-${idx}`)?.value;
   const e=document.getElementById(`ped-send-${idx}`)?.value;
@@ -26487,8 +26641,18 @@ function pedAddMatRow(data){
       </select>
     </td>
     <td style="padding:3px 4px">
-      <input type="text" id="ped-mcode-${idx}" value="${d.material_code||''}"
-        style="width:125px;font-size:10px;border:1px solid #FCD34D;border-radius:4px;padding:2px">
+      <div style="position:relative">
+        <select id="ped-mcode-${idx}"
+          onchange="pedAutoFillMat(${idx})"
+          style="width:125px;font-size:10px;border:1px solid #FCD34D;border-radius:4px;padding:2px">
+          <option value="">— เลือก —</option>
+          ${window._pneMatOpts||''}
+          <option value="__custom__">กรอกเอง</option>
+        </select>
+        <input type="text" id="ped-mcustom-${idx}"
+          placeholder="พิมพ์รหัสวัสดุ"
+          style="display:none;width:125px;font-size:10px;border:1px solid #FCD34D;border-radius:4px;padding:2px">
+      </div>
     </td>
     <td style="padding:3px 4px">
       <input type="text" id="ped-mname-${idx}" value="${(d.material_name||'').replace(/"/g,'&quot;')}"
@@ -26550,7 +26714,12 @@ async function pedSaveAll(id){
 
   const matsData=matsEls.map(tr=>{
     const idx=tr.id.replace('ped-mr-','');
-    const code=getV(`ped-mcode-${idx}`);
+    const selEl=document.getElementById('ped-mcode-'+idx);
+    const customEl=document.getElementById('ped-mcustom-'+idx);
+    let code='';
+    if(selEl&&selEl.value==='__custom__'&&customEl) code=customEl.value.trim();
+    else if(selEl) code=selEl.value;
+    code=code||getV('ped-mcode-'+idx);
     if(!code) return null;
     return{
       step_id:0, log_id:id, pp_no:ppNo, step_name:getV(`ped-mstep-${idx}`),
