@@ -130,6 +130,7 @@ tr:hover td{background:var(--bg2)}
   padding:14px 18px;border-bottom:1px solid var(--border);
   font-weight:800;font-size:15px;color:var(--navy);position:sticky;top:0;background:white}
 #mo-b{padding:16px 18px}
+#presence-bar.pb-visible{display:flex!important}
 #mo.on[data-full="1"] .mbox #mo-b{
   padding:16px 20px 40px;
   max-height:calc(100vh - 58px);
@@ -3274,6 +3275,13 @@ async function doLogout(){
   if(!confirm('ออกจากระบบไหมครับ?'))return;
   await logA('LOGOUT','auth','ออกจากระบบ');
   CU=null;
+  // ซ่อน presence bar เมื่อ logout
+  const pb=document.getElementById('presence-bar');
+  const cp=document.getElementById('chat-panel');
+  if(pb){ pb.style.display='none'; pb.classList.remove('pb-visible'); }
+  if(cp){ cp.style.display='none'; _pbChatOpen=false; }
+  document.body.style.paddingBottom='0';
+  if(_pbInterval){ clearInterval(_pbInterval); _pbInterval=null; }
   document.getElementById('app').style.display='none';
   document.getElementById('login-page').style.display='flex';
   document.getElementById('lu').value='';document.getElementById('lp').value='';
@@ -28050,7 +28058,7 @@ setInterval(tickClock,1000);tickClock();
   <!-- ████ PRESENCE + CHAT WIDGET ████ -->
   <div id="presence-bar" style="position:fixed;bottom:0;left:0;right:0;height:38px;
     background:rgba(27,58,92,.96);backdrop-filter:blur(8px);
-    display:flex;align-items:center;padding:0 14px;gap:10px;z-index:800;
+    display:none;align-items:center;padding:0 14px;gap:10px;z-index:800;
     border-top:1px solid rgba(255,255,255,.12)">
     <!-- Online users -->
     <div style="font-size:10px;color:rgba(255,255,255,.6);white-space:nowrap">🟢 ออนไลน์:</div>
@@ -28142,35 +28150,54 @@ setInterval(tickClock,1000);tickClock();
   // ── Presence ───────────────────────────────────────────────
   async function pbUpdatePresence(){
     if(!CU?.username) return;
-    const pageName={
-      dashboard:'📊 Dashboard',rm:'🧱 Stock RM',
-      'wip-stock':'🏭 Stock WIP',fg:'📦 Stock FG',
-      production:'🔧 Production',forecast:'📈 Forecast',
-      'prod-report':'📋 Production Report','oee-log':'⏱ OEE',
-      hr:'👥 HR','stock-report':'📊 Stock Report',pm:'🔧 PM'
-    }[CUR]||CUR;
+    const pageNames={
+      dashboard:'📊 Dashboard', rm:'🧱 Stock RM',
+      'wip-stock':'🏭 Stock WIP', fg:'📦 Stock FG',
+      production:'🔧 Production', forecast:'📈 Forecast',
+      'prod-report':'📋 Production Report', 'oee-log':'⏱ OEE',
+      hr:'👥 HR', 'stock-report':'📊 Stock Report', pm:'🔧 PM',
+      'bom-mgr':'📋 BOM', 'wip-prod':'🔄 WIP Production'
+    };
+    const pageName=pageNames[CUR]||CUR||'—';
+    const pageEl=document.getElementById('pb-page-tag');
+    if(pageEl) pageEl.textContent=pageName;
+
     try{
-      // upsert presence
-      const existing=(await sbG('user_presence',{f:[`username=eq.${CU.username}`]}).catch(()=>[]))[0];
-      if(existing){
-        await sbU('user_presence',{
-          current_page:CUR, last_seen:new Date().toISOString(),
-          full_name:CU.full_name||CU.username, session_id:_pbSessionId
-        },`username=eq.${CU.username}`).catch(()=>{});
-      }else{
+      // timeout 5s ป้องกันค้าง
+      const ctrl=new AbortController();
+      const tmo=setTimeout(()=>ctrl.abort(),5000);
+      try{
         await sbP('user_presence',{
-          username:CU.username, full_name:CU.full_name||CU.username,
-          current_page:CUR, last_seen:new Date().toISOString(), session_id:_pbSessionId
-        }).catch(()=>{});
-      }
-      // โหลด online users (active ใน 2 นาที)
+          username:CU.username,
+          full_name:CU.full_name||CU.username,
+          current_page:CUR,
+          last_seen:new Date().toISOString(),
+          session_id:_pbSessionId
+        }).catch(async ()=>{
+          // ถ้า insert fail (duplicate) → update แทน
+          await sbU('user_presence',{
+            current_page:CUR,
+            last_seen:new Date().toISOString(),
+            full_name:CU.full_name||CU.username,
+            session_id:_pbSessionId
+          },'username=eq.'+CU.username).catch(()=>{});
+        });
+      }finally{ clearTimeout(tmo); }
+
+      // โหลด users ออนไลน์ (active 2 นาที)
       const since=new Date(Date.now()-2*60*1000).toISOString();
       const users=await sbG('user_presence',{
-        f:[`last_seen=gte.${since}`], ord:'last_seen.desc'
+        f:['last_seen=gte.'+since],
+        ord:'last_seen.desc'
       }).catch(()=>[]);
-      _pbOnline=users;
-      pbRenderPresence(users, pageName);
-    }catch(e){}
+      _pbOnline=users||[];
+      pbRenderPresence(_pbOnline, pageName);
+    }catch(e){
+      console.warn('[Presence] update error:',e.message);
+      // แสดง offline gracefully
+      const bar=document.getElementById('pb-users');
+      if(bar) bar.innerHTML='<span style="color:rgba(255,255,255,.4);font-size:10px">offline</span>';
+    }
   }
 
   function pbRenderPresence(users, pageName){
@@ -28417,12 +28444,11 @@ setInterval(tickClock,1000);tickClock();
   }
 
   // เพิ่ม margin-bottom ให้ body เพื่อกัน presence bar ทับ content
-  document.body.style.paddingBottom='44px';
+  // paddingBottom set on login
 
   // init เมื่อ login แล้ว
-  document.addEventListener('DOMContentLoaded',()=>{
-    setTimeout(pbInit, 2000);
-  });
+  // pbInit จะถูกเรียกตอน login สำเร็จเท่านั้น
+  // ไม่เรียก pbInit ตอน DOMContentLoaded เพราะ CU=null
   </script>
 
 </body>
