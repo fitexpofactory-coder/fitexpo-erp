@@ -26124,6 +26124,19 @@ async function prptEditEntry(id){
   const l=logArr[0];
   if(!l){ alert('ไม่พบบันทึก'); return; }
 
+  // โหลด material dropdown options
+  if(!window._pneMatOpts||window._pneMatOpts.length<10){
+    try{
+      const [_rm,_wip]=await Promise.all([
+        sbG('master_material',{s:'code,name,unit',ord:'code.asc',lim:600}).catch(()=>[]),
+        sbG('wip_master',{s:'code,name',ord:'code.asc',lim:200}).catch(()=>[])
+      ]);
+      window._pneMatOpts=[...(_rm||[]),...(_wip||[]).map(w=>({code:w.code,name:w.name,unit:'kg'}))]
+        .map(m=>'<option value="'+(m.code||'')+'" data-unit="'+(m.unit||'kg')+'">'+(m.code||'')+' — '+(m.name||'')+'</option>')
+        .join('');
+    }catch(e){}
+  }
+
   const mats = allMats.filter(m=>m.step_name!=='__QC__'&&m.step_name!=='__PHOTO__');
   const qcRaw= allMats.filter(m=>m.step_name==='__QC__');
   const photoRaw=allMats.filter(m=>m.step_name==='__PHOTO__');
@@ -28069,7 +28082,7 @@ setInterval(tickClock,1000);tickClock();
     <button id="pb-chat-btn" onclick="pbToggleChat()"
       style="border:none;background:rgba(255,255,255,.15);color:white;border-radius:20px;
       padding:5px 14px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:6px;
-      white-space:nowrap;transition:background .2s">
+      white-space:nowrap;transition:background .2s" class="pb-login-hide">
       💬 แชต
       <span id="pb-unread" style="display:none;background:#DC2626;color:white;
         border-radius:50%;width:16px;height:16px;font-size:9px;display:none;
