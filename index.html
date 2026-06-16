@@ -3351,11 +3351,13 @@ function showApp(){
 }
 
 function applyPerms(){
-  const al=RM[CU?.role]||[];
+  // ถ้า role ไม่อยู่ใน RM → ใช้ admin (เพื่อให้เห็นทุก menu)
+  const al=RM[CU?.role]||RM['admin']||[];
   // ซ่อน/แสดง ribbon items ตามสิทธิ์
   document.querySelectorAll('.rni[data-page]').forEach(el=>{
     el.style.display=al.includes(el.dataset.page)?'':'none';
   });
+  console.log('[Perms] role='+CU?.role+' pages='+al.length);
 }
 
 // ════════════════════════════════════════════════════════════
