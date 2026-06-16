@@ -6,7 +6,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>FitExpo ERP v4 — build 20260605_025704</title>
+<title>FitExpo ERP v4 — 20260616_0910 [mat-trace]</title>
 <!-- Build: 20260605_0223 | savedLog fix applied -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.0/axios.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -3363,7 +3363,12 @@ function applyPerms(){
   document.querySelectorAll('.rni[data-page]').forEach(el=>{
     el.style.display=al.includes(el.dataset.page)?'':'none';
   });
-  console.log('[Perms] role='+CU?.role+' pages='+al.length);
+  console.log('[Perms] role='+CU?.role+' pages='+al.length+' mat-trace='+(al.includes('mat-trace')?'YES':'NO'));
+  // Debug: log hidden items
+  document.querySelectorAll('.rni[data-page]').forEach(el=>{
+    if(el.dataset.page==='mat-trace')
+      console.log('[NavItem] mat-trace display='+el.style.display+' included='+al.includes('mat-trace'));
+  });
   // preload mat-trace data in background
   if(typeof mtLoadMaterials==='function'&&_mtAllMats.length===0){
     setTimeout(mtLoadMaterials,1000);
