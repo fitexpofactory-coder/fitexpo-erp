@@ -3177,8 +3177,8 @@ CREATE INDEX IF NOT EXISTS idx_pbp_date ON prod_batch_plan(plan_date);</pre>
           style="flex:1;overflow-y:auto;display:flex;flex-direction:column;
           gap:3px;min-height:200px;border:1px solid var(--border);
           border-radius:6px;padding:4px;background:#FAFAFA">
-          <div style="text-align:center;color:var(--text3);padding:20px;font-size:12px">
-            กำลังโหลด... <span class="spin"></span>
+          <div id="mt-init-msg" style="text-align:center;color:var(--text3);padding:20px;font-size:12px">
+            <span class="spin"></span> กำลังโหลดวัสดุ...
           </div>
         </div>
 
@@ -3359,13 +3359,15 @@ function showApp(){
 }
 
 function applyPerms(){
-  // ถ้า role ไม่อยู่ใน RM → ใช้ admin (เพื่อให้เห็นทุก menu)
   const al=RM[CU?.role]||RM['admin']||[];
-  // ซ่อน/แสดง ribbon items ตามสิทธิ์
   document.querySelectorAll('.rni[data-page]').forEach(el=>{
     el.style.display=al.includes(el.dataset.page)?'':'none';
   });
   console.log('[Perms] role='+CU?.role+' pages='+al.length);
+  // preload mat-trace data in background
+  if(typeof mtLoadMaterials==='function'&&_mtAllMats.length===0){
+    setTimeout(mtLoadMaterials,1000);
+  }
 }
 
 // ════════════════════════════════════════════════════════════
@@ -3418,7 +3420,7 @@ const META={dashboard:['Dashboard','System Overview'],rm:['Stock RM & PK',''],
 };
 
 function nav(id){
-  const al=RM[CU?.role]||[];
+  const al=RM[CU?.role]||RM['admin']||[];
   if(!al.includes(id)&&id!=='dashboard'){alert('ไม่มีสิทธิ์ครับ');return;}
   // ซ่อนทุก page แล้วแสดง page ที่เลือก
   document.querySelectorAll('.pg').forEach(p=>p.classList.remove('on'));
@@ -16502,6 +16504,8 @@ async function mtLoadMaterials(){
     ];
     _mtBomFG=fgBom||[];
     _mtBomWIP=wipBom||[];
+    const initMsg=document.getElementById('mt-init-msg');
+    if(initMsg) initMsg.style.display='none';
     mtFilterList();
     console.log('[MatTrace] loaded:',_mtAllMats.length,'mats',_mtBomFG.length,'FG BOM',_mtBomWIP.length,'WIP BOM');
     const countEl=document.getElementById('mt-count');
