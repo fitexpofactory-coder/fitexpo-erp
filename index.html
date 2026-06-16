@@ -3153,14 +3153,14 @@ CREATE INDEX IF NOT EXISTS idx_pbp_date ON prod_batch_plan(plan_date);</pre>
   <div class="mbox"><div class="mhdr"><div class="mtit" id="mo-t">—</div><button class="mclose" onclick="closeMo()">✕</button></div><div id="mo-b"></div></div>
   <!-- ████ MAT TRACE MODULE ████ -->
   <div class="pg" id="pg-mat-trace">
-    <div style="display:grid;grid-template-columns:300px 1fr;gap:16px;height:calc(100vh - 100px)">
+    <div class="g12" style="height:calc(100vh - 80px)">
 
       <!-- Left: Search panel -->
-      <div class="card" style="display:flex;flex-direction:column;gap:8px">
-        <div class="ct">🔍 ค้นหาวัสดุ / ตรวจสอบ BOM</div>
+      <div class="card" style="display:flex;flex-direction:column;overflow:hidden;height:100%">
+        <div class="ct" style="flex-shrink:0">🔍 ค้นหาวัสดุ / ตรวจสอบ BOM</div>
 
         <!-- Type filter -->
-        <div class="ftabs" id="mt-type-tabs" style="font-size:11px">
+        <div class="ftabs" id="mt-type-tabs" style="font-size:11px;flex-shrink:0">
           <div class="ftab on" onclick="mtSwitchType('all',this)">ทั้งหมด</div>
           <div class="ftab" onclick="mtSwitchType('rm',this)">RM</div>
           <div class="ftab" onclick="mtSwitchType('pk',this)">PK</div>
@@ -3168,28 +3168,36 @@ CREATE INDEX IF NOT EXISTS idx_pbp_date ON prod_batch_plan(plan_date);</pre>
         </div>
 
         <!-- Search -->
-        <input type="text" class="fc2" id="mt-search"
-          placeholder="พิมพ์รหัส หรือ ชื่อวัสดุ..."
-          oninput="mtFilterList()">
+        <input type="text" class="fc2 mb2" id="mt-search"
+          placeholder="🔍 พิมพ์รหัส หรือ ชื่อวัสดุ..."
+          oninput="mtFilterList()" style="flex-shrink:0">
 
         <!-- Material list -->
-        <div id="mt-mat-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:3px">
+        <div id="mt-mat-list"
+          style="flex:1;overflow-y:auto;display:flex;flex-direction:column;
+          gap:3px;min-height:200px;border:1px solid var(--border);
+          border-radius:6px;padding:4px;background:#FAFAFA">
           <div style="text-align:center;color:var(--text3);padding:20px;font-size:12px">
-            กด <b>โหลดรายการ</b> เพื่อเริ่ม
+            กำลังโหลด... <span class="spin"></span>
           </div>
         </div>
 
-        <button class="btn btnP" onclick="mtLoadMaterials()" style="font-size:12px">
-          🔄 โหลดรายการวัสดุทั้งหมด
-        </button>
+        <div style="display:flex;gap:6px;margin-top:8px;flex-shrink:0">
+          <button class="btn btnP" onclick="mtLoadMaterials()" style="flex:1;font-size:12px">
+            🔄 โหลด/รีเฟรช
+          </button>
+          <div id="mt-count" style="font-size:10px;color:#6B7280;align-self:center"></div>
+        </div>
       </div>
 
       <!-- Right: BOM usage panel -->
-      <div class="card" id="mt-result-panel">
+      <div class="card" id="mt-result-panel" style="overflow-y:auto;height:100%">
         <div style="text-align:center;color:var(--text3);padding:60px 0">
           <div style="font-size:36px;margin-bottom:10px">🔍</div>
-          <div>เลือกวัสดุจากรายการทางซ้าย</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:6px">เพื่อดูว่าถูกใช้ใน BOM ไหนบ้าง</div>
+          <div style="font-size:13px">เลือกวัสดุจากรายการทางซ้าย</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:6px">
+            เพื่อดูว่าถูกใช้ใน BOM สินค้าและ WIP ไหนบ้าง
+          </div>
         </div>
       </div>
     </div>
@@ -16496,6 +16504,8 @@ async function mtLoadMaterials(){
     _mtBomWIP=wipBom||[];
     mtFilterList();
     console.log('[MatTrace] loaded:',_mtAllMats.length,'mats',_mtBomFG.length,'FG BOM',_mtBomWIP.length,'WIP BOM');
+    const countEl=document.getElementById('mt-count');
+    if(countEl) countEl.textContent=_mtAllMats.length+' รายการ';
   }catch(e){
     if(list) list.innerHTML='<div class="al ale">❌ '+e.message+'</div>';
   }
