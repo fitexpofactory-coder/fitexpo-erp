@@ -3174,7 +3174,7 @@ CREATE INDEX IF NOT EXISTS idx_pbp_date ON prod_batch_plan(plan_date);</pre>
 
         <!-- Material list -->
         <div id="mt-mat-list"
-          style="height:400px;overflow-y:auto;
+          style="height:400px;overflow-y:auto;display:block;
           border:1px solid var(--border);
           border-radius:6px;padding:4px;background:#FAFAFA">
           <div id="mt-init-msg" style="text-align:center;color:var(--text3);padding:20px;font-size:12px">
@@ -3220,6 +3220,27 @@ let _payrollData=[], _lastMRC=null;
 //  ⚙️ CONFIG — ใส่ anon key ที่นี่
 // ════════════════════════════════════════════════════════════
 const SB='https://meehbfcmnmposarkejuh.supabase.co';
+
+// MutationObserver: ตรวจ pg-mat-trace เมื่อได้รับ class "on"
+(function(){
+  const obs=new MutationObserver(function(mutations){
+    mutations.forEach(function(m){
+      if(m.target.id==='pg-mat-trace'&&m.target.classList.contains('on')){
+        setTimeout(function(){
+          if(typeof _mtAllMats!=='undefined'&&_mtAllMats.length===0){
+            if(typeof mtLoadMaterials==='function') mtLoadMaterials();
+          } else {
+            if(typeof mtFilterList==='function') mtFilterList();
+          }
+        },30);
+      }
+    });
+  });
+  document.addEventListener('DOMContentLoaded',function(){
+    var el=document.getElementById('pg-mat-trace');
+    if(el) obs.observe(el,{attributes:true,attributeFilter:['class']});
+  });
+})();
 
 // ── Company Info (เก็บใน localStorage) ───────────────────
 const COMPANY_INFO = {
@@ -3456,7 +3477,12 @@ function loadPage(id){
     'supp-mgr':loadSuppMgr,'cust-mgr':loadCustMgr,
     import:initImport,actlog:loadActLog,users:loadUsers,
     'oee-log':loadOEELog,'oee-dashboard':loadOEEDash,machines:loadMachines,
-    'mat-trace':()=>{ if(typeof _mtAllMats!=='undefined'&&_mtAllMats.length===0) mtLoadMaterials(); else if(typeof mtFilterList==='function') mtFilterList(); },
+    'mat-trace':()=>{
+      setTimeout(()=>{
+        if(_mtAllMats.length===0) mtLoadMaterials();
+        else { mtFilterList(); }
+      },50);
+    },
     permissions:()=>loadPerms('admin'),
     'inv-locations':loadInvLocations,'inv-assign':()=>showInvAssign('RM'),
     'inv-count':initInvCount,'inv-sessions':loadInvSessions,'inv-sheet':loadInvSessSelect,
@@ -16512,7 +16538,13 @@ async function mtLoadMaterials(){
     _mtBomWIP=wipBom||[];
     const initMsg=document.getElementById('mt-init-msg');
     if(initMsg) initMsg.style.display='none';
-    mtFilterList();
+    // force render ด้วย rAF
+    setTimeout(()=>{
+      mtFilterList();
+      // scroll to top เพื่อ trigger repaint
+      const el=document.getElementById('mt-mat-list');
+      if(el){ el.scrollTop=0; void el.offsetHeight; }
+    },50);
     console.log('[MatTrace] loaded:',_mtAllMats.length,'mats',_mtBomFG.length,'FG BOM',_mtBomWIP.length,'WIP BOM');
     const countEl=document.getElementById('mt-count');
     if(countEl) countEl.textContent=_mtAllMats.length+' รายการ';
@@ -16531,7 +16563,9 @@ function mtSwitchType(type, el){
 
 function mtFilterList(){
   const list=document.getElementById('mt-mat-list');
-  if(!list) return;
+  if(!list){ setTimeout(mtFilterList,100); return; }
+  // force visible
+  list.style.display='block';
   const q=(document.getElementById('mt-search')?.value||'').toLowerCase();
   let filtered=_mtAllMats.filter(m=>{
     if(_mtType!=='all'&&m.type!==_mtType) return false;
@@ -16542,6 +16576,8 @@ function mtFilterList(){
     list.innerHTML='<div style="text-align:center;color:#9CA3AF;font-size:11px;padding:16px">ไม่พบ</div>';
     return;
   }
+  // force list visible
+  list.style.display='block';
   list.innerHTML=filtered.map(m=>{
     const typeColor=m.type==='wip'?'#7C3AED':m.type==='pk'?'#D97706':'#1B5EC7';
     const typeBg=m.type==='wip'?'#EDE9FE':m.type==='pk'?'#FEF3C7':'#DBEAFE';
