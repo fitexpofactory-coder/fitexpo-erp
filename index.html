@@ -623,7 +623,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
         <div class="rni" onclick="nav('production')" data-page="production">🔧 Production Order / ใบสั่งผลิต</div>
         <div class="rni" onclick="nav('prod-plan')" data-page="prod-plan">📅 Production Plan / วางแผนผลิต</div>
         <div class="rni" onclick="nav('bom-mgr')" data-page="bom-mgr">📋 BOM Manager</div>
-        <div class="rni" onclick="nav('mat-trace')" data-page="mat-trace">🔍 ตรวจสอบวัสดุใน BOM</div>
+        <div class="rni" onclick="nav('mat-trace');setTimeout(function(){if(typeof mtLoadMaterials==='function'){if(typeof _mtAllMats!=='undefined'&&_mtAllMats.length>0)mtFilterList();else mtLoadMaterials();}},80);" data-page="mat-trace">🔍 ตรวจสอบวัสดุใน BOM</div>
         <div class="rni" onclick="nav('wip-prod')" data-page="wip-prod">🔄 WIP Production</div>
         <div class="rni" onclick="nav('print-docs')" data-page="print-docs">🖨️ Batch Record</div>
         <div class="rni" onclick="nav('rm-matrix')" data-page="rm-matrix">📊 Matrix RM</div>
@@ -16563,8 +16563,8 @@ function mtSwitchType(type, el){
 
 function mtFilterList(){
   const list=document.getElementById('mt-mat-list');
-  if(!list){ setTimeout(mtFilterList,100); return; }
-  // force visible
+  console.log('[mtFilter] called. list='+!!list+' _mtAllMats='+_mtAllMats.length+' _mtType='+_mtType);
+  if(!list){ console.warn('[mtFilter] mt-mat-list not found, retry'); setTimeout(mtFilterList,200); return; }
   list.style.display='block';
   const q=(document.getElementById('mt-search')?.value||'').toLowerCase();
   let filtered=_mtAllMats.filter(m=>{
@@ -16572,37 +16572,40 @@ function mtFilterList(){
     if(q&&!m.code.toLowerCase().includes(q)&&!m.name.toLowerCase().includes(q)) return false;
     return true;
   });
+  console.log('[mtFilter] filtered='+filtered.length);
   if(!filtered.length){
-    list.innerHTML='<div style="text-align:center;color:#9CA3AF;font-size:11px;padding:16px">ไม่พบ</div>';
+    list.style.display='block';
+    list.innerHTML='<div style="text-align:center;color:#9CA3AF;font-size:11px;padding:16px">ไม่พบ (loaded:'+_mtAllMats.length+' type:'+_mtType+')</div>';
+    const countEl=document.getElementById('mt-count');
+    if(countEl) countEl.textContent='0 รายการ';
     return;
   }
-  // force list visible
-  list.style.display='block';
   list.innerHTML=filtered.map(m=>{
     const typeColor=m.type==='wip'?'#7C3AED':m.type==='pk'?'#D97706':'#1B5EC7';
     const typeBg=m.type==='wip'?'#EDE9FE':m.type==='pk'?'#FEF3C7':'#DBEAFE';
     const typeLabel=m.type==='wip'?'WIP':m.type==='pk'?'PK':'RM';
-    // นับว่าถูกใช้ใน BOM กี่ที่
     const fgCount=_mtBomFG.filter(r=>r.mat_code===m.code).length;
     const wipCount=_mtBomWIP.filter(r=>r.rm_code===m.code).length;
     const total=fgCount+wipCount;
     return '<div onclick="mtShowUsage(\''+m.code+'\')" style="'+
       'padding:6px 10px;border-radius:6px;cursor:pointer;border:1px solid #E5E7EB;'+
-      'display:flex;align-items:center;gap:8px;background:white;transition:background .15s"'+
-      ' onmouseover="this.style.background=\'#EFF6FF\'" onmouseout="this.style.background=\'white\'">'+
+      'display:flex;align-items:center;gap:8px;background:white;margin-bottom:3px">'+
       '<span style="background:'+typeBg+';color:'+typeColor+';padding:1px 5px;border-radius:3px;'+
         'font-size:9px;flex-shrink:0;font-weight:600">'+typeLabel+'</span>'+
       '<div style="flex:1;min-width:0">'+
         '<div style="font-size:11px;font-weight:600;color:#1B3A5C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+m.code+'</div>'+
         '<div style="font-size:10px;color:#6B7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+m.name+'</div>'+
       '</div>'+
-      (total>0?
-        '<span style="background:#FEF3C7;color:#92400E;border-radius:10px;padding:1px 7px;font-size:9px;flex-shrink:0;font-weight:700">'+
-          total+' BOM</span>':
+      (total>0?'<span style="background:#FEF3C7;color:#92400E;border-radius:10px;padding:1px 7px;font-size:9px;flex-shrink:0;font-weight:700">'+total+' BOM</span>':
         '<span style="color:#D1D5DB;font-size:9px">ไม่ได้ใช้</span>')+
       '</div>';
   }).join('');
+  list.style.display='block';
+  const countEl=document.getElementById('mt-count');
+  if(countEl) countEl.textContent=filtered.length+' รายการ';
+  console.log('[mtFilter] rendered '+filtered.length+' items OK');
 }
+
 
 async function mtShowUsage(code){
   const panel=document.getElementById('mt-result-panel');
