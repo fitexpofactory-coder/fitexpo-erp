@@ -623,6 +623,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
         <div class="rni" onclick="nav('production')" data-page="production">🔧 Production Order / ใบสั่งผลิต</div>
         <div class="rni" onclick="nav('prod-plan')" data-page="prod-plan">📅 Production Plan / วางแผนผลิต</div>
         <div class="rni" onclick="nav('bom-mgr')" data-page="bom-mgr">📋 BOM Manager</div>
+        <div class="rni" onclick="nav('mat-trace')" data-page="mat-trace">🔍 ตรวจสอบวัสดุใน BOM</div>
         <div class="rni" onclick="nav('wip-prod')" data-page="wip-prod">🔄 WIP Production</div>
         <div class="rni" onclick="nav('print-docs')" data-page="print-docs">🖨️ Batch Record</div>
         <div class="rni" onclick="nav('rm-matrix')" data-page="rm-matrix">📊 Matrix RM</div>
@@ -3150,6 +3151,50 @@ CREATE INDEX IF NOT EXISTS idx_pbp_date ON prod_batch_plan(plan_date);</pre>
 <!-- MODAL -->
 <div class="mo" id="mo" onclick="if(event.target===this)closeMo()">
   <div class="mbox"><div class="mhdr"><div class="mtit" id="mo-t">—</div><button class="mclose" onclick="closeMo()">✕</button></div><div id="mo-b"></div></div>
+  <!-- ████ MAT TRACE MODULE ████ -->
+  <div class="pg" id="pg-mat-trace">
+    <div style="display:grid;grid-template-columns:300px 1fr;gap:16px;height:calc(100vh - 100px)">
+
+      <!-- Left: Search panel -->
+      <div class="card" style="display:flex;flex-direction:column;gap:8px">
+        <div class="ct">🔍 ค้นหาวัสดุ / ตรวจสอบ BOM</div>
+
+        <!-- Type filter -->
+        <div class="ftabs" id="mt-type-tabs" style="font-size:11px">
+          <div class="ftab on" onclick="mtSwitchType('all',this)">ทั้งหมด</div>
+          <div class="ftab" onclick="mtSwitchType('rm',this)">RM</div>
+          <div class="ftab" onclick="mtSwitchType('pk',this)">PK</div>
+          <div class="ftab" onclick="mtSwitchType('wip',this)">WIP</div>
+        </div>
+
+        <!-- Search -->
+        <input type="text" class="fc2" id="mt-search"
+          placeholder="พิมพ์รหัส หรือ ชื่อวัสดุ..."
+          oninput="mtFilterList()">
+
+        <!-- Material list -->
+        <div id="mt-mat-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:3px">
+          <div style="text-align:center;color:var(--text3);padding:20px;font-size:12px">
+            กด <b>โหลดรายการ</b> เพื่อเริ่ม
+          </div>
+        </div>
+
+        <button class="btn btnP" onclick="mtLoadMaterials()" style="font-size:12px">
+          🔄 โหลดรายการวัสดุทั้งหมด
+        </button>
+      </div>
+
+      <!-- Right: BOM usage panel -->
+      <div class="card" id="mt-result-panel">
+        <div style="text-align:center;color:var(--text3);padding:60px 0">
+          <div style="font-size:36px;margin-bottom:10px">🔍</div>
+          <div>เลือกวัสดุจากรายการทางซ้าย</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:6px">เพื่อดูว่าถูกใช้ใน BOM ไหนบ้าง</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 <script>
 // ════════════════════════════════════════════════════════════
@@ -16424,6 +16469,222 @@ async function executeTests(){
     ' &nbsp;&nbsp; ('+TEST_CASES.length+' tests)';
   box.appendChild(sum);
 }
+
+
+// ════════════════════════════════════════════════════════════
+//  MAT TRACE — ตรวจสอบวัสดุใน BOM
+// ════════════════════════════════════════════════════════════
+let _mtAllMats=[], _mtType='all', _mtBomFG=[], _mtBomWIP=[];
+
+async function mtLoadMaterials(){
+  const list=document.getElementById('mt-mat-list');
+  if(list) list.innerHTML='<div style="text-align:center;padding:20px"><span class="spin"></span> โหลด...</div>';
+  try{
+    const [rm, wip, fgBom, wipBom]=await Promise.all([
+      sbG('master_material',{s:'code,name,unit,category',ord:'code.asc',lim:800}).catch(()=>[]),
+      sbG('wip_master',{s:'code,name,batch_kg,yield_pct',ord:'code.asc',lim:300}).catch(()=>[]),
+      sbG('bom_master',{s:'sku_code,mat_code,qty_per_batch,pct_of_batch,unit',lim:3000}).catch(()=>[]),
+      sbG('wip_bom',{s:'wip_code,rm_code,qty_per_batch,pct_of_batch,unit',lim:2000}).catch(()=>[])
+    ]);
+    _mtAllMats=[
+      ...(rm||[]).map(m=>({...m,type:m.code?.startsWith('PK')?'pk':'rm'})),
+      ...(wip||[]).map(m=>({code:m.code,name:m.name,unit:'kg',category:'WIP',type:'wip',batchKg:m.batch_kg,yieldPct:m.yield_pct}))
+    ];
+    _mtBomFG=fgBom||[];
+    _mtBomWIP=wipBom||[];
+    mtFilterList();
+    console.log('[MatTrace] loaded:',_mtAllMats.length,'mats',_mtBomFG.length,'FG BOM',_mtBomWIP.length,'WIP BOM');
+  }catch(e){
+    if(list) list.innerHTML='<div class="al ale">❌ '+e.message+'</div>';
+  }
+}
+
+function mtSwitchType(type, el){
+  _mtType=type;
+  document.querySelectorAll('#mt-type-tabs .ftab').forEach(t=>t.classList.remove('on'));
+  if(el) el.classList.add('on');
+  mtFilterList();
+}
+
+function mtFilterList(){
+  const list=document.getElementById('mt-mat-list');
+  if(!list) return;
+  const q=(document.getElementById('mt-search')?.value||'').toLowerCase();
+  let filtered=_mtAllMats.filter(m=>{
+    if(_mtType!=='all'&&m.type!==_mtType) return false;
+    if(q&&!m.code.toLowerCase().includes(q)&&!m.name.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  if(!filtered.length){
+    list.innerHTML='<div style="text-align:center;color:#9CA3AF;font-size:11px;padding:16px">ไม่พบ</div>';
+    return;
+  }
+  list.innerHTML=filtered.map(m=>{
+    const typeColor=m.type==='wip'?'#7C3AED':m.type==='pk'?'#D97706':'#1B5EC7';
+    const typeBg=m.type==='wip'?'#EDE9FE':m.type==='pk'?'#FEF3C7':'#DBEAFE';
+    const typeLabel=m.type==='wip'?'WIP':m.type==='pk'?'PK':'RM';
+    // นับว่าถูกใช้ใน BOM กี่ที่
+    const fgCount=_mtBomFG.filter(r=>r.mat_code===m.code).length;
+    const wipCount=_mtBomWIP.filter(r=>r.rm_code===m.code).length;
+    const total=fgCount+wipCount;
+    return '<div onclick="mtShowUsage(\''+m.code+'\')" style="'+
+      'padding:6px 10px;border-radius:6px;cursor:pointer;border:1px solid #E5E7EB;'+
+      'display:flex;align-items:center;gap:8px;background:white;transition:background .15s"'+
+      ' onmouseover="this.style.background=\'#EFF6FF\'" onmouseout="this.style.background=\'white\'">'+
+      '<span style="background:'+typeBg+';color:'+typeColor+';padding:1px 5px;border-radius:3px;'+
+        'font-size:9px;flex-shrink:0;font-weight:600">'+typeLabel+'</span>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="font-size:11px;font-weight:600;color:#1B3A5C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+m.code+'</div>'+
+        '<div style="font-size:10px;color:#6B7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+m.name+'</div>'+
+      '</div>'+
+      (total>0?
+        '<span style="background:#FEF3C7;color:#92400E;border-radius:10px;padding:1px 7px;font-size:9px;flex-shrink:0;font-weight:700">'+
+          total+' BOM</span>':
+        '<span style="color:#D1D5DB;font-size:9px">ไม่ได้ใช้</span>')+
+      '</div>';
+  }).join('');
+}
+
+async function mtShowUsage(code){
+  const panel=document.getElementById('mt-result-panel');
+  if(!panel) return;
+
+  const mat=_mtAllMats.find(m=>m.code===code)||{code,name:'—'};
+  const typeColor=mat.type==='wip'?'#7C3AED':mat.type==='pk'?'#D97706':'#1B5EC7';
+
+  // หา BOM ที่ใช้ material นี้
+  const inFG =_mtBomFG.filter(r=>r.mat_code===code);
+  const inWIP=_mtBomWIP.filter(r=>r.rm_code===code);
+
+  // โหลดข้อมูลสินค้า FG และ WIP ที่ใช้
+  const fgCodes=[...new Set(inFG.map(r=>r.sku_code))];
+  const wipCodes=[...new Set(inWIP.map(r=>r.wip_code))];
+
+  let fgMasters=[], wipMasters=[];
+  if(fgCodes.length)
+    fgMasters=await sbG('master_product',{f:['sku=in.('+fgCodes.join(',')+')'],s:'sku,name_en,batch_kg,yield_pct'}).catch(()=>[]);
+  if(wipCodes.length)
+    wipMasters=await sbG('wip_master',{f:['code=in.('+wipCodes.join(',')+')'],s:'code,name,batch_kg,yield_pct'}).catch(()=>[]);
+
+  const fgMap={};  fgMasters.forEach(m=>fgMap[m.sku]=m);
+  const wipMap={}; wipMasters.forEach(m=>wipMap[m.code]=m);
+
+  const thb=v=>v>0?'฿'+Number(v).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
+  const bkgFmt=v=>v>0?Number(v).toFixed(3)+' kg':'—';
+
+  // FG rows
+  const fgRows=fgCodes.map(sku=>{
+    const bomRow=inFG.find(r=>r.sku_code===sku)||{};
+    const m=fgMap[sku]||{name_en:sku};
+    const bkg=Number(m.batch_kg)||50;
+    const pct=Number(bomRow.pct_of_batch||0);
+    const qty=Number(bomRow.qty_per_batch||0);
+    let kgPB=pct>0?pct/100*bkg:qty;
+    const unitL=(bomRow.unit||'kg').toLowerCase();
+    if(unitL==='g'||unitL==='ml') kgPB/=1000;
+    return '<tr style="border-bottom:1px solid #F1F5F9" onmouseover="this.style.background=\'#EFF6FF\'" onmouseout="this.style.background=\'\'">'+
+      '<td style="padding:5px 8px">'+
+        '<span style="background:#DBEAFE;color:#1E40AF;padding:1px 5px;border-radius:3px;font-size:9px">FG</span>'+
+      '</td>'+
+      '<td style="padding:5px 8px;font-family:monospace;font-size:11px;color:#1B5EC7">'+sku+'</td>'+
+      '<td style="padding:5px 8px;font-size:11px">'+m.name_en+'</td>'+
+      '<td style="padding:5px 8px;text-align:right;font-size:11px">'+bkg+'kg</td>'+
+      '<td style="padding:5px 8px;text-align:right;font-size:11px">'+
+        (pct>0?pct.toFixed(2)+'%':bkgFmt(kgPB))+
+      '</td>'+
+      '<td style="padding:5px 8px;text-align:center">'+
+        '<button onclick="mtOpenBOM(\''+sku+'\',\'fg\')"'+
+          ' style="border:none;background:#EFF6FF;color:#2563EB;border-radius:4px;padding:3px 8px;font-size:10px;cursor:pointer">'+
+          '📋 แก้ BOM</button>'+
+      '</td>'+
+      '</tr>';
+  }).join('');
+
+  // WIP rows
+  const wipRows=wipCodes.map(wcode=>{
+    const bomRow=inWIP.find(r=>r.wip_code===wcode)||{};
+    const m=wipMap[wcode]||{name:wcode};
+    const bkg=Number(m.batch_kg)||50;
+    const pct=Number(bomRow.pct_of_batch||0);
+    const qty=Number(bomRow.qty_per_batch||0);
+    let kgPB=pct>0?pct/100*bkg:qty;
+    const unitL=(bomRow.unit||'kg').toLowerCase();
+    if(unitL==='g'||unitL==='ml') kgPB/=1000;
+    return '<tr style="border-bottom:1px solid #F1F5F9" onmouseover="this.style.background=\'#FAF5FF\'" onmouseout="this.style.background=\'\'">'+
+      '<td style="padding:5px 8px">'+
+        '<span style="background:#EDE9FE;color:#7C3AED;padding:1px 5px;border-radius:3px;font-size:9px">WIP</span>'+
+      '</td>'+
+      '<td style="padding:5px 8px;font-family:monospace;font-size:11px;color:#7C3AED">'+wcode+'</td>'+
+      '<td style="padding:5px 8px;font-size:11px">'+m.name+'</td>'+
+      '<td style="padding:5px 8px;text-align:right;font-size:11px">'+bkg+'kg</td>'+
+      '<td style="padding:5px 8px;text-align:right;font-size:11px">'+
+        (pct>0?pct.toFixed(2)+'%':bkgFmt(kgPB))+
+      '</td>'+
+      '<td style="padding:5px 8px;text-align:center">'+
+        '<button onclick="mtOpenBOM(\''+wcode+'\',\'wip\')"'+
+          ' style="border:none;background:#F5F3FF;color:#7C3AED;border-radius:4px;padding:3px 8px;font-size:10px;cursor:pointer">'+
+          '📋 แก้ BOM</button>'+
+      '</td>'+
+      '</tr>';
+  }).join('');
+
+  const total=fgCodes.length+wipCodes.length;
+
+  panel.innerHTML=
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'+
+      '<div>'+
+        '<div style="font-size:14px;font-weight:800;color:'+typeColor+'">'+code+'</div>'+
+        '<div style="font-size:12px;color:#6B7280">'+mat.name+'</div>'+
+        (mat.category?'<span style="background:#F1F5F9;border-radius:4px;padding:1px 8px;font-size:10px;color:#6B7280">'+mat.category+'</span>':'')+'</div>'+
+      '<div style="text-align:right">'+
+        '<div style="font-size:20px;font-weight:800;color:'+(total>0?'#1B3A5C':'#9CA3AF')+'">'+total+'</div>'+
+        '<div style="font-size:10px;color:#6B7280">BOM ที่ใช้</div>'+
+      '</div>'+
+    '</div>'+
+    (total===0?
+      '<div style="text-align:center;color:#9CA3AF;padding:40px;background:#F8FAFC;border-radius:8px">'+
+        '⚠️ วัสดุนี้ไม่ได้ถูกใช้ใน BOM ใดเลย<br>'+
+        '<span style="font-size:10px">อาจยังไม่ได้เพิ่มใน BOM หรือรหัสไม่ตรงกัน</span></div>':
+      '<div class="tw" style="overflow-x:auto">'+
+        '<table style="width:100%;border-collapse:collapse">'+
+          '<thead><tr style="background:#1B3A5C;color:white;font-size:11px">'+
+            '<th style="padding:5px 8px;width:40px">Type</th>'+
+            '<th style="padding:5px 8px">รหัสสินค้า</th>'+
+            '<th style="padding:5px 8px">ชื่อ</th>'+
+            '<th style="padding:5px 8px;text-align:right">Batch</th>'+
+            '<th style="padding:5px 8px;text-align:right">ปริมาณใน BOM</th>'+
+            '<th style="padding:5px 8px;text-align:center">Action</th>'+
+          '</tr></thead>'+
+          '<tbody>'+fgRows+wipRows+'</tbody>'+
+        '</table>'+
+      '</div>');
+}
+
+function mtOpenBOM(code, type){
+  // ไปหน้า BOM Manager แล้วเปิด BOM ของสินค้านั้น
+  BOM_TYPE=type==='fg'?'fg':'wip';
+  nav('bom-mgr');
+  // รอให้ page load แล้ว load BOM
+  setTimeout(()=>{
+    // switch tab
+    document.querySelectorAll('#bom-type-tabs .ftab').forEach((el,i)=>{
+      el.classList.toggle('on',i===(BOM_TYPE==='fg'?0:1));
+    });
+    loadBOMDetail(code);
+    // highlight SKU ใน list
+    setTimeout(()=>{
+      const items=document.querySelectorAll('#bom-sku-list .bom-item');
+      items.forEach(el=>{
+        if(el.dataset.code===code){
+          el.scrollIntoView({block:'center'});
+          el.style.background='#FEF3C7';
+          setTimeout(()=>el.style.background='',2000);
+        }
+      });
+    },500);
+  },300);
+}
+
 
 // ════════════════════════════════════════════════════════════
 //  COMPANY SETTINGS
