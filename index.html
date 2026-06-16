@@ -3153,10 +3153,10 @@ CREATE INDEX IF NOT EXISTS idx_pbp_date ON prod_batch_plan(plan_date);</pre>
   <div class="mbox"><div class="mhdr"><div class="mtit" id="mo-t">—</div><button class="mclose" onclick="closeMo()">✕</button></div><div id="mo-b"></div></div>
   <!-- ████ MAT TRACE MODULE ████ -->
   <div class="pg" id="pg-mat-trace">
-    <div class="g12" style="height:calc(100vh - 80px)">
+    <div class="g12">
 
       <!-- Left: Search panel -->
-      <div class="card" style="display:flex;flex-direction:column;overflow:hidden;height:100%">
+      <div class="card" style="display:flex;flex-direction:column;gap:6px">
         <div class="ct" style="flex-shrink:0">🔍 ค้นหาวัสดุ / ตรวจสอบ BOM</div>
 
         <!-- Type filter -->
@@ -3174,8 +3174,8 @@ CREATE INDEX IF NOT EXISTS idx_pbp_date ON prod_batch_plan(plan_date);</pre>
 
         <!-- Material list -->
         <div id="mt-mat-list"
-          style="flex:1;overflow-y:auto;display:flex;flex-direction:column;
-          gap:3px;min-height:200px;border:1px solid var(--border);
+          style="height:400px;overflow-y:auto;
+          border:1px solid var(--border);
           border-radius:6px;padding:4px;background:#FAFAFA">
           <div id="mt-init-msg" style="text-align:center;color:var(--text3);padding:20px;font-size:12px">
             <span class="spin"></span> กำลังโหลดวัสดุ...
@@ -3191,7 +3191,7 @@ CREATE INDEX IF NOT EXISTS idx_pbp_date ON prod_batch_plan(plan_date);</pre>
       </div>
 
       <!-- Right: BOM usage panel -->
-      <div class="card" id="mt-result-panel" style="overflow-y:auto;height:100%">
+      <div class="card" id="mt-result-panel" style="overflow-y:auto;min-height:400px">
         <div style="text-align:center;color:var(--text3);padding:60px 0">
           <div style="font-size:36px;margin-bottom:10px">🔍</div>
           <div style="font-size:13px">เลือกวัสดุจากรายการทางซ้าย</div>
@@ -16516,6 +16516,7 @@ async function mtLoadMaterials(){
     console.log('[MatTrace] loaded:',_mtAllMats.length,'mats',_mtBomFG.length,'FG BOM',_mtBomWIP.length,'WIP BOM');
     const countEl=document.getElementById('mt-count');
     if(countEl) countEl.textContent=_mtAllMats.length+' รายการ';
+    mtFilterList(); // re-render after load
   }catch(e){
     if(list) list.innerHTML='<div class="al ale">❌ '+e.message+'</div>';
   }
