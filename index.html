@@ -3479,7 +3479,7 @@ function nav(id){
   CUR=id; loadPage(id);
   // scroll to top
   const mn=document.getElementById('mn');
-  if(mn) mn.scrollTop=0;
+  if(mn){ mn.scrollTop=0; }
   // ribbon: mark active + close dropdowns
   document.querySelectorAll('.rdd').forEach(d=>{d.style.display='none';});
   document.querySelectorAll('.rni').forEach(el=>el.classList.toggle('on',el.dataset.page===id));
@@ -3496,19 +3496,20 @@ function loadPage(id){
     import:initImport,actlog:loadActLog,users:loadUsers,
     'oee-log':loadOEELog,'oee-dashboard':loadOEEDash,machines:loadMachines,
     'mat-trace':()=>{
-      console.log('[nav→mat-trace] running');
-      // ลบ debug bar แสดงสถานะ
+      // scroll ไปที่ top ของหน้า
+      const mn=document.getElementById('mn');
+      if(mn) mn.scrollTop=0;
+      const pg=document.getElementById('pg-mat-trace');
+      if(pg) pg.scrollIntoView({behavior:'instant',block:'start'});
       const dbg=document.getElementById('mt-debug-bar');
-      if(dbg) dbg.innerHTML='<b style="color:#059669">▶ กำลังโหลด...</b>';
+      if(dbg) dbg.innerHTML='<b style="color:#059669">✅ โหลดแล้ว — เลือกวัสดุด้านล่าง</b>';
       setTimeout(()=>{
-        console.log('[nav→mat-trace] timeout fired, mats='+_mtAllMats.length);
-        if(dbg) dbg.innerHTML='<b style="color:#059669">▶ timeout fired, mats='+_mtAllMats.length+'</b>';
-        if(_mtAllMats.length===0){
+        if(typeof _mtAllMats!=='undefined'&&_mtAllMats.length===0){
           mtLoadMaterials();
-        } else {
+        } else if(typeof mtFilterList==='function'){
           mtFilterList();
         }
-      },200);
+      },150);
     },
     permissions:()=>loadPerms('admin'),
     'inv-locations':loadInvLocations,'inv-assign':()=>showInvAssign('RM'),
