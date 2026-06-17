@@ -3494,17 +3494,17 @@ function loadPage(id){
     import:initImport,actlog:loadActLog,users:loadUsers,
     'oee-log':loadOEELog,'oee-dashboard':loadOEEDash,machines:loadMachines,
     'mat-trace':()=>{
-      // รอให้ pg-mat-trace visible ก่อน (หลัง classList.add('on'))
-      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      console.log('[nav→mat-trace] _mtAllMats='+_mtAllMats.length);
+      // รอ 100ms ให้ pg ได้ class 'on' แล้วค่อย render
+      setTimeout(()=>{
+        const pg=document.getElementById('pg-mat-trace');
+        console.log('[nav→mat-trace] pg.on='+pg?.classList.contains('on'));
         if(_mtAllMats.length===0){
           mtLoadMaterials();
         } else {
-          // force repaint แล้ว render
-          const el=document.getElementById('mt-mat-list');
-          if(el) void el.offsetHeight;
           mtFilterList();
         }
-      }));
+      },100);
     },
     permissions:()=>loadPerms('admin'),
     'inv-locations':loadInvLocations,'inv-assign':()=>showInvAssign('RM'),
@@ -16641,6 +16641,7 @@ function mtFilterList(){
   list.style.display='block';
   const countEl=document.getElementById('mt-count');
   if(countEl) countEl.textContent=filtered.length+' รายการ';
+  list.scrollTop=0;  // reset scroll position
   console.log('[mtFilter] rendered '+filtered.length+' items OK');
 }
 
