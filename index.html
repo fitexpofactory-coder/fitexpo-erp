@@ -265,11 +265,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:15
 
 .pg{display:none;padding:14px 16px 60px}
 .pg.on{display:block;animation:fi .2s ease}
-/* Hide presence/chat until login */
-#presence-bar{display:none!important}
-#presence-bar.pb-visible{display:flex!important}
-#chat-panel{display:none!important}
-#chat-panel.cp-open{display:block!important}
 @keyframes fi{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 
 /* ═══ MOBILE ════════════════════════════════════════════════ */
@@ -628,7 +623,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
         <div class="rni" onclick="nav('production')" data-page="production">🔧 Production Order / ใบสั่งผลิต</div>
         <div class="rni" onclick="nav('prod-plan')" data-page="prod-plan">📅 Production Plan / วางแผนผลิต</div>
         <div class="rni" onclick="nav('bom-mgr')" data-page="bom-mgr">📋 BOM Manager</div>
-        <div class="rni" onclick="nav('mat-trace')" data-page="mat-trace">🔍 ตรวจสอบวัสดุใน BOM</div>
+        <div class="rni" onclick="nav('mat-trace');setTimeout(function(){if(typeof mtLoadMaterials==='function'){if(typeof _mtAllMats!=='undefined'&&_mtAllMats.length>0)mtFilterList();else mtLoadMaterials();}},80);" data-page="mat-trace">🔍 ตรวจสอบวัสดุใน BOM</div>
         <div class="rni" onclick="nav('wip-prod')" data-page="wip-prod">🔄 WIP Production</div>
         <div class="rni" onclick="nav('print-docs')" data-page="print-docs">🖨️ Batch Record</div>
         <div class="rni" onclick="nav('rm-matrix')" data-page="rm-matrix">📊 Matrix RM</div>
@@ -3148,6 +3143,74 @@ CREATE INDEX IF NOT EXISTS idx_pbp_date ON prod_batch_plan(plan_date);</pre>
     </div>
   </div>
 </div>
+<!-- ████ MAT TRACE MODULE ████ -->
+<div class="pg" id="pg-mat-trace">
+  <div style="display:grid;grid-template-columns:300px 1fr;gap:16px">
+
+    <!-- LEFT: Material List -->
+    <div style="background:white;border-radius:12px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.07)">
+      <div style="font-weight:700;color:#1B3A5C;font-size:13px;margin-bottom:8px">
+        🔍 ค้นหาวัสดุ / ตรวจสอบ BOM
+      </div>
+
+      <!-- Type filter tabs -->
+      <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">
+        <button onclick="mtSwitchType('all',this)"
+          style="padding:3px 10px;border-radius:12px;font-size:11px;cursor:pointer;
+          border:1px solid #1B3A5C;background:#1B3A5C;color:white" id="mt-tab-all">ทั้งหมด</button>
+        <button onclick="mtSwitchType('rm',this)"
+          style="padding:3px 10px;border-radius:12px;font-size:11px;cursor:pointer;
+          border:1px solid #CBD5E1;background:white;color:#374151" id="mt-tab-rm">RM</button>
+        <button onclick="mtSwitchType('pk',this)"
+          style="padding:3px 10px;border-radius:12px;font-size:11px;cursor:pointer;
+          border:1px solid #CBD5E1;background:white;color:#374151" id="mt-tab-pk">PK</button>
+        <button onclick="mtSwitchType('wip',this)"
+          style="padding:3px 10px;border-radius:12px;font-size:11px;cursor:pointer;
+          border:1px solid #CBD5E1;background:white;color:#374151" id="mt-tab-wip">WIP</button>
+      </div>
+
+      <!-- Search -->
+      <input type="text" id="mt-search"
+        placeholder="🔍 พิมพ์รหัส หรือ ชื่อ..."
+        oninput="mtFilterList()"
+        style="width:100%;box-sizing:border-box;padding:6px 10px;font-size:11px;
+        border:1px solid #E5E7EB;border-radius:6px;margin-bottom:8px">
+
+      <!-- Count -->
+      <div id="mt-count" style="font-size:10px;color:#6B7280;margin-bottom:6px">
+        กำลังโหลด...
+      </div>
+
+      <!-- List box -->
+      <div id="mt-mat-list"
+        style="height:450px;overflow-y:auto;
+        border:1px solid #E5E7EB;border-radius:8px;
+        background:#FAFAFA;padding:4px">
+        <div style="text-align:center;padding:20px;color:#9CA3AF;font-size:12px">
+          <span id="mt-init-msg">⏳ กำลังโหลด...</span>
+        </div>
+      </div>
+
+      <button onclick="mtLoadMaterials()"
+        style="margin-top:8px;width:100%;padding:7px;border:none;border-radius:6px;
+        background:#1B3A5C;color:white;font-size:12px;cursor:pointer;font-family:inherit">
+        🔄 โหลด/รีเฟรช
+      </button>
+    </div>
+
+    <!-- RIGHT: BOM Usage -->
+    <div id="mt-result-panel"
+      style="background:white;border-radius:12px;padding:16px;
+      box-shadow:0 1px 4px rgba(0,0,0,.07);overflow-y:auto;min-height:500px">
+      <div style="text-align:center;color:#9CA3AF;padding:60px 0">
+        <div style="font-size:40px;margin-bottom:10px">🔍</div>
+        <div style="font-size:13px">เลือกวัสดุจากรายการทางซ้าย</div>
+        <div style="font-size:11px;margin-top:6px">เพื่อดูว่าถูกใช้ใน BOM สินค้าและ WIP ไหนบ้าง</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 </main>
 </div>
   </div><!-- /wrap -->
@@ -3156,76 +3219,6 @@ CREATE INDEX IF NOT EXISTS idx_pbp_date ON prod_batch_plan(plan_date);</pre>
 <!-- MODAL -->
 <div class="mo" id="mo" onclick="if(event.target===this)closeMo()">
   <div class="mbox"><div class="mhdr"><div class="mtit" id="mo-t">—</div><button class="mclose" onclick="closeMo()">✕</button></div><div id="mo-b"></div></div>
-  <!-- ████ MAT TRACE MODULE ████ -->
-  <div class="pg" id="pg-mat-trace">
-    <!-- DEBUG BAR -->
-    <div id="mt-debug-bar"
-      style="background:#FEF3C7;border:1px solid #F59E0B;border-radius:8px;
-      padding:8px 12px;margin-bottom:12px;font-size:12px;color:#92400E">
-      ⏳ กำลังโหลดข้อมูล...
-    </div>
-
-    <!-- SEARCH BAR -->
-    <div style="background:white;border-radius:10px;padding:12px;
-      box-shadow:0 1px 4px rgba(0,0,0,.1);margin-bottom:12px">
-      <div style="font-weight:700;color:#1B3A5C;margin-bottom:8px">
-        🔍 ค้นหาวัสดุ / ตรวจสอบ BOM
-      </div>
-      <input type="text" id="mt-search"
-        placeholder="พิมพ์รหัส หรือ ชื่อวัสดุ..."
-        oninput="mtFilterList()"
-        style="width:100%;box-sizing:border-box;padding:8px 12px;
-        border:1px solid #CBD5E1;border-radius:6px;font-size:12px;
-        font-family:inherit;margin-bottom:8px">
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button onclick="mtSwitchType('all',this)" id="mt-tab-all"
-          style="padding:4px 12px;border-radius:20px;border:2px solid #1B3A5C;
-          background:#1B3A5C;color:white;font-size:11px;cursor:pointer;font-family:inherit">
-          ทั้งหมด</button>
-        <button onclick="mtSwitchType('rm',this)" id="mt-tab-rm"
-          style="padding:4px 12px;border-radius:20px;border:2px solid #CBD5E1;
-          background:white;color:#374151;font-size:11px;cursor:pointer;font-family:inherit">
-          RM</button>
-        <button onclick="mtSwitchType('pk',this)" id="mt-tab-pk"
-          style="padding:4px 12px;border-radius:20px;border:2px solid #CBD5E1;
-          background:white;color:#374151;font-size:11px;cursor:pointer;font-family:inherit">
-          PK</button>
-        <button onclick="mtSwitchType('wip',this)" id="mt-tab-wip"
-          style="padding:4px 12px;border-radius:20px;border:2px solid #CBD5E1;
-          background:white;color:#374151;font-size:11px;cursor:pointer;font-family:inherit">
-          WIP</button>
-        <span id="mt-count" style="font-size:11px;color:#6B7280;
-          align-self:center;margin-left:auto"></span>
-        <button onclick="mtLoadMaterials()"
-          style="padding:4px 12px;border:none;border-radius:6px;
-          background:#EFF6FF;color:#2563EB;font-size:11px;cursor:pointer;font-family:inherit">
-          🔄 รีเฟรช</button>
-      </div>
-    </div>
-
-    <!-- MATERIAL LIST -->
-    <div id="mt-mat-list"
-      style="background:white;border-radius:10px;
-      box-shadow:0 1px 4px rgba(0,0,0,.1);
-      max-height:calc(100vh - 280px);overflow-y:auto;
-      padding:8px">
-      <div style="text-align:center;padding:20px;color:#9CA3AF">
-        <span id="mt-init-msg">⏳ กำลังโหลด...</span>
-      </div>
-    </div>
-
-    <!-- BOM RESULT PANEL -->
-    <div id="mt-result-panel"
-      style="background:white;border-radius:10px;
-      box-shadow:0 1px 4px rgba(0,0,0,.1);
-      margin-top:12px;padding:12px;min-height:200px">
-      <div style="text-align:center;color:#9CA3AF;padding:30px">
-        <div style="font-size:32px">🔍</div>
-        <div>กดเลือกวัสดุจากรายการด้านบน</div>
-      </div>
-    </div>
-  </div>
-
 </div>
 <script>
 // ════════════════════════════════════════════════════════════
@@ -3375,8 +3368,8 @@ async function doLogout(){
   // ซ่อน presence bar เมื่อ logout
   const pb=document.getElementById('presence-bar');
   const cp=document.getElementById('chat-panel');
-  if(pb){ pb.classList.remove('pb-visible'); }
-  if(cp){ cp.classList.remove('cp-open'); _pbChatOpen=false; }
+  if(pb){ pb.style.display='none'; pb.classList.remove('pb-visible'); }
+  if(cp){ cp.style.display='none'; _pbChatOpen=false; }
   document.body.style.paddingBottom='0';
   if(_pbInterval){ clearInterval(_pbInterval); _pbInterval=null; }
   document.getElementById('app').style.display='none';
@@ -3387,6 +3380,12 @@ async function doLogout(){
 function showApp(){
   document.getElementById('login-page').style.display='none';
   document.getElementById('app').style.display='flex';
+  // Presence bar / Team chat: ปิดถาวร — ซ่อนทุกหน้า ไม่ init chat
+  const _pb=document.getElementById('presence-bar');
+  if(_pb){ _pb.classList.remove('pb-visible'); _pb.style.display='none'; }
+  const _cp=document.getElementById('chat-panel');
+  if(_cp) _cp.style.display='none';
+  document.body.style.paddingBottom='0';
   const rm2={admin:'👑 Admin',production:'🔧 Production',sales:'📊 Sales',qc:'🔍 QC'};
   const rc={admin:'ra',production:'rp',sales:'rs',qc:'rq'};
   document.getElementById('ub-av').textContent=CU.full_name.slice(0,1);
@@ -3484,7 +3483,7 @@ function nav(id){
   CUR=id; loadPage(id);
   // scroll to top
   const mn=document.getElementById('mn');
-  if(mn){ mn.scrollTop=0; }
+  if(mn) mn.scrollTop=0;
   // ribbon: mark active + close dropdowns
   document.querySelectorAll('.rdd').forEach(d=>{d.style.display='none';});
   document.querySelectorAll('.rni').forEach(el=>el.classList.toggle('on',el.dataset.page===id));
@@ -3501,16 +3500,10 @@ function loadPage(id){
     import:initImport,actlog:loadActLog,users:loadUsers,
     'oee-log':loadOEELog,'oee-dashboard':loadOEEDash,machines:loadMachines,
     'mat-trace':()=>{
-      const mn=document.getElementById('mn');
-      if(mn) mn.scrollTop=0;
-      // force pg-mat-trace ให้แสดง
-      document.querySelectorAll('.pg').forEach(p=>p.style.display='');
-      const pg=document.getElementById('pg-mat-trace');
-      if(pg){ pg.style.display='block'; }
       setTimeout(()=>{
-        if(typeof _mtAllMats!=='undefined'&&_mtAllMats.length===0) mtLoadMaterials();
-        else if(typeof mtFilterList==='function') mtFilterList();
-      },100);
+        if(_mtAllMats.length===0) mtLoadMaterials();
+        else { mtFilterList(); }
+      },50);
     },
     permissions:()=>loadPerms('admin'),
     'inv-locations':loadInvLocations,'inv-assign':()=>showInvAssign('RM'),
@@ -16568,13 +16561,11 @@ async function mtLoadMaterials(){
     const initMsg=document.getElementById('mt-init-msg');
     if(initMsg) initMsg.style.display='none';
     // force render ด้วย rAF
-    // render เฉพาะเมื่อ page visible (ไม่ render ใน hidden container)
     setTimeout(()=>{
-      const pg=document.getElementById('pg-mat-trace');
-      if(pg&&pg.classList.contains('on')){
-        mtFilterList();
-      }
-      // ถ้า page ไม่ visible → MutationObserver จะ trigger ตอน user navigate
+      mtFilterList();
+      // scroll to top เพื่อ trigger repaint
+      const el=document.getElementById('mt-mat-list');
+      if(el){ el.scrollTop=0; void el.offsetHeight; }
     },50);
     console.log('[MatTrace] loaded:',_mtAllMats.length,'mats',_mtBomFG.length,'FG BOM',_mtBomWIP.length,'WIP BOM');
     const countEl=document.getElementById('mt-count');
@@ -16599,13 +16590,6 @@ function mtSwitchType(type, el){
 }
 
 function mtFilterList(){
-  // ตรวจว่า pg-mat-trace visible ก่อน render (ป้องกัน render ใน hidden container)
-  const pg=document.getElementById('pg-mat-trace');
-  const isVisible=pg&&(pg.classList.contains('on')||pg.style.display==='block');
-  if(!isVisible){
-    console.log('[mtFilter] page not visible yet, skip render');
-    return;
-  }
   const list=document.getElementById('mt-mat-list');
   console.log('[mtFilter] called. list='+!!list+' _mtAllMats='+_mtAllMats.length+' _mtType='+_mtType);
   if(!list){ console.warn('[mtFilter] mt-mat-list not found, retry'); setTimeout(mtFilterList,200); return; }
@@ -16647,13 +16631,6 @@ function mtFilterList(){
   list.style.display='block';
   const countEl=document.getElementById('mt-count');
   if(countEl) countEl.textContent=filtered.length+' รายการ';
-  list.scrollTop=0;
-  // แสดง counter ที่ชัดเจน
-  const cnt=document.getElementById('mt-count');
-  if(cnt){ cnt.style.color='#059669'; cnt.style.fontWeight='700'; }
-  // แสดง debug bar
-  const dbg=document.getElementById('mt-debug-bar');
-  if(dbg) dbg.innerHTML='<span style="color:#059669;font-weight:700">✅ โหลดแล้ว '+filtered.length+' รายการ — เลื่อนดูด้านล่าง</span>';
   console.log('[mtFilter] rendered '+filtered.length+' items OK');
 }
 
@@ -28738,16 +28715,18 @@ setInterval(tickClock,1000);tickClock();
   }
 
   function pbToggleChat(){
-  const cp=document.getElementById('chat-panel');
-  if(!cp) return;
-  _pbChatOpen=!_pbChatOpen;
-  if(_pbChatOpen){
-    cp.classList.add('cp-open');
-    pbLoadMessages();
-  } else {
-    cp.classList.remove('cp-open');
+    _pbChatOpen=!_pbChatOpen;
+    const panel=document.getElementById('chat-panel');
+    if(!panel) return;
+    panel.style.display=_pbChatOpen?'flex':'none';
+    if(_pbChatOpen){
+      _pbUnread=0;
+      const badge=document.getElementById('pb-unread');
+      if(badge) badge.style.display='none';
+      pbRenderMessages();
+      setTimeout(()=>document.getElementById('chat-input')?.focus(),100);
+    }
   }
-}
 
   function pbQuickTag(mention){
     const inp=document.getElementById('chat-input');
