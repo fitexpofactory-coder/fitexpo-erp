@@ -3160,6 +3160,10 @@ CREATE INDEX IF NOT EXISTS idx_pbp_date ON prod_batch_plan(plan_date);</pre>
         <div style="font-weight:700;color:#1B3A5C;font-size:13px;margin-bottom:8px">
           🔍 ค้นหาวัสดุ / ตรวจสอบ BOM
         </div>
+        <div id="mt-debug-bar" style="background:#FEF3C7;border-radius:6px;padding:6px 10px;
+          font-size:11px;margin-bottom:8px;color:#92400E">
+          ⏳ กำลังโหลดข้อมูล...
+        </div>
 
         <!-- Type filter tabs -->
         <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">
@@ -3191,9 +3195,9 @@ CREATE INDEX IF NOT EXISTS idx_pbp_date ON prod_batch_plan(plan_date);</pre>
 
         <!-- List box -->
         <div id="mt-mat-list"
-          style="height:450px;overflow-y:auto;
-          border:1px solid #E5E7EB;border-radius:8px;
-          background:#FAFAFA;padding:4px">
+          style="height:450px;overflow-y:scroll;
+          border:2px solid #1B3A5C;border-radius:8px;
+          background:#F0F9FF;padding:4px">
           <div style="text-align:center;padding:20px;color:#9CA3AF;font-size:12px">
             <span id="mt-init-msg">⏳ กำลังโหลด...</span>
           </div>
@@ -16641,7 +16645,13 @@ function mtFilterList(){
   list.style.display='block';
   const countEl=document.getElementById('mt-count');
   if(countEl) countEl.textContent=filtered.length+' รายการ';
-  list.scrollTop=0;  // reset scroll position
+  list.scrollTop=0;
+  // แสดง counter ที่ชัดเจน
+  const cnt=document.getElementById('mt-count');
+  if(cnt){ cnt.style.color='#059669'; cnt.style.fontWeight='700'; }
+  // แสดง debug bar
+  const dbg=document.getElementById('mt-debug-bar');
+  if(dbg) dbg.innerHTML='<span style="color:#059669;font-weight:700">✅ โหลดแล้ว '+filtered.length+' รายการ — เลื่อนดูด้านล่าง</span>';
   console.log('[mtFilter] rendered '+filtered.length+' items OK');
 }
 
