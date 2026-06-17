@@ -3328,6 +3328,7 @@ async function sbG(t,o={}){
 }
 async function sbP(t,d){return(await axios.post(`${SB}/rest/v1/${t}`,d,{headers:{...H(),'Prefer':'return=representation'}})).data;}
 async function sbU(t,d,f){return(await axios.patch(`${SB}/rest/v1/${t}?${f}`,d,{headers:{...H(),'Prefer':'return=representation'}})).data;}
+async function sbUp(t,d,oc){const q=oc?`?on_conflict=${oc}`:'';return(await axios.post(`${SB}/rest/v1/${t}${q}`,d,{headers:{...H(),'Prefer':'resolution=merge-duplicates,return=representation'}})).data;}
 async function sbD(t,f){await axios.delete(`${SB}/rest/v1/${t}?${f}`,{headers:H()});}
 
 // ════════════════════════════════════════════════════════════
@@ -28633,21 +28634,13 @@ setInterval(tickClock,1000);tickClock();
       const ctrl=new AbortController();
       const tmo=setTimeout(()=>ctrl.abort(),5000);
       try{
-        await sbP('user_presence',{
+        await sbUp('user_presence',{
           username:CU.username,
           full_name:CU.full_name||CU.username,
           current_page:CUR,
           last_seen:new Date().toISOString(),
           session_id:_pbSessionId
-        }).catch(async ()=>{
-          // ถ้า insert fail (duplicate) → update แทน
-          await sbU('user_presence',{
-            current_page:CUR,
-            last_seen:new Date().toISOString(),
-            full_name:CU.full_name||CU.username,
-            session_id:_pbSessionId
-          },'username=eq.'+CU.username).catch(()=>{});
-        });
+        },'username').catch(()=>{});
       }finally{ clearTimeout(tmo); }
 
       // โหลด users ออนไลน์ (active 2 นาที)
