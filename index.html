@@ -28452,8 +28452,14 @@ setInterval(tickClock,1000);tickClock();
     <!-- Header -->
     <div style="background:#1B3A5C;color:white;padding:10px 14px;
       display:flex;justify-content:space-between;align-items:center;border-radius:10px 0 0 0;flex-shrink:0">
-      <div style="font-weight:700;font-size:13px">💬 Team Chat</div>
-      <div style="display:flex;gap:6px">
+      <div style="display:flex;align-items:center;gap:6px;min-width:0">
+        <button id="chat-back-btn" onclick="pbOpenChat()" title="กลับห้องรวม"
+          style="display:none;border:none;background:none;color:white;font-size:16px;
+          cursor:pointer;padding:0 2px;line-height:1">‹</button>
+        <div id="chat-title" style="font-weight:700;font-size:13px;white-space:nowrap;
+          overflow:hidden;text-overflow:ellipsis">💬 Team Chat</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
         <span id="chat-online-count" style="font-size:10px;background:rgba(255,255,255,.15);
           padding:2px 8px;border-radius:10px">● 0 ออนไลน์</span>
         <button onclick="pbToggleChat()" style="border:none;background:none;color:white;
@@ -28500,16 +28506,18 @@ setInterval(tickClock,1000);tickClock();
   let _pbOnline=[], _pbMessages=[], _pbUnread=0;
   let _pbAllUsers=[];
   let _pbChatOpen=false, _pbTagWO='', _pbTagUser='';
+  let _pbDM='';  // '' = ห้องรวม Team, หรือ username = แชตส่วนตัว (DM)
   let _pbInterval=null, _pbSessionId='s'+Date.now();
   let _pbLastMsgId=0;
 
   // ── เปิด Team Chat จากเมนู HR (กดเรียกเมื่อต้องการ) ────────────
-  function pbOpenChat(){
+  function pbOpenChat(dmUser){
     // ปิด dropdown ribbon ที่เปิดอยู่
     document.querySelectorAll('.rdd').forEach(d=>{d.style.display='none';});
     if(!CU){ alert('กรุณาเข้าสู่ระบบก่อนครับ'); return; }
     const panel=document.getElementById('chat-panel');
     if(!panel) return;
+    _pbDM = (typeof dmUser==='string') ? dmUser : '';
     // เริ่ม presence + polling ครั้งแรกที่เปิดเท่านั้น
     if(!_pbInterval) pbInit();
     pbLoadMembers();
@@ -28518,8 +28526,34 @@ setInterval(tickClock,1000);tickClock();
     _pbUnread=0;
     const badge=document.getElementById('pb-unread');
     if(badge) badge.style.display='none';
+    pbUpdateChatHeader();
     pbRenderMessages();
     setTimeout(()=>document.getElementById('chat-input')?.focus(),100);
+  }
+
+  // ── เปิดหน้าต่างคุยส่วนตัว (DM) กับสมาชิกที่เลือก ──────────────
+  function pbOpenDM(username){
+    if(username===CU?.username) return;  // ไม่คุยกับตัวเอง
+    pbOpenChat(username);
+  }
+
+  // ── อัปเดตหัวห้อง (Team / ชื่อคนที่กำลังคุยด้วย) ───────────────
+  function pbUpdateChatHeader(){
+    const t=document.getElementById('chat-title');
+    const back=document.getElementById('chat-back-btn');
+    const inp=document.getElementById('chat-input');
+    if(_pbDM){
+      const u=_pbAllUsers.find(x=>x.username===_pbDM)
+            ||_pbOnline.find(x=>x.username===_pbDM);
+      const nm=(u&&(u.full_name||u.username))||_pbDM;
+      if(t) t.textContent='💬 '+nm;
+      if(back) back.style.display='';
+      if(inp) inp.placeholder='ข้อความถึง '+nm+'...';
+    }else{
+      if(t) t.textContent='💬 Team Chat';
+      if(back) back.style.display='none';
+      if(inp) inp.placeholder='พิมพ์ข้อความ... @mention #WO';
+    }
   }
 
   // ── โหลดสมาชิกทั้งหมด (เพื่อ @mention คนที่ยังไม่ออนไลน์ได้) ────
@@ -28549,10 +28583,11 @@ setInterval(tickClock,1000);tickClock();
     list.forEach(u=>{
       const isMe=u.username===me;
       const on=onlineSet.has(u.username);
-      html+=`<span title="${on?'ออนไลน์':'ออฟไลน์'}${isMe?' · ฉัน':''}"
-        ${isMe?'':`onclick="pbQuickTag('@${u.username}')"`}
+      html+=`<span title="${on?'ออนไลน์':'ออฟไลน์'}${isMe?' · ฉัน':' · คลิกเพื่อคุยส่วนตัว'}"
+        ${isMe?'':`onclick="pbOpenDM('${u.username}')"`}
         style="display:inline-flex;align-items:center;gap:4px;
-        background:${isMe?'#E0E7FF':'white'};border:1px solid ${on?'#86EFAC':'#E5E7EB'};
+        background:${isMe?'#E0E7FF':(_pbDM===u.username?'#DBEAFE':'white')};
+        border:1px solid ${_pbDM===u.username?'#1B3A5C':(on?'#86EFAC':'#E5E7EB')};
         border-radius:14px;padding:2px 8px;font-size:10px;color:#1F2937;
         white-space:nowrap;cursor:${isMe?'default':'pointer'}">
         <span style="width:7px;height:7px;border-radius:50%;
@@ -28674,7 +28709,7 @@ setInterval(tickClock,1000);tickClock();
   async function pbLoadMessages(){
     try{
       const msgs=await sbG('chat_messages',{
-        ord:'created_at.desc', lim:50
+        ord:'created_at.desc', lim:200
       }).catch(()=>[]);
       _pbMessages=msgs.reverse();
       if(msgs.length>0) _pbLastMsgId=msgs[msgs.length-1].id;
@@ -28701,11 +28736,16 @@ setInterval(tickClock,1000);tickClock();
           badge.style.display='inline-flex';
           badge.textContent=_pbUnread>9?'9+':_pbUnread;
         }
-        // show toast สำหรับข้อความที่กล่าวถึงเรา
+        // show toast: DM ถึงเรา หรือถูก @mention ในห้องรวม
         const me=CU?.username||'';
         newMsgs.forEach(m=>{
-          if(m.sender!==me&&(m.message.includes('@'+me)||m.tagged_users?.includes(me))){
-            pbShowToast(`💬 ${m.sender_name||m.sender}: ${m.message.slice(0,60)}`,m.id);
+          if(m.sender===me) return;
+          const r=m.recipient||'';
+          const isDM = r===me;
+          const isMention = !r && (m.message.includes('@'+me)||m.tagged_users?.includes(me));
+          if(isDM||isMention){
+            const prefix=isDM?'📩 ':'💬 ';
+            pbShowToast(`${prefix}${m.sender_name||m.sender}: ${m.message.slice(0,60)}`, m.id, isDM?m.sender:'');
           }
         });
       }
@@ -28715,13 +28755,20 @@ setInterval(tickClock,1000);tickClock();
   function pbRenderMessages(){
     const el=document.getElementById('chat-messages');
     if(!el) return;
-    if(!_pbMessages.length){
-      el.innerHTML='<div style="text-align:center;color:#9CA3AF;font-size:11px;padding:20px">ยังไม่มีข้อความ</div>';
+    const me=CU?.username||'';
+    // กรองตามห้องสนทนาปัจจุบัน
+    const view=_pbMessages.filter(m=>{
+      const r=m.recipient||'';
+      if(_pbDM){ return (m.sender===me&&r===_pbDM)||(m.sender===_pbDM&&r===me); }
+      return !r;  // ห้องรวม = เฉพาะข้อความ broadcast
+    });
+    if(!view.length){
+      el.innerHTML='<div style="text-align:center;color:#9CA3AF;font-size:11px;padding:20px">'
+        +(_pbDM?'เริ่มบทสนทนาส่วนตัวได้เลย':'ยังไม่มีข้อความ')+'</div>';
       return;
     }
-    const me=CU?.username||'';
     let prevDate='';
-    el.innerHTML=_pbMessages.map(m=>{
+    el.innerHTML=view.map(m=>{
       const isMe=m.sender===me;
       const t=new Date(m.created_at);
       const dateStr=t.toLocaleDateString('th-TH',{day:'numeric',month:'short'});
@@ -28773,6 +28820,7 @@ setInterval(tickClock,1000);tickClock();
     try{
       await sbP('chat_messages',{
         sender:CU.username, sender_name:CU.full_name||CU.username,
+        recipient:_pbDM||'',
         message:msg, page_context:CUR,
         tagged_wo:taggedWO, tagged_users:tagged
       });
@@ -28869,13 +28917,13 @@ setInterval(tickClock,1000);tickClock();
     inp.focus();
   }
 
-  function pbShowToast(msg, id){
+  function pbShowToast(msg, id, dmUser){
     const t=document.createElement('div');
     t.style.cssText='position:fixed;bottom:50px;right:14px;background:#1B3A5C;color:white;'+
       'border-radius:10px;padding:10px 14px;z-index:900;font-size:12px;cursor:pointer;'+
       'box-shadow:0 4px 16px rgba(0,0,0,.3);max-width:280px;animation:fadeIn .3s';
     t.innerHTML='<div>'+msg+'</div><div style="font-size:9px;opacity:.6;margin-top:2px">คลิกเพื่อดู</div>';
-    t.onclick=()=>{ pbToggleChat(); t.remove(); };
+    t.onclick=()=>{ pbOpenChat(dmUser||''); t.remove(); };
     document.body.appendChild(t);
     setTimeout(()=>t.remove&&t.remove(),5000);
   }
