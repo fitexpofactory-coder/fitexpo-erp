@@ -623,7 +623,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
         <div class="rni" onclick="nav('production')" data-page="production">🔧 Production Order / ใบสั่งผลิต</div>
         <div class="rni" onclick="nav('prod-plan')" data-page="prod-plan">📅 Production Plan / วางแผนผลิต</div>
         <div class="rni" onclick="nav('bom-mgr')" data-page="bom-mgr">📋 BOM Manager</div>
-        <div class="rni" onclick="nav('mat-trace');setTimeout(function(){if(typeof mtLoadMaterials==='function'){if(typeof _mtAllMats!=='undefined'&&_mtAllMats.length>0)mtFilterList();else mtLoadMaterials();}},80);" data-page="mat-trace">🔍 ตรวจสอบวัสดุใน BOM</div>
+        <div class="rni" onclick="nav('mat-trace')" data-page="mat-trace">🔍 ตรวจสอบวัสดุใน BOM</div>
         <div class="rni" onclick="nav('wip-prod')" data-page="wip-prod">🔄 WIP Production</div>
         <div class="rni" onclick="nav('print-docs')" data-page="print-docs">🖨️ Batch Record</div>
         <div class="rni" onclick="nav('rm-matrix')" data-page="rm-matrix">📊 Matrix RM</div>
@@ -3496,17 +3496,19 @@ function loadPage(id){
     import:initImport,actlog:loadActLog,users:loadUsers,
     'oee-log':loadOEELog,'oee-dashboard':loadOEEDash,machines:loadMachines,
     'mat-trace':()=>{
-      console.log('[nav→mat-trace] _mtAllMats='+_mtAllMats.length);
-      // รอ 100ms ให้ pg ได้ class 'on' แล้วค่อย render
+      console.log('[nav→mat-trace] running');
+      // ลบ debug bar แสดงสถานะ
+      const dbg=document.getElementById('mt-debug-bar');
+      if(dbg) dbg.innerHTML='<b style="color:#059669">▶ กำลังโหลด...</b>';
       setTimeout(()=>{
-        const pg=document.getElementById('pg-mat-trace');
-        console.log('[nav→mat-trace] pg.on='+pg?.classList.contains('on'));
+        console.log('[nav→mat-trace] timeout fired, mats='+_mtAllMats.length);
+        if(dbg) dbg.innerHTML='<b style="color:#059669">▶ timeout fired, mats='+_mtAllMats.length+'</b>';
         if(_mtAllMats.length===0){
           mtLoadMaterials();
         } else {
           mtFilterList();
         }
-      },100);
+      },200);
     },
     permissions:()=>loadPerms('admin'),
     'inv-locations':loadInvLocations,'inv-assign':()=>showInvAssign('RM'),
