@@ -265,6 +265,11 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:15
 
 .pg{display:none;padding:14px 16px 60px}
 .pg.on{display:block;animation:fi .2s ease}
+/* Hide presence/chat until login */
+#presence-bar{display:none!important}
+#presence-bar.pb-visible{display:flex!important}
+#chat-panel{display:none!important}
+#chat-panel.cp-open{display:block!important}
 @keyframes fi{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 
 /* ═══ MOBILE ════════════════════════════════════════════════ */
@@ -3370,8 +3375,8 @@ async function doLogout(){
   // ซ่อน presence bar เมื่อ logout
   const pb=document.getElementById('presence-bar');
   const cp=document.getElementById('chat-panel');
-  if(pb){ pb.style.display='none'; pb.classList.remove('pb-visible'); }
-  if(cp){ cp.style.display='none'; _pbChatOpen=false; }
+  if(pb){ pb.classList.remove('pb-visible'); }
+  if(cp){ cp.classList.remove('cp-open'); _pbChatOpen=false; }
   document.body.style.paddingBottom='0';
   if(_pbInterval){ clearInterval(_pbInterval); _pbInterval=null; }
   document.getElementById('app').style.display='none';
@@ -3496,20 +3501,16 @@ function loadPage(id){
     import:initImport,actlog:loadActLog,users:loadUsers,
     'oee-log':loadOEELog,'oee-dashboard':loadOEEDash,machines:loadMachines,
     'mat-trace':()=>{
-      // scroll ไปที่ top ของหน้า
       const mn=document.getElementById('mn');
       if(mn) mn.scrollTop=0;
+      // force pg-mat-trace ให้แสดง
+      document.querySelectorAll('.pg').forEach(p=>p.style.display='');
       const pg=document.getElementById('pg-mat-trace');
-      if(pg) pg.scrollIntoView({behavior:'instant',block:'start'});
-      const dbg=document.getElementById('mt-debug-bar');
-      if(dbg) dbg.innerHTML='<b style="color:#059669">✅ โหลดแล้ว — เลือกวัสดุด้านล่าง</b>';
+      if(pg){ pg.style.display='block'; }
       setTimeout(()=>{
-        if(typeof _mtAllMats!=='undefined'&&_mtAllMats.length===0){
-          mtLoadMaterials();
-        } else if(typeof mtFilterList==='function'){
-          mtFilterList();
-        }
-      },150);
+        if(typeof _mtAllMats!=='undefined'&&_mtAllMats.length===0) mtLoadMaterials();
+        else if(typeof mtFilterList==='function') mtFilterList();
+      },100);
     },
     permissions:()=>loadPerms('admin'),
     'inv-locations':loadInvLocations,'inv-assign':()=>showInvAssign('RM'),
@@ -28737,18 +28738,16 @@ setInterval(tickClock,1000);tickClock();
   }
 
   function pbToggleChat(){
-    _pbChatOpen=!_pbChatOpen;
-    const panel=document.getElementById('chat-panel');
-    if(!panel) return;
-    panel.style.display=_pbChatOpen?'flex':'none';
-    if(_pbChatOpen){
-      _pbUnread=0;
-      const badge=document.getElementById('pb-unread');
-      if(badge) badge.style.display='none';
-      pbRenderMessages();
-      setTimeout(()=>document.getElementById('chat-input')?.focus(),100);
-    }
+  const cp=document.getElementById('chat-panel');
+  if(!cp) return;
+  _pbChatOpen=!_pbChatOpen;
+  if(_pbChatOpen){
+    cp.classList.add('cp-open');
+    pbLoadMessages();
+  } else {
+    cp.classList.remove('cp-open');
   }
+}
 
   function pbQuickTag(mention){
     const inp=document.getElementById('chat-input');
