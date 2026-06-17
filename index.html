@@ -3494,10 +3494,17 @@ function loadPage(id){
     import:initImport,actlog:loadActLog,users:loadUsers,
     'oee-log':loadOEELog,'oee-dashboard':loadOEEDash,machines:loadMachines,
     'mat-trace':()=>{
-      setTimeout(()=>{
-        if(_mtAllMats.length===0) mtLoadMaterials();
-        else { mtFilterList(); }
-      },50);
+      // รอให้ pg-mat-trace visible ก่อน (หลัง classList.add('on'))
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        if(_mtAllMats.length===0){
+          mtLoadMaterials();
+        } else {
+          // force repaint แล้ว render
+          const el=document.getElementById('mt-mat-list');
+          if(el) void el.offsetHeight;
+          mtFilterList();
+        }
+      }));
     },
     permissions:()=>loadPerms('admin'),
     'inv-locations':loadInvLocations,'inv-assign':()=>showInvAssign('RM'),
@@ -16555,11 +16562,13 @@ async function mtLoadMaterials(){
     const initMsg=document.getElementById('mt-init-msg');
     if(initMsg) initMsg.style.display='none';
     // force render ด้วย rAF
+    // render เฉพาะเมื่อ page visible (ไม่ render ใน hidden container)
     setTimeout(()=>{
-      mtFilterList();
-      // scroll to top เพื่อ trigger repaint
-      const el=document.getElementById('mt-mat-list');
-      if(el){ el.scrollTop=0; void el.offsetHeight; }
+      const pg=document.getElementById('pg-mat-trace');
+      if(pg&&pg.classList.contains('on')){
+        mtFilterList();
+      }
+      // ถ้า page ไม่ visible → MutationObserver จะ trigger ตอน user navigate
     },50);
     console.log('[MatTrace] loaded:',_mtAllMats.length,'mats',_mtBomFG.length,'FG BOM',_mtBomWIP.length,'WIP BOM');
     const countEl=document.getElementById('mt-count');
@@ -16584,6 +16593,13 @@ function mtSwitchType(type, el){
 }
 
 function mtFilterList(){
+  // ตรวจว่า pg-mat-trace visible ก่อน render (ป้องกัน render ใน hidden container)
+  const pg=document.getElementById('pg-mat-trace');
+  const isVisible=pg&&(pg.classList.contains('on')||pg.style.display==='block');
+  if(!isVisible){
+    console.log('[mtFilter] page not visible yet, skip render');
+    return;
+  }
   const list=document.getElementById('mt-mat-list');
   console.log('[mtFilter] called. list='+!!list+' _mtAllMats='+_mtAllMats.length+' _mtType='+_mtType);
   if(!list){ console.warn('[mtFilter] mt-mat-list not found, retry'); setTimeout(mtFilterList,200); return; }
