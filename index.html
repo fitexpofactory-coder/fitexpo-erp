@@ -3153,51 +3153,67 @@ CREATE INDEX IF NOT EXISTS idx_pbp_date ON prod_batch_plan(plan_date);</pre>
   <div class="mbox"><div class="mhdr"><div class="mtit" id="mo-t">—</div><button class="mclose" onclick="closeMo()">✕</button></div><div id="mo-b"></div></div>
   <!-- ████ MAT TRACE MODULE ████ -->
   <div class="pg" id="pg-mat-trace">
-    <div class="g12">
+    <div style="display:grid;grid-template-columns:300px 1fr;gap:16px">
 
-      <!-- Left: Search panel -->
-      <div class="card" style="display:flex;flex-direction:column;gap:6px">
-        <div class="ct" style="flex-shrink:0">🔍 ค้นหาวัสดุ / ตรวจสอบ BOM</div>
+      <!-- LEFT: Material List -->
+      <div style="background:white;border-radius:12px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.07)">
+        <div style="font-weight:700;color:#1B3A5C;font-size:13px;margin-bottom:8px">
+          🔍 ค้นหาวัสดุ / ตรวจสอบ BOM
+        </div>
 
-        <!-- Type filter -->
-        <div class="ftabs" id="mt-type-tabs" style="font-size:11px;flex-shrink:0">
-          <div class="ftab on" onclick="mtSwitchType('all',this)">ทั้งหมด</div>
-          <div class="ftab" onclick="mtSwitchType('rm',this)">RM</div>
-          <div class="ftab" onclick="mtSwitchType('pk',this)">PK</div>
-          <div class="ftab" onclick="mtSwitchType('wip',this)">WIP</div>
+        <!-- Type filter tabs -->
+        <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">
+          <button onclick="mtSwitchType('all',this)"
+            style="padding:3px 10px;border-radius:12px;font-size:11px;cursor:pointer;
+            border:1px solid #1B3A5C;background:#1B3A5C;color:white" id="mt-tab-all">ทั้งหมด</button>
+          <button onclick="mtSwitchType('rm',this)"
+            style="padding:3px 10px;border-radius:12px;font-size:11px;cursor:pointer;
+            border:1px solid #CBD5E1;background:white;color:#374151" id="mt-tab-rm">RM</button>
+          <button onclick="mtSwitchType('pk',this)"
+            style="padding:3px 10px;border-radius:12px;font-size:11px;cursor:pointer;
+            border:1px solid #CBD5E1;background:white;color:#374151" id="mt-tab-pk">PK</button>
+          <button onclick="mtSwitchType('wip',this)"
+            style="padding:3px 10px;border-radius:12px;font-size:11px;cursor:pointer;
+            border:1px solid #CBD5E1;background:white;color:#374151" id="mt-tab-wip">WIP</button>
         </div>
 
         <!-- Search -->
-        <input type="text" class="fc2 mb2" id="mt-search"
-          placeholder="🔍 พิมพ์รหัส หรือ ชื่อวัสดุ..."
-          oninput="mtFilterList()" style="flex-shrink:0">
+        <input type="text" id="mt-search"
+          placeholder="🔍 พิมพ์รหัส หรือ ชื่อ..."
+          oninput="mtFilterList()"
+          style="width:100%;box-sizing:border-box;padding:6px 10px;font-size:11px;
+          border:1px solid #E5E7EB;border-radius:6px;margin-bottom:8px">
 
-        <!-- Material list -->
+        <!-- Count -->
+        <div id="mt-count" style="font-size:10px;color:#6B7280;margin-bottom:6px">
+          กำลังโหลด...
+        </div>
+
+        <!-- List box -->
         <div id="mt-mat-list"
-          style="height:400px;overflow-y:auto;display:block;
-          border:1px solid var(--border);
-          border-radius:6px;padding:4px;background:#FAFAFA">
-          <div id="mt-init-msg" style="text-align:center;color:var(--text3);padding:20px;font-size:12px">
-            <span class="spin"></span> กำลังโหลดวัสดุ...
+          style="height:450px;overflow-y:auto;
+          border:1px solid #E5E7EB;border-radius:8px;
+          background:#FAFAFA;padding:4px">
+          <div style="text-align:center;padding:20px;color:#9CA3AF;font-size:12px">
+            <span id="mt-init-msg">⏳ กำลังโหลด...</span>
           </div>
         </div>
 
-        <div style="display:flex;gap:6px;margin-top:8px;flex-shrink:0">
-          <button class="btn btnP" onclick="mtLoadMaterials()" style="flex:1;font-size:12px">
-            🔄 โหลด/รีเฟรช
-          </button>
-          <div id="mt-count" style="font-size:10px;color:#6B7280;align-self:center"></div>
-        </div>
+        <button onclick="mtLoadMaterials()"
+          style="margin-top:8px;width:100%;padding:7px;border:none;border-radius:6px;
+          background:#1B3A5C;color:white;font-size:12px;cursor:pointer;font-family:inherit">
+          🔄 โหลด/รีเฟรช
+        </button>
       </div>
 
-      <!-- Right: BOM usage panel -->
-      <div class="card" id="mt-result-panel" style="overflow-y:auto;min-height:400px">
-        <div style="text-align:center;color:var(--text3);padding:60px 0">
-          <div style="font-size:36px;margin-bottom:10px">🔍</div>
+      <!-- RIGHT: BOM Usage -->
+      <div id="mt-result-panel"
+        style="background:white;border-radius:12px;padding:16px;
+        box-shadow:0 1px 4px rgba(0,0,0,.07);overflow-y:auto;min-height:500px">
+        <div style="text-align:center;color:#9CA3AF;padding:60px 0">
+          <div style="font-size:40px;margin-bottom:10px">🔍</div>
           <div style="font-size:13px">เลือกวัสดุจากรายการทางซ้าย</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:6px">
-            เพื่อดูว่าถูกใช้ใน BOM สินค้าและ WIP ไหนบ้าง
-          </div>
+          <div style="font-size:11px;margin-top:6px">เพื่อดูว่าถูกใช้ใน BOM สินค้าและ WIP ไหนบ้าง</div>
         </div>
       </div>
     </div>
@@ -16556,8 +16572,14 @@ async function mtLoadMaterials(){
 
 function mtSwitchType(type, el){
   _mtType=type;
-  document.querySelectorAll('#mt-type-tabs .ftab').forEach(t=>t.classList.remove('on'));
-  if(el) el.classList.add('on');
+  ['all','rm','pk','wip'].forEach(t=>{
+    const btn=document.getElementById('mt-tab-'+t);
+    if(btn){
+      btn.style.background = t===type ? '#1B3A5C' : 'white';
+      btn.style.color = t===type ? 'white' : '#374151';
+      btn.style.borderColor = t===type ? '#1B3A5C' : '#CBD5E1';
+    }
+  });
   mtFilterList();
 }
 
