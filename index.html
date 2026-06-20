@@ -28508,6 +28508,7 @@ setInterval(tickClock,1000);tickClock();
   let _pbAllUsers=[];
   let _pbChatOpen=false, _pbTagWO='', _pbTagUser='';
   let _pbDM='';  // '' = ห้องรวม Team, หรือ username = แชตส่วนตัว (DM)
+  console.log('%c[FitExpo Build] Team Chat v2 — DM + @member + presence-upsert ✓','color:#16A34A;font-weight:bold');
   let _pbInterval=null, _pbSessionId='s'+Date.now();
   let _pbLastMsgId=0;
 
@@ -28634,13 +28635,14 @@ setInterval(tickClock,1000);tickClock();
       const ctrl=new AbortController();
       const tmo=setTimeout(()=>ctrl.abort(),5000);
       try{
-        await sbUp('user_presence',{
-          username:CU.username,
-          full_name:CU.full_name||CU.username,
-          current_page:CUR,
-          last_seen:new Date().toISOString(),
-          session_id:_pbSessionId
-        },'username').catch(()=>{});
+        const _now=new Date().toISOString();
+        const _prow={ full_name:CU.full_name||CU.username, current_page:CUR, last_seen:_now, session_id:_pbSessionId };
+        // PATCH ก่อน — ถ้ามีแถวอยู่แล้วจะอัปเดต (ไม่เกิด 409)
+        const _upd=await sbU('user_presence',_prow,'username=eq.'+encodeURIComponent(CU.username)).catch(()=>null);
+        if(!_upd||!_upd.length){
+          // ยังไม่มีแถว (ครั้งแรกเท่านั้น) → INSERT
+          await sbP('user_presence',{username:CU.username,..._prow}).catch(()=>{});
+        }
       }finally{ clearTimeout(tmo); }
 
       // โหลด users ออนไลน์ (active 2 นาที)
