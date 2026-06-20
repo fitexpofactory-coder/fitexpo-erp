@@ -10,8 +10,6 @@
 <!-- Build: 20260605_0223 | savedLog fix applied -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.0/axios.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 /* ═══════════════════════════════════════════════════════════
@@ -28986,6 +28984,18 @@ setInterval(tickClock,1000);tickClock();
 //  STOCK CARD (QR) MODULE
 // ════════════════════════════════════════════════════════════
 let _scAll=[], _scMats=[], _scSel=new Set(), _scScanner=null, _scCur=null;
+console.log('%c[FitExpo Build] Stock Card (QR) module ready ✓ — libs lazy-loaded','color:#0C447C;font-weight:bold');
+
+const SC_QR_LIB='https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js';
+const SC_SCAN_LIB='https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js';
+function scEnsureLib(src){
+  return new Promise((res,rej)=>{
+    if([].some.call(document.scripts,s=>s.src&&s.src.indexOf(src)>=0)) return res();
+    const s=document.createElement('script'); s.src=src;
+    s.onload=()=>res(); s.onerror=()=>rej(new Error('load fail'));
+    document.head.appendChild(s);
+  });
+}
 
 function scBaseURL(){ return location.origin + location.pathname; }
 function scQRText(code){ return scBaseURL()+'?sc='+encodeURIComponent(code); }
@@ -29212,10 +29222,13 @@ function scRenderDetail(c,moves){
 }
 
 // ── QR generator ────────────────────────────────────────────
-function scMakeQR(elId,code,size){
+async function scMakeQR(elId,code,size){
   const el=document.getElementById(elId); if(!el) return;
+  el.innerHTML='<div style="font-size:11px;color:#94A3B8">QR…</div>';
+  try{ if(typeof QRCode==='undefined') await scEnsureLib(SC_QR_LIB); }
+  catch(e){ el.innerHTML='<div style="font-size:11px;color:#991B1B">QR lib โหลดไม่ได้</div>'; return; }
+  if(typeof QRCode==='undefined'){ el.innerHTML='<div style="font-size:11px;color:#991B1B">QR lib ไม่พร้อม</div>'; return; }
   el.innerHTML='';
-  if(typeof QRCode==='undefined'){ el.innerHTML='<div style="font-size:11px;color:#991B1B">QR lib ไม่โหลด</div>'; return; }
   const cv=document.createElement('canvas');
   QRCode.toCanvas(cv,scQRText(code),{width:size||120,margin:1},function(err){ if(err) el.innerHTML='QR error'; });
   el.appendChild(cv);
@@ -29327,16 +29340,19 @@ function scExtractCode(text){
   try{ const u=new URL(text); const c=u.searchParams.get('sc'); if(c) return c; }catch(e){}
   const m=text.match(/SC-\d{4}-\d+/i); return m?m[0].toUpperCase():text.trim();
 }
-function scOpenScanner(){
+async function scOpenScanner(){
   const ov=document.getElementById('sc-scanner'); ov.style.display='flex';
-  document.getElementById('sc-scan-msg').textContent='เล็ง QR ให้อยู่ในกรอบ';
-  if(typeof Html5Qrcode==='undefined'){ document.getElementById('sc-scan-msg').textContent='สแกนเนอร์ไม่โหลด — ใช้กล้องมือถือสแกนตรงๆ ได้'; return; }
+  const msg=document.getElementById('sc-scan-msg'); msg.textContent='กำลังเตรียมสแกนเนอร์…';
+  try{ if(typeof Html5Qrcode==='undefined') await scEnsureLib(SC_SCAN_LIB); }
+  catch(e){ msg.textContent='สแกนเนอร์โหลดไม่ได้ — ใช้กล้องมือถือสแกน QR ตรงๆ ได้'; return; }
+  if(typeof Html5Qrcode==='undefined'){ msg.textContent='สแกนเนอร์ไม่พร้อม — ใช้กล้องมือถือสแกน QR ตรงๆ ได้'; return; }
+  msg.textContent='เล็ง QR ให้อยู่ในกรอบ';
   _scScanner=new Html5Qrcode('sc-reader');
   _scScanner.start({facingMode:'environment'},{fps:10,qrbox:240},function(decoded){
     const code=scExtractCode(decoded);
     document.getElementById('sc-scan-msg').textContent='พบ: '+code;
     scCloseScanner(); scOpenDetail(code);
-  },function(){}).catch(e=>{ document.getElementById('sc-scan-msg').textContent='เปิดกล้องไม่ได้: '+e; });
+  },function(){}).catch(e=>{ msg.textContent='เปิดกล้องไม่ได้: '+e; });
 }
 function scCloseScanner(){
   const ov=document.getElementById('sc-scanner');
