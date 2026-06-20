@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+  <!DOCTYPE html>
 <html lang="th">
 <head>
 <meta charset="UTF-8">
@@ -3391,10 +3391,65 @@ async function doLogin(){
 }
 function showLE(m){const e=document.getElementById('lerr');e.textContent='❌ '+m;e.style.display='block';}
 
+// ── คง session: auto-login ถ้ายัง active, auto-logout เมื่อ idle เกิน 30 นาที ──
+const AUTH_IDLE_MS=30*60*1000;
+let _authTouchLast=0;
+function authSaveSession(){
+  if(!CU) return;
+  const u={...CU}; delete u.password_hash;
+  try{ localStorage.setItem('erp_session', JSON.stringify({user:u, ts:Date.now()})); }catch(e){}
+  _authTouchLast=Date.now();
+}
+function authTouch(){
+  if(!CU) return;
+  const now=Date.now();
+  if(now-_authTouchLast<20000) return;   // เขียน localStorage อย่างมากทุก 20 วินาที
+  _authTouchLast=now;
+  try{ const s=JSON.parse(localStorage.getItem('erp_session')||'{}'); if(s&&s.user){ s.ts=now; localStorage.setItem('erp_session',JSON.stringify(s)); } }catch(e){}
+}
+function authClearSession(){ try{ localStorage.removeItem('erp_session'); }catch(e){} }
+function authIdleCheck(){
+  if(!CU) return;
+  let ts=0; try{ ts=(JSON.parse(localStorage.getItem('erp_session')||'{}')||{}).ts||0; }catch(e){}
+  if(ts && Date.now()-ts>AUTH_IDLE_MS) authAutoLogout();
+}
+async function authAutoLogout(){
+  try{ await logA('LOGOUT','auth','ออกจากระบบอัตโนมัติ (ไม่ active เกิน 30 นาที)'); }catch(e){}
+  CU=null; authClearSession();
+  const pb=document.getElementById('presence-bar'); const cp=document.getElementById('chat-panel');
+  if(pb){ pb.style.display='none'; pb.classList.remove('pb-visible'); }
+  if(cp){ cp.style.display='none'; _pbChatOpen=false; }
+  if(typeof _pbInterval!=='undefined' && _pbInterval){ clearInterval(_pbInterval); _pbInterval=null; }
+  document.body.style.paddingBottom='0';
+  document.getElementById('app').style.display='none';
+  document.getElementById('login-page').style.display='flex';
+  showLE('ออกจากระบบอัตโนมัติ — ไม่มีการใช้งานเกิน 30 นาที');
+}
+async function authRestore(){
+  KEY=localStorage.getItem('erp_sb_key')||KEY||'';
+  let s=null; try{ s=JSON.parse(localStorage.getItem('erp_session')||'null'); }catch(e){}
+  if(!s||!s.user||!s.ts) return false;
+  if(Date.now()-s.ts>AUTH_IDLE_MS){ authClearSession(); return false; }
+  CU=s.user; if(!CU.emp_code) CU.emp_code=CU.username;
+  showApp();   // เข้าแอปทันที (ไม่ต้องรอเครือข่าย)
+  // ตรวจสถานะผู้ใช้ใน background — ถ้าถูกปิดใช้งาน/ลบ ให้เด้งออก, ถ้า role เปลี่ยนให้รีเฟรชสิทธิ์
+  sbG('users',{f:['username=eq.'+encodeURIComponent(CU.username),'is_active=eq.true']}).then(us=>{
+    if(!us||!us.length){ authAutoLogout(); return; }
+    CU=us[0]; if(!CU.emp_code) CU.emp_code=CU.username; authSaveSession();
+    if(typeof applyPerms==='function') applyPerms();
+  }).catch(()=>{});
+  return true;
+}
+['click','keydown','mousedown','touchstart','scroll'].forEach(ev=>
+  document.addEventListener(ev, authTouch, {passive:true, capture:true}));
+setInterval(authIdleCheck, 60000);
+document.addEventListener('DOMContentLoaded', ()=>{ setTimeout(authRestore, 120); });
+
 async function doLogout(){
   if(!confirm('ออกจากระบบไหมครับ?'))return;
   await logA('LOGOUT','auth','ออกจากระบบ');
   CU=null;
+  if(typeof authClearSession==='function') authClearSession();
   // ซ่อน presence bar เมื่อ logout
   const pb=document.getElementById('presence-bar');
   const cp=document.getElementById('chat-panel');
@@ -3408,6 +3463,7 @@ async function doLogout(){
 }
 
 function showApp(){
+  if(typeof authSaveSession==='function') authSaveSession();
   document.getElementById('login-page').style.display='none';
   document.getElementById('app').style.display='flex';
   // Presence bar / Team chat: ปิดถาวร — ซ่อนทุกหน้า ไม่ init chat
