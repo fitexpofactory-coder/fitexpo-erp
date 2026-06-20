@@ -28986,7 +28986,7 @@ setInterval(tickClock,1000);tickClock();
 let _scAll=[], _scMats=[], _scSel=new Set(), _scScanner=null, _scCur=null;
 console.log('%c[FitExpo Build] Stock Card (QR) module ready ✓ — libs lazy-loaded','color:#0C447C;font-weight:bold');
 
-const SC_QR_LIB='https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js';
+const SC_QR_LIB='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
 const SC_SCAN_LIB='https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js';
 function scEnsureLib(src){
   return new Promise((res,rej)=>{
@@ -29229,9 +29229,8 @@ async function scMakeQR(elId,code,size){
   catch(e){ el.innerHTML='<div style="font-size:11px;color:#991B1B">QR lib โหลดไม่ได้</div>'; return; }
   if(typeof QRCode==='undefined'){ el.innerHTML='<div style="font-size:11px;color:#991B1B">QR lib ไม่พร้อม</div>'; return; }
   el.innerHTML='';
-  const cv=document.createElement('canvas');
-  QRCode.toCanvas(cv,scQRText(code),{width:size||120,margin:1},function(err){ if(err) el.innerHTML='QR error'; });
-  el.appendChild(cv);
+  try{ new QRCode(el,{text:scQRText(code),width:size||120,height:size||120,correctLevel:QRCode.CorrectLevel.M}); }
+  catch(e){ el.innerHTML='<div style="font-size:11px;color:#991B1B">QR error</div>'; }
 }
 
 // ── แก้ไขรายละเอียด ─────────────────────────────────────────
@@ -29313,7 +29312,7 @@ async function scDoMove(type){
 function scLabelHTML(c){
   return '<div style="width:48mm;height:48mm;border:1px solid #333;border-radius:4px;padding:3mm;box-sizing:border-box;'
     +'display:inline-flex;flex-direction:column;align-items:center;justify-content:flex-start;page-break-inside:avoid;margin:2mm;font-family:sans-serif">'
-    +'<canvas class="sc-lbl-qr" data-code="'+c.card_code+'"></canvas>'
+    +'<div class="sc-lbl-qr" data-code="'+c.card_code+'"></div>'
     +'<div style="font-weight:700;font-size:10pt;margin-top:1mm">'+c.card_code+'</div>'
     +'<div style="font-size:8pt;text-align:center;line-height:1.2">'+(c.material_name||c.material_code||'')+'</div>'
     +'<div style="font-size:7pt;color:#444">Lot: '+(c.lot_no||'-')+' · 📍'+(c.location||'-')+'</div>'
@@ -29322,11 +29321,15 @@ function scLabelHTML(c){
 function scPrintCards(cards){
   if(!cards.length){ alert('ไม่มีการ์ดให้พิมพ์'); return; }
   const w=window.open('','_blank');
-  w.document.write('<html><head><title>Stock Card Labels</title></head><body style="margin:0;padding:5mm">'
+  if(!w){ alert('เบราว์เซอร์บล็อก popup — อนุญาต pop-up สำหรับเว็บนี้ก่อนครับ'); return; }
+  const body='<html><head><meta charset="utf-8"><title>Stock Card Labels</title></head><body style="margin:0;padding:5mm">'
     +cards.map(scLabelHTML).join('')
-    +'<scr'+'ipt src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></scr'+'ipt>'
-    +'<scr'+'ipt>window.onload=function(){var base="'+scBaseURL()+'";document.querySelectorAll(".sc-lbl-qr").forEach(function(cv){QRCode.toCanvas(cv,base+"?sc="+encodeURIComponent(cv.dataset.code),{width:120,margin:1});});setTimeout(function(){window.print();},400);};</scr'+'ipt>'
-    +'</body></html>');
+    +'<scr'+'ipt src="'+SC_QR_LIB+'"></scr'+'ipt>'
+    +'<scr'+'ipt>window.onload=function(){var base="'+scBaseURL()+'";'
+    +'document.querySelectorAll(".sc-lbl-qr").forEach(function(d){'
+    +'new QRCode(d,{text:base+"?sc="+encodeURIComponent(d.dataset.code),width:120,height:120,correctLevel:QRCode.CorrectLevel.M});});'
+    +'setTimeout(function(){window.print();},700);};</scr'+'ipt></body></html>';
+  w.document.write(body);
   w.document.close();
 }
 function scPrintLabel(code){ const c=_scAll.find(x=>x.card_code===code)||_scCur; if(c) scPrintCards([c]); }
