@@ -1,4 +1,4 @@
-  <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="th">
 <head>
 <meta charset="UTF-8">
@@ -1137,6 +1137,16 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
       <option value="active">WO ที่ยังไม่ผลิต</option>
       <option value="all">WO ทั้งหมด</option>
     </select>
+    <select class="fc2" id="rmx-range" style="width:160px" onchange="rmxOnRange()">
+      <option value="all">วันผลิต: ทุกช่วง</option>
+      <option value="today">วันนี้</option>
+      <option value="week">สัปดาห์นี้</option>
+      <option value="month">เดือนนี้</option>
+      <option value="custom">กำหนดช่วงเอง</option>
+    </select>
+    <input type="date" class="fc2" id="rmx-from" style="width:140px;display:none" onchange="rmxCustomEdit()">
+    <span id="rmx-dash" style="display:none;align-self:center;color:var(--text3)">–</span>
+    <input type="date" class="fc2" id="rmx-to" style="width:140px;display:none" onchange="rmxCustomEdit()">
     <button class="btn btnP sm" onclick="loadRMMatrix()">🔄 โหลด / รีเฟรช</button>
     <button class="btn btnT sm" onclick="printRMMatrix()">🖨️ พิมพ์</button>
     <span style="font-size:12px;color:var(--text3);align-self:center" id="rmx-summary"></span>
@@ -15003,17 +15013,39 @@ async function execCopyBOM(srcCode, srcType){
 // ════════════════════════════════════════════════════════════
 //  RM MATRIX — ตารางวัตถุดิบ × WO
 // ════════════════════════════════════════════════════════════
+// ── ตัวเลือกช่วงเวลาผลิตของ Matrix RM ───────────────────────
+function _rmxISO(d){ return d.toISOString().slice(0,10); }
+function rmxOnRange(){
+  const mode=document.getElementById('rmx-range').value;
+  const fromEl=document.getElementById('rmx-from'), toEl=document.getElementById('rmx-to'), dash=document.getElementById('rmx-dash');
+  const showInputs=(on)=>{ fromEl.style.display=on?'inline-block':'none'; toEl.style.display=on?'inline-block':'none'; dash.style.display=on?'inline':'none'; };
+  const today=new Date();
+  if(mode==='all'){ showInputs(false); loadRMMatrix(); return; }
+  if(mode==='custom'){ if(!fromEl.value) fromEl.value=_rmxISO(today); if(!toEl.value) toEl.value=_rmxISO(today); showInputs(true); loadRMMatrix(); return; }
+  let from, to;
+  if(mode==='today'){ from=to=_rmxISO(today); }
+  else if(mode==='week'){ const dow=(today.getDay()+6)%7; const mon=new Date(today); mon.setDate(today.getDate()-dow); const sun=new Date(mon); sun.setDate(mon.getDate()+6); from=_rmxISO(mon); to=_rmxISO(sun); }
+  else if(mode==='month'){ from=_rmxISO(new Date(today.getFullYear(),today.getMonth(),1)); to=_rmxISO(new Date(today.getFullYear(),today.getMonth()+1,0)); }
+  fromEl.value=from; toEl.value=to; showInputs(true); loadRMMatrix();
+}
+// แก้ไขช่องวันที่เอง → สลับเป็นโหมด custom แล้วโหลด
+function rmxCustomEdit(){ const s=document.getElementById('rmx-range'); if(s && s.value!=='custom') s.value='custom'; loadRMMatrix(); }
+
 async function loadRMMatrix(){
   const area   = document.getElementById('rmx-area');
   const sumEl  = document.getElementById('rmx-summary');
   const status = document.getElementById('rmx-status')?.value||'active';
+  const rangeMode = document.getElementById('rmx-range')?.value||'all';
+  const rFrom = document.getElementById('rmx-from')?.value;
+  const rTo   = document.getElementById('rmx-to')?.value;
   area.innerHTML='<div style="text-align:center;padding:30px"><span class="spin"></span> Loading...</div>';
 
   try{
-    // โหลด WO ที่ยังค้างอยู่
-    const woFilter = status==='active'
-      ? {f:["status=in.(จองแล้ว,กำลังผลิต)"],ord:'created_at.asc'}
-      : {f:["status=neq.ยกเลิก"],ord:'created_at.asc'};
+    // โหลด WO ที่ยังค้างอยู่ + กรองช่วงวันที่ผลิต (start_date)
+    const _conds = status==='active' ? ["status=in.(จองแล้ว,กำลังผลิต)"] : ["status=neq.ยกเลิก"];
+    if(rangeMode!=='all' && rFrom) _conds.push(`start_date=gte.${rFrom}`);
+    if(rangeMode!=='all' && rTo)   _conds.push(`start_date=lte.${rTo}`);
+    const woFilter = {f:_conds, ord:'start_date.asc'};
 
     const [wos, rmStock, wipStock, matMaster] = await Promise.all([
       sbG('production_plan', woFilter),
@@ -15023,7 +15055,8 @@ async function loadRMMatrix(){
     ]);
 
     if(!wos.length){
-      area.innerHTML='<div style="text-align:center;color:var(--text3);padding:40px">ไม่มี Work Order ที่ตรงเงื่อนไข</div>';
+      const _rngTxt = rangeMode!=='all' ? ` ในช่วง ${rFrom||'?'} ถึง ${rTo||'?'}` : '';
+      area.innerHTML='<div style="text-align:center;color:var(--text3);padding:40px">ไม่มี Work Order ที่ตรงเงื่อนไข'+_rngTxt+'</div>';
       return;
     }
 
@@ -15123,6 +15156,7 @@ async function loadRMMatrix(){
           <span style="font-size:10px;color:var(--text3)">
             ${w.num_batches}B × ${w.batch_kg||50}kg
           </span>
+          <span style="font-size:9px;font-weight:700;color:var(--accent)">📅 ${w.start_date||'—'}</span>
         </div>
       </th>`;
     }).join('');
@@ -15178,9 +15212,57 @@ async function loadRMMatrix(){
         ${woTotals[w.id]>0?thb(woTotals[w.id]):'—'}
       </td>`).join('');
 
-    sumEl.textContent = `${wos.length} WO | ${matCodes.length} วัตถุดิบ | ต้นทุนรวมประมาณ ${thb(totalRMCost)}`;
+    sumEl.textContent = `${wos.length} WO${rangeMode!=='all'?` (${rFrom} – ${rTo})`:''} | ${matCodes.length} วัตถุดิบ | ต้นทุนรวมประมาณ ${thb(totalRMCost)}`;
+
+    // ── ตารางสรุปการใช้วัตถุดิบรวม (ตามช่วงเวลาที่เลือก) ──────────
+    const _rngLabel = rangeMode==='all' ? 'ทุกช่วงเวลา' : `${rFrom} ถึง ${rTo}`;
+    const summaryList = matCodes.map(mc=>{
+      const need=matTotals[mc]||0;
+      const av=(rmStockMap[mc]||wipStockMap[mc]||{av:0}).av||0;
+      const price=matMap[mc]?.price||0;
+      return {code:mc, name:matMap[mc]?.name||mc, unit:matMap[mc]?.unit||'kg', need, av, price, diff:av-need, cost:need*price, wip:mc.startsWith('WIP')};
+    }).sort((a,b)=>b.need-a.need);
+    const sumRows = summaryList.map((s,i)=>`
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:4px 8px;text-align:center;color:var(--text3);font-size:11px">${i+1}</td>
+        <td style="padding:4px 8px;font-family:monospace;font-size:11px;color:${s.wip?'var(--purple)':'var(--accent)'}">${s.code}</td>
+        <td style="padding:4px 8px;font-size:11px">${s.name}</td>
+        <td class="mn" style="font-size:12px;font-weight:800;color:var(--navy)">${fmt(s.need,2)}</td>
+        <td style="padding:4px 6px;font-size:11px;color:var(--text3)">${s.unit}</td>
+        <td class="mn" style="font-size:11px;color:var(--green)">${fmt(s.av,2)}</td>
+        <td class="mn" style="font-size:11px;font-weight:700;color:${s.diff>=0?'var(--green)':'var(--red)'}">${s.diff>=0?'+':''}${fmt(s.diff,2)}</td>
+        <td class="mn" style="font-size:11px;color:${s.price>0?'var(--text3)':'var(--border)'}">${s.price>0?thb(s.cost):'—'}</td>
+      </tr>`).join('');
+    const summaryHTML = `
+      <div style="margin-bottom:14px;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+        <div style="background:var(--navy);color:white;padding:8px 12px;font-weight:700;font-size:13px;
+          display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px">
+          <span>📋 สรุปการใช้วัตถุดิบรวม</span>
+          <span style="font-size:11px;font-weight:400;opacity:.85">วันผลิต: ${_rngLabel} · ${wos.length} WO · ${summaryList.length} รายการ</span>
+        </div>
+        <div style="overflow-x:auto;max-height:42vh;overflow-y:auto">
+          <table style="border-collapse:collapse;width:100%;font-size:12px">
+            <thead><tr style="position:sticky;top:0;z-index:1">
+              <th style="background:var(--bg3);padding:6px 8px;text-align:center">#</th>
+              <th style="background:var(--bg3);padding:6px 8px;text-align:left">รหัส</th>
+              <th style="background:var(--bg3);padding:6px 8px;text-align:left">ชื่อวัตถุดิบ</th>
+              <th style="background:var(--bg3);padding:6px 8px;text-align:right">รวมใช้</th>
+              <th style="background:var(--bg3);padding:6px 8px;text-align:left">หน่วย</th>
+              <th style="background:var(--bg3);padding:6px 8px;text-align:right">คงเหลือ</th>
+              <th style="background:var(--bg3);padding:6px 8px;text-align:right">พอ/ขาด</th>
+              <th style="background:var(--bg3);padding:6px 8px;text-align:right">ต้นทุน</th>
+            </tr></thead>
+            <tbody>${sumRows}</tbody>
+            <tfoot><tr style="background:var(--bg3);font-weight:700;border-top:2px solid var(--border)">
+              <td colspan="7" style="padding:6px 10px;text-align:right;color:var(--navy)">💰 ต้นทุนวัตถุดิบรวมทั้งหมด:</td>
+              <td class="mn" style="font-size:12px;font-weight:800;color:var(--green)">${thb(totalRMCost)}</td>
+            </tr></tfoot>
+          </table>
+        </div>
+      </div>`;
 
     area.innerHTML = `
+      ${summaryHTML}
       <div class="tw" style="overflow-x:auto;max-height:75vh;overflow-y:auto">
         <table style="border-collapse:collapse;font-size:12px;white-space:nowrap">
           <thead>
