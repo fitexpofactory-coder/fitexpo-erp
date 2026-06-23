@@ -7842,15 +7842,15 @@ async function fpDoDeductBatch(woId, ppNo, batchNo, numBatches, batchKg){
 
   // 📥 รับยอดที่ผลิตได้ของ batch นี้เข้า FG/WIP ทันที + สะสม actual_qty
   const _fbUnit=document.getElementById('fb-unit')?.value||'kg';
-  let yieldKg=0, yieldNote='';
+  let yieldKg=0, yieldNote='', _fbPcs=0, _fbWpu=0;
   if(_fbUnit==='kg'){
     yieldKg=parseFloat(document.getElementById('fb-yield')?.value)||0;
     yieldNote=`${fmt(yieldKg,2)}kg`;
   }else{
-    const _cnt=parseFloat(document.getElementById('fb-count')?.value)||0;
-    const _wpu=parseFloat(document.getElementById('fb-wpu')?.value)||0;
-    yieldKg=+(_cnt*_wpu/1000).toFixed(4);
-    yieldNote=`${fmt(_cnt,0)} ${_fbUnit==='jar'?'กระปุก':'ชิ้น'} × ${fmt(_wpu,1)}g = ${fmt(yieldKg,2)}kg`;
+    _fbPcs=parseFloat(document.getElementById('fb-count')?.value)||0;
+    _fbWpu=parseFloat(document.getElementById('fb-wpu')?.value)||0;
+    yieldKg=+(_fbPcs*_fbWpu/1000).toFixed(4);
+    yieldNote=`${fmt(_fbPcs,0)} ${_fbUnit==='jar'?'กระปุก':'ชิ้น'} × ${fmt(_fbWpu,1)}g = ${fmt(yieldKg,2)}kg`;
   }
   if(yieldKg>0){
     try{
@@ -7859,8 +7859,13 @@ async function fpDoDeductBatch(woId, ppNo, batchNo, numBatches, batchKg){
       const isWIPsku=sku.startsWith('WIP');
       const lotNo=`${ppNo}-B${batchNo}`;
       const today=new Date().toISOString().slice(0,10);
-      if(isWIPsku) await upsertWIPStock(sku, yieldKg, lotNo, today, null);
-      else         await upsertFGStock(sku, yieldKg, lotNo, today, null);
+      if(isWIPsku){
+        await upsertWIPStock(sku, yieldKg, lotNo, today, null);
+      }else{
+        // เก็บจำนวนชิ้น/กระปุก + น้ำหนัก/หน่วย ลงใน lot ด้วย (สำหรับรายงานเป็นจำนวน)
+        const extra = _fbUnit==='kg' ? {} : {pcs:_fbPcs, unit_type:_fbUnit, wpu_g:_fbWpu};
+        await upsertFGStock(sku, yieldKg, lotNo, today, null, extra);
+      }
       const newActual=(+woNow?.actual_qty||0)+yieldKg;
       await sbU('production_plan',{actual_qty:newActual, status:'กำลังผลิต'},`id=eq.${woId}`);
       await logA('UPDATE','production',`รับยอด Batch ${batchNo}/${numBatches}: ${yieldNote} → ${sku} (LOT ${lotNo})`,ppNo);
@@ -8190,10 +8195,11 @@ function fpAutoFillWeight(idx){
 // บันทึกผลผลิตจริง
 
 // ── UPSERT FG Stock — ป้องกัน 409 Conflict ──────────────────
-async function upsertFGStock(sku, addQty, lotNo='', prodDate='', expDate=null){
+async function upsertFGStock(sku, addQty, lotNo='', prodDate='', expDate=null, extra={}){
   if(!sku){ console.error('upsertFGStock: sku empty'); throw new Error('SKU ว่างเปล่า'); }
   addQty=Number(addQty)||0;
   const safeLot=lotNo||`LOT-${new Date().toISOString().slice(0,10).replace(/-/g,'')}`;
+  const _ex=extra||{};
 
   // ── บันทึก lot — ลบซ้ำก่อน insert ──
   try{
@@ -8207,11 +8213,11 @@ async function upsertFGStock(sku, addQty, lotNo='', prodDate='', expDate=null){
       }
       await sbP('stock_product_lots',{sku,lot_no:safeLot,qty_kg:addQty,
         prod_date:prodDate||new Date().toISOString().slice(0,10),
-        exp_date:expDate||null,status:'available'});
+        exp_date:expDate||null,status:'available',..._ex});
     }else if(existLots.length===0){
       await sbP('stock_product_lots',{sku,lot_no:safeLot,qty_kg:addQty,
         prod_date:prodDate||new Date().toISOString().slice(0,10),
-        exp_date:expDate||null,status:'available'});
+        exp_date:expDate||null,status:'available',..._ex});
     }
     // length===1 → OK แล้ว
   }catch(e){ console.warn('stock_product_lots:',e.message); }
@@ -23177,6 +23183,7 @@ async function srFetchTransactions(from, to, typeFilter='all'){
 
   // จาก stock_product_lots (ผลิต FG)
   fgLots.forEach(f=>{
+    const _pcsTxt = f.pcs ? `${fmt(f.pcs,0)} ${f.unit_type==='jar'?'กระปุก':'ชิ้น'}${f.wpu_g?` × ${fmt(f.wpu_g,1)}g`:''}` : '';
     txns.push({
       date:  f.prod_date,
       time:  '',
@@ -23187,13 +23194,15 @@ async function srFetchTransactions(from, to, typeFilter='all'){
       code:  f.sku,
       name:  f.sku,
       qty:   +f.qty_kg||0,
-      unit:  'pcs',
+      unit:  'kg',
+      pcs:   +f.pcs||0,
+      pcsText: _pcsTxt,
       lotNo: f.lot_no||'',
       expDate: f.exp_date||'',
       supplier:'',
       poNo:  '',
       by:    '',
-      note:  f.note||'',
+      note:  [f.note, _pcsTxt].filter(Boolean).join(' · '),
       src:   'stock_product_lots'
     });
   });
