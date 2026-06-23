@@ -4527,8 +4527,12 @@ async function loadProduction(){
             ${w.note?'<br><span style="color:var(--text3)">'+w.note+'</span>':''}
           </div>
           <div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap">
-            <button class="btn btnG sm" onclick="finalizeProduction(${w.id},'${w.pp_no}')">✅ ยืนยัน+Stock</button>
-            <button class="btn btnS sm" onclick="closeWODone(${w.id},'${w.pp_no}')" title="ปิดงานเป็นเสร็จสิ้น (กรณีตัด stock แล้วแต่สถานะค้าง — ไม่ตัด stock ซ้ำ)">✔️ ปิดงาน</button>
+            ${(+w.actual_qty||0)>0
+              ? `<button class="btn sm" disabled style="background:#E5E7EB;color:#9CA3AF;cursor:not-allowed" title="ตัด stock / รับยอดแล้ว — ใช้ปุ่มปิดงาน">🔒 ตัด stock แล้ว (${fmt(w.actual_qty,2)}kg)</button>
+                 <button class="btn btnP sm" onclick="closeWODone(${w.id},'${w.pp_no}')" title="ปิดงานเป็นเสร็จสิ้น">✔️ ปิดงาน</button>
+                 <button class="btn btnN sm" onclick="editWOActual(${w.id},'${w.pp_no}')" title="แก้ไขจำนวนสินค้า + วัตถุดิบที่ตัด">✏️ แก้ไขยอด</button>`
+              : `<button class="btn btnG sm" onclick="finalizeProduction(${w.id},'${w.pp_no}')">✅ ยืนยัน+Stock</button>
+                 <button class="btn btnS sm" onclick="closeWODone(${w.id},'${w.pp_no}')" title="ปิดงานเป็นเสร็จสิ้น (กรณีตัด stock แล้วแต่สถานะค้าง)">✔️ ปิดงาน</button>`}
             <button class="btn btnS sm" onclick="updateWO(${w.id},'กำลังผลิต')">▶ เริ่ม</button>
             <button class="btn btnN sm" onclick="editWOBatches(${w.id},'${w.pp_no}','${(w.product_name||w.sku_code).replace(/'/g,'')}')" title="แก้ไขจำนวน Batch">✏️ แก้ Batch</button>
             <button class="btn btnT sm" onclick="showProdSteps('${w.sku_code}','${w.id}')">🔧 ขั้นตอน</button>
@@ -5068,6 +5072,66 @@ function pt(k){return (_lang==='en'?PT_EN:PT_TH)[k]||k;}
 window.print();setTimeout(()=>window.close(),3000);}<\/script>
   </body></html>`,'พิมพ์เอกสาร');}
 
+// ── แก้ไขยอดสินค้าที่รับเข้า + วัตถุดิบที่ตัด (ปรับตามส่วนต่าง delta) ──
+async function editWOActual(woId, ppNo){
+  const wo=(await sbG('production_plan',{f:[`id=eq.${woId}`]}).catch(()=>[]))[0];
+  if(!wo){ alert('ไม่พบ Work Order'); return; }
+  const isWIP=(wo.sku_code||'').startsWith('WIP');
+  const ded=await sbG('wo_rm_deductions',{f:[`pp_no=eq.${encodeURIComponent(ppNo)}`],ord:'id.asc'}).catch(()=>[]);
+  const dedRows=(ded||[]).map(d=>`<tr>
+    <td style="padding:3px 6px;font-family:monospace;font-size:11px">${d.code}</td>
+    <td style="padding:3px 6px"><input type="number" step="0.001" class="ewo-rm" data-id="${d.id}" data-old="${d.qty}" data-code="${d.code}" data-tbl="${d.tbl||'stock_material'}" value="${d.qty}" style="width:100px;padding:4px;border:1px solid #CBD5E1;border-radius:5px;text-align:right"></td>
+    <td style="padding:3px 6px;font-size:11px;color:#64748B;text-align:center">b.${d.batch_no||'-'}</td></tr>`).join('');
+  openMo(`✏️ แก้ไขยอด ${ppNo}`, `
+    <div style="font-size:12px;color:#64748B;margin-bottom:10px">${wo.product_name||wo.sku_code} · ${wo.num_batches} batch · LOT ${wo.lot_no||'-'}</div>
+    <label style="font-size:12px;font-weight:600">จำนวนสินค้าที่รับเข้า (${isWIP?'WIP':'FG'}) — kg</label>
+    <input id="ewo-actual" type="number" step="0.01" value="${+wo.actual_qty||0}" style="width:100%;padding:8px;border:1px solid #CBD5E1;border-radius:6px;margin:4px 0 14px;box-sizing:border-box">
+    <div style="font-weight:600;font-size:13px;margin-bottom:4px">วัตถุดิบที่ตัด (แก้จำนวนได้)</div>
+    ${(ded&&ded.length)
+      ? `<div style="max-height:240px;overflow:auto;border:1px solid var(--border);border-radius:6px">
+          <table style="width:100%;border-collapse:collapse"><thead><tr style="background:#F8FAFC;font-size:11px">
+          <th style="padding:4px 6px;text-align:left">รหัส</th><th style="padding:4px 6px;text-align:right">ตัด</th><th style="padding:4px 6px">Batch</th></tr></thead>
+          <tbody>${dedRows}</tbody></table></div>
+          <div style="font-size:11px;color:#64748B;margin-top:4px">* แก้แล้วระบบปรับ stock วัตถุดิบตามส่วนต่างให้</div>`
+      : `<div style="font-size:12px;color:#92400E;background:#FEF3C7;padding:8px;border-radius:6px">
+          WO นี้ไม่มีบันทึกการตัดวัตถุดิบรายรายการ (ตัดก่อนเปิดระบบบันทึก)<br>แก้ไขจำนวน RM ได้ที่หน้า "✂️ Deduct Stock"
+          <button class="btn btnS sm" style="margin-top:6px" onclick="closeMo();nav('stock-deduct')">→ ไปหน้า Deduct Stock</button></div>`}
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btnP" style="flex:1" onclick="saveEditWOActual(${woId},'${ppNo}',${isWIP})">💾 บันทึกการแก้ไข</button>
+      <button class="btn btnS" onclick="closeMo()">ยกเลิก</button></div>`);
+}
+async function saveEditWOActual(woId, ppNo, isWIP){
+  const wo=(await sbG('production_plan',{f:[`id=eq.${woId}`]}).catch(()=>[]))[0]; if(!wo) return;
+  const oldQ=+wo.actual_qty||0;
+  const newQ=parseFloat(document.getElementById('ewo-actual').value)||0;
+  const dQ=+(newQ-oldQ).toFixed(4);
+  const rmInputs=[...document.querySelectorAll('.ewo-rm')];
+  const rmChanges=rmInputs.map(inp=>({d:+(((parseFloat(inp.value)||0)-(parseFloat(inp.dataset.old)||0)).toFixed(4)),nq:parseFloat(inp.value)||0,id:inp.dataset.id,code:inp.dataset.code,tbl:inp.dataset.tbl})).filter(x=>x.d!==0);
+  if(dQ===0 && !rmChanges.length){ alert('ไม่มีการเปลี่ยนแปลง'); return; }
+  if(!confirm(`ยืนยันการแก้ไข?\n\nสินค้ารับเข้า: ${fmt(oldQ,2)} → ${fmt(newQ,2)} kg (${dQ>=0?'+':''}${fmt(dQ,2)})\nวัตถุดิบที่ปรับ: ${rmChanges.length} รายการ\n\nระบบจะปรับ stock ตามส่วนต่าง`)) return;
+  try{
+    if(dQ!==0){
+      if(isWIP){
+        const s=(await sbG('wip_stock',{f:[`code=eq.${wo.sku_code}`]}).catch(()=>[]))[0];
+        if(s) await sbU('wip_stock',{qty_produced:Number(s.qty_produced||0)+dQ},`code=eq.${wo.sku_code}`);
+        if(wo.lot_no){ const l=(await sbG('wip_stock_lots',{f:[`wip_code=eq.${wo.sku_code}`,`lot_no=eq.${wo.lot_no}`]}).catch(()=>[]))[0]; if(l) await sbU('wip_stock_lots',{qty_kg:Number(l.qty_kg||0)+dQ},`id=eq.${l.id}`); }
+      }else{
+        const s=(await sbG('stock_product',{f:[`sku=eq.${wo.sku_code}`]}).catch(()=>[]))[0];
+        if(s) await sbU('stock_product',{qty_in:Number(s.qty_in||0)+dQ},`sku=eq.${wo.sku_code}`);
+        if(wo.lot_no){ const l=(await sbG('stock_product_lots',{f:[`sku=eq.${wo.sku_code}`,`lot_no=eq.${wo.lot_no}`]}).catch(()=>[]))[0]; if(l) await sbU('stock_product_lots',{qty_kg:Number(l.qty_kg||0)+dQ},`id=eq.${l.id}`); }
+      }
+      await sbU('production_plan',{actual_qty:newQ},`id=eq.${woId}`);
+    }
+    for(const c of rmChanges){
+      if(c.tbl==='wip_stock'){ const s=(await sbG('wip_stock',{f:[`code=eq.${c.code}`]}).catch(()=>[]))[0]; if(s) await sbU('wip_stock',{qty_issued:Number(s.qty_issued||0)+c.d},`code=eq.${c.code}`); }
+      else { const s=(await sbG('stock_material',{f:[`code=eq.${c.code}`]}).catch(()=>[]))[0]; if(s) await sbU('stock_material',{qty_out:Number(s.qty_out||0)+c.d},`code=eq.${c.code}`); }
+      await sbU('wo_rm_deductions',{qty:c.nq},`id=eq.${c.id}`).catch(()=>{});
+    }
+    await logA('UPDATE','production',`แก้ไขยอด ${ppNo}: รับเข้า ${fmt(oldQ,2)}→${fmt(newQ,2)}kg, ปรับ RM ${rmChanges.length} รายการ`,ppNo);
+    closeMo(); if(typeof loadProduction==='function') loadProduction();
+    alert('✅ แก้ไขเรียบร้อย');
+  }catch(e){ alert('ไม่สำเร็จ: '+e.message); }
+}
 // ปิดงาน WO เป็น "เสร็จสิ้น" แบบไม่ตัด stock ซ้ำ (กรณียืนยัน/ตัด stock แล้วแต่สถานะค้าง)
 async function closeWODone(id, ppNo){
   if(!confirm(`ปิดงาน WO ${ppNo} เป็น "เสร็จสิ้น"?\n\nใช้กรณีที่ยืนยันยอด/ตัด stock ไปแล้ว แต่สถานะยังค้าง\n(ระบบจะเปลี่ยนสถานะอย่างเดียว — ไม่ตัด stock ซ้ำ)`)) return;
@@ -7442,6 +7506,15 @@ async function finalizeProduction(woId, ppNo){
     const wo=(await sbG('production_plan',{f:[`id=eq.${woId}`]}))[0];
     if(!wo){alert('ไม่พบ Work Order');return;}
 
+    // 🔒 ล็อกกันตัด stock ซ้ำ: ถ้ารับยอด/ตัด stock ไปแล้ว (actual_qty>0) ห้ามยืนยันซ้ำ
+    if((+wo.actual_qty||0)>0){
+      alert(`🔒 WO ${ppNo} ยืนยัน/ตัด stock ไปแล้ว (รับ ${fmt(wo.actual_qty,2)} kg)\n\n`+
+            `ไม่สามารถกดยืนยัน + ตัด stock ซ้ำได้\n\n`+
+            `• ต้องการแก้ไขจำนวน/วัตถุดิบ → กดปุ่ม "✏️ แก้ไขยอด"\n`+
+            `• ปิดงาน → กดปุ่ม "✔️ ปิดงาน"`);
+      return;
+    }
+
     const numBatches = parseInt(wo.num_batches)||1;
     const batchKg    = parseFloat(wo.batch_kg)||50;
     const isFG       = !wo.sku_code?.startsWith('WIP');
@@ -7721,6 +7794,11 @@ async function fpDoDeductBatch(woId, ppNo, batchNo, numBatches, batchKg){
   }
   await logA('DEDUCT','rm',
     `Batch ${batchNo}/${numBatches}: deducted ${ok} materials — WO:${ppNo}`, ppNo);
+  // บันทึกรายการที่ตัด (เพื่อให้แก้ไขย้อนหลังได้ใน editWOActual)
+  for(const m of items){
+    await sbP('wo_rm_deductions',{pp_no:ppNo, wo_id:woId, code:m.code, qty:m.qty,
+      tbl:(m.table||'stock_material'), batch_no:batchNo, by_user:CU?.username||''}).catch(()=>{});
+  }
 
   window._cachedRM=null;
   if(errs.length){
