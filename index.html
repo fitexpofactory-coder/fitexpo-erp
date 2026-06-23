@@ -4523,16 +4523,14 @@ async function loadProduction(){
           <div style="font-weight:600;font-size:13px;margin-bottom:2px">${w.product_name||w.sku_code}</div>
           <div style="font-size:11px;color:var(--text3)">
             ${w.num_batches} Batch × ${w.batch_kg||50}kg
+            <span id="wo-bp-${w.id}" data-pp="${w.pp_no}" data-batches="${w.num_batches}" style="margin-left:6px"></span>
             ${w.operator?' | 👤 '+w.operator:''}
             ${w.note?'<br><span style="color:var(--text3)">'+w.note+'</span>':''}
           </div>
           <div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap">
-            ${(+w.actual_qty||0)>0
-              ? `<button class="btn sm" disabled style="background:#E5E7EB;color:#9CA3AF;cursor:not-allowed" title="ตัด stock / รับยอดแล้ว — ใช้ปุ่มปิดงาน">🔒 ตัด stock แล้ว (${fmt(w.actual_qty,2)}kg)</button>
-                 <button class="btn btnP sm" onclick="closeWODone(${w.id},'${w.pp_no}')" title="ปิดงานเป็นเสร็จสิ้น">✔️ ปิดงาน</button>
-                 <button class="btn btnN sm" onclick="editWOActual(${w.id},'${w.pp_no}')" title="แก้ไขจำนวนสินค้า + วัตถุดิบที่ตัด">✏️ แก้ไขยอด</button>`
-              : `<button class="btn btnG sm" onclick="finalizeProduction(${w.id},'${w.pp_no}')">✅ ยืนยัน+Stock</button>
-                 <button class="btn btnS sm" onclick="closeWODone(${w.id},'${w.pp_no}')" title="ปิดงานเป็นเสร็จสิ้น (กรณีตัด stock แล้วแต่สถานะค้าง)">✔️ ปิดงาน</button>`}
+            <button id="wo-deduct-btn-${w.id}" class="btn btnG sm" onclick="finalizeProduction(${w.id},'${w.pp_no}')">✅ ยืนยัน+Stock (ทีละ batch)</button>
+            <button id="wo-close-btn-${w.id}" class="btn btnS sm" onclick="closeWODone(${w.id},'${w.pp_no}')" title="ปิดงานเป็นเสร็จสิ้น">✔️ ปิดงาน</button>
+            <button class="btn btnN sm" onclick="editWOActual(${w.id},'${w.pp_no}')" title="แก้ไขจำนวนสินค้า + วัตถุดิบที่ตัด">✏️ แก้ไขยอด</button>
             <button class="btn btnS sm" onclick="updateWO(${w.id},'กำลังผลิต')">▶ เริ่ม</button>
             <button class="btn btnN sm" onclick="editWOBatches(${w.id},'${w.pp_no}','${(w.product_name||w.sku_code).replace(/'/g,'')}')" title="แก้ไขจำนวน Batch">✏️ แก้ Batch</button>
             <button class="btn btnT sm" onclick="showProdSteps('${w.sku_code}','${w.id}')">🔧 ขั้นตอน</button>
@@ -4585,6 +4583,14 @@ async function loadBatchProgress(){
         : done > 0
           ? `<span style="color:#D97706">⬜ ${done}/${numBatches} Batch confirmed</span>`
           : `<span style="color:var(--text3)">⬜ 0/${numBatches} Batch — Pending</span>`;
+      // ครบทุก batch → ล็อกปุ่มยืนยัน + บังคับปิดงาน
+      const dbtn=document.getElementById('wo-deduct-btn-'+woId);
+      const cbtn=document.getElementById('wo-close-btn-'+woId);
+      if(allDone){
+        if(dbtn){ dbtn.disabled=true; dbtn.style.background='#E5E7EB'; dbtn.style.color='#9CA3AF';
+          dbtn.style.cursor='not-allowed'; dbtn.textContent='🔒 ครบทุก batch แล้ว'; dbtn.onclick=null; }
+        if(cbtn){ cbtn.classList.remove('btnS'); cbtn.classList.add('btnP'); }
+      }
     });
   }catch(e){ console.warn('loadBatchProgress:',e); }
 }
@@ -7506,15 +7512,6 @@ async function finalizeProduction(woId, ppNo){
     const wo=(await sbG('production_plan',{f:[`id=eq.${woId}`]}))[0];
     if(!wo){alert('ไม่พบ Work Order');return;}
 
-    // 🔒 ล็อกกันตัด stock ซ้ำ: ถ้ารับยอด/ตัด stock ไปแล้ว (actual_qty>0) ห้ามยืนยันซ้ำ
-    if((+wo.actual_qty||0)>0){
-      alert(`🔒 WO ${ppNo} ยืนยัน/ตัด stock ไปแล้ว (รับ ${fmt(wo.actual_qty,2)} kg)\n\n`+
-            `ไม่สามารถกดยืนยัน + ตัด stock ซ้ำได้\n\n`+
-            `• ต้องการแก้ไขจำนวน/วัตถุดิบ → กดปุ่ม "✏️ แก้ไขยอด"\n`+
-            `• ปิดงาน → กดปุ่ม "✔️ ปิดงาน"`);
-      return;
-    }
-
     const numBatches = parseInt(wo.num_batches)||1;
     const batchKg    = parseFloat(wo.batch_kg)||50;
     const isFG       = !wo.sku_code?.startsWith('WIP');
@@ -7747,9 +7744,15 @@ async function fpConfirmBatch(woId, ppNo, batchNo, numBatches, batchKg){
       </table>
     </div>
     ${!allItems.length?'<div class="al ali">⚠️ ไม่พบ BOM — ตรวจสอบ wip_bom หรือ bom_master</div>':''}
+    <div style="background:#ECFDF5;border:1px solid #A7F3D0;border-radius:8px;padding:10px;margin:8px 0">
+      <label style="font-size:12px;font-weight:700;color:#065F46">📥 ยอดที่ผลิตได้ Batch ${batchNo} (kg)</label>
+      <input id="fb-yield" type="number" step="0.01" value="${batchKg}"
+        style="width:100%;padding:8px;border:1px solid #6EE7B7;border-radius:6px;margin-top:4px;box-sizing:border-box;font-size:15px;font-weight:700;text-align:right">
+      <div style="font-size:10px;color:#047857;margin-top:3px">* จะรับเข้า ${isFG?'FG':'WIP'} stock ทันที (LOT: ${ppNo}-B${batchNo}) เมื่อยืนยัน batch นี้</div>
+    </div>
     <button class="btn btnP" style="width:100%;padding:12px"
       onclick="fpDoDeductBatch(${woId},'${ppNo}',${batchNo},${numBatches},${batchKg})">
-      ✅ Deduct Stock — Batch ${batchNo}
+      ✅ Deduct Stock + รับยอด — Batch ${batchNo}
     </button>
     <button class="btn btnS" style="width:100%;margin-top:6px"
       onclick="closeMo();finalizeProduction(${woId},'${ppNo}')">← Back</button>
@@ -7800,6 +7803,23 @@ async function fpDoDeductBatch(woId, ppNo, batchNo, numBatches, batchKg){
       tbl:(m.table||'stock_material'), batch_no:batchNo, by_user:CU?.username||''}).catch(()=>{});
   }
 
+  // 📥 รับยอดที่ผลิตได้ของ batch นี้เข้า FG/WIP ทันที + สะสม actual_qty
+  const yieldKg = parseFloat(document.getElementById('fb-yield')?.value)||0;
+  if(yieldKg>0){
+    try{
+      const woNow=(await sbG('production_plan',{f:[`id=eq.${woId}`]}).catch(()=>[]))[0];
+      const sku=woNow?.sku_code||'';
+      const isWIPsku=sku.startsWith('WIP');
+      const lotNo=`${ppNo}-B${batchNo}`;
+      const today=new Date().toISOString().slice(0,10);
+      if(isWIPsku) await upsertWIPStock(sku, yieldKg, lotNo, today, null);
+      else         await upsertFGStock(sku, yieldKg, lotNo, today, null);
+      const newActual=(+woNow?.actual_qty||0)+yieldKg;
+      await sbU('production_plan',{actual_qty:newActual, status:'กำลังผลิต'},`id=eq.${woId}`);
+      await logA('UPDATE','production',`รับยอด Batch ${batchNo}/${numBatches} ${fmt(yieldKg,2)}kg → ${sku} (LOT ${lotNo})`,ppNo);
+    }catch(e){ errs.push('รับยอด: '+e.message); }
+  }
+
   window._cachedRM=null;
   if(errs.length){
     msgEl('fb-msg',`⚠️ ${ok}/${items.length} done. Errors: `+errs.join(', '),'e');
@@ -7827,6 +7847,19 @@ async function fpDeductPKOnly(woId, ppNo, pkItemsJSON){
 
 // ── Final: mark WO complete ───────────────────────────────────
 async function fpFinalComplete(woId, ppNo, sku, numBatches, batchKg){
+  // ยอดผลิตรับเข้าครบทีละ batch แล้ว → ปิดงานอย่างเดียว (ไม่รับยอดซ้ำ)
+  const woNow=(await sbG('production_plan',{f:[`id=eq.${woId}`]}).catch(()=>[]))[0];
+  const recv=+woNow?.actual_qty||0;
+  if(!confirm(`ปิดงาน ${ppNo} เป็น "เสร็จสิ้น"?\n\nยอดรับเข้าสะสมจากทุก batch: ${fmt(recv,2)} kg\n(ระบบจะไม่รับยอดซ้ำ — ปิดงานอย่างเดียว)`)) return;
+  await safeUpdateWO(woId,{status:'เสร็จสิ้น'});
+  await logA('UPDATE','production',`ปิดงาน ${ppNo} → เสร็จสิ้น (รับครบทีละ batch รวม ${fmt(recv,2)}kg)`,ppNo);
+  window._cachedRM=null;
+  closeMo();
+  if(typeof loadProduction==='function') loadProduction();
+  if(typeof loadWIPProd==='function' && (sku||'').startsWith('WIP')) loadWIPProd();
+  alert(`✅ WO ${ppNo} เสร็จสิ้น (รับเข้ารวม ${fmt(recv,2)} kg)`);
+}
+async function fpFinalComplete_legacy(woId, ppNo, sku, numBatches, batchKg){
   if(!confirm(`Mark ${ppNo} as COMPLETE?`)) return;
   const actualKg=numBatches*batchKg;
   const isFG=!sku?.startsWith('WIP');
