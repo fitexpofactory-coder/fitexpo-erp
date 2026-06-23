@@ -4528,6 +4528,7 @@ async function loadProduction(){
           </div>
           <div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap">
             <button class="btn btnG sm" onclick="finalizeProduction(${w.id},'${w.pp_no}')">✅ ยืนยัน+Stock</button>
+            <button class="btn btnS sm" onclick="closeWODone(${w.id},'${w.pp_no}')" title="ปิดงานเป็นเสร็จสิ้น (กรณีตัด stock แล้วแต่สถานะค้าง — ไม่ตัด stock ซ้ำ)">✔️ ปิดงาน</button>
             <button class="btn btnS sm" onclick="updateWO(${w.id},'กำลังผลิต')">▶ เริ่ม</button>
             <button class="btn btnN sm" onclick="editWOBatches(${w.id},'${w.pp_no}','${(w.product_name||w.sku_code).replace(/'/g,'')}')" title="แก้ไขจำนวน Batch">✏️ แก้ Batch</button>
             <button class="btn btnT sm" onclick="showProdSteps('${w.sku_code}','${w.id}')">🔧 ขั้นตอน</button>
@@ -5067,6 +5068,16 @@ function pt(k){return (_lang==='en'?PT_EN:PT_TH)[k]||k;}
 window.print();setTimeout(()=>window.close(),3000);}<\/script>
   </body></html>`,'พิมพ์เอกสาร');}
 
+// ปิดงาน WO เป็น "เสร็จสิ้น" แบบไม่ตัด stock ซ้ำ (กรณียืนยัน/ตัด stock แล้วแต่สถานะค้าง)
+async function closeWODone(id, ppNo){
+  if(!confirm(`ปิดงาน WO ${ppNo} เป็น "เสร็จสิ้น"?\n\nใช้กรณีที่ยืนยันยอด/ตัด stock ไปแล้ว แต่สถานะยังค้าง\n(ระบบจะเปลี่ยนสถานะอย่างเดียว — ไม่ตัด stock ซ้ำ)`)) return;
+  try{
+    try{ await sbU('production_plan',{status:'เสร็จสิ้น',finish_date:new Date().toISOString().slice(0,10)},`id=eq.${id}`); }
+    catch(e){ await sbU('production_plan',{status:'เสร็จสิ้น'},`id=eq.${id}`); }
+    await logA('UPDATE','production',`ปิดงาน ${ppNo} → เสร็จสิ้น (manual, ไม่ตัด stock ซ้ำ)`,ppNo);
+    if(typeof loadProduction==='function') loadProduction();
+  }catch(e){ alert('ไม่สำเร็จ: '+e.message); }
+}
 async function updateWO(id,status){
   if(status==='ยกเลิก'){
     // ยกเลิก WO → บันทึก Log แล้วลบออก
@@ -8097,17 +8108,18 @@ async function doFinalizeProduction(woId, ppNo, woSku, defaultKg){
   if(btn){ btn.disabled=true; btn.textContent='⏳ Saving...'; }
 
   const mode      = document.getElementById('fp-pack-mode')?.value||'kg';
-  // status ขึ้นกับ num_batches — ถ้า 1 batch → เสร็จสิ้น, ถ้า >1 → ต้อง confirm ทีละ batch
-  // แต่ form นี้ confirm ครบแล้วให้ set เสร็จสิ้นเลย (user เลือก confirm เองจาก form)
-  // ถ้า WO มี num_batches > 1 → set "กำลังผลิต" (รอ confirm ทีละ batch)
-  // ถ้า num_batches = 1 → set "เสร็จสิ้น" ทันที
-  const _finalStatus = _nb > 1 ? 'กำลังผลิต' : 'เสร็จสิ้น';
 
-  // ถ้า num_batches > 1 → แนะนำให้ใช้ batch-by-batch แทน
+  const restoreBtn=()=>{
+    window._fpSaving=false;
+    if(btn){ btn.disabled=false; btn.textContent='💾 ยืนยันบันทึกผลผลิต'; }
+  };
+
+  // อ่านจำนวน batch ของ WO
   const _nb = parseInt((await sbG('production_plan',{
     f:[`id=eq.${woId}`],s:'num_batches'}).catch(()=>[]))[0]?.num_batches)||1;
+
+  // WO หลาย batch + ไม่ใช่โหมด kg → ถามว่าจะยืนยันทั้งหมดครั้งเดียว หรือไป batch-by-batch
   if(_nb > 1 && mode !== 'kg'){
-    // แจ้งเตือน แต่ยังให้ดำเนินต่อได้ (ถ้า user confirm)
     const useAll = confirm(
       `⚠️ WO นี้มี ${_nb} Batch\n\n` +
       `[OK] ยืนยันผลผลิตทั้งหมดในครั้งเดียว (ไม่ตัด RM ทีละ Batch)\n` +
@@ -8120,17 +8132,16 @@ async function doFinalizeProduction(woId, ppNo, woSku, defaultKg){
       return;
     }
   }
+
+  // ฟอร์มนี้ = ยืนยันผลผลิตครบทั้ง WO + ตัด stock แล้ว → ปิดงานเป็น "เสร็จสิ้น"
+  const _finalStatus = 'เสร็จสิ้น';
+
   const actualKg  = parseFloat(document.getElementById('fp-actual-kg')?.value)||defaultKg;
   const note      = document.getElementById('fp-note')?.value||'';
   const lotNo     = document.getElementById('fp-lot-no')?.value||`LOT-${new Date().toISOString().slice(0,10).replace(/-/g,'')}`;
   const prodDate  = document.getElementById('fp-prod-date')?.value||new Date().toISOString().slice(0,10);
   const expDate   = document.getElementById('fp-exp-date')?.value||null;
   msgEl('fp-msg','<span class="spin"></span> Saving...','i');
-
-  const restoreBtn=()=>{
-    window._fpSaving=false;
-    if(btn){ btn.disabled=false; btn.textContent='💾 ยืนยันบันทึกผลผลิต'; }
-  };
 
   try{
     if(mode==='kg'){
