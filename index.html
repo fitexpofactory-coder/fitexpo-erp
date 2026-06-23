@@ -2778,6 +2778,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
     <div class="ch">
       <div class="ct">✂️ Deduct Stock by Batch / ตัด Stock ตาม Batch Record</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <input class="fc2 sm" id="sd-wo-search" oninput="sdFilterWO()" placeholder="🔍 พิมพ์เลข WO..." style="width:150px">
         <select class="fc2 sm" id="sd-wo-sel" style="width:200px" onchange="sdLoadWO()">
           <option value="">— Select Work Order —</option>
         </select>
@@ -5088,9 +5089,26 @@ async function editWOActual(woId, ppNo){
     <td style="padding:3px 6px;font-family:monospace;font-size:11px">${d.code}</td>
     <td style="padding:3px 6px"><input type="number" step="0.001" class="ewo-rm" data-id="${d.id}" data-old="${d.qty}" data-code="${d.code}" data-tbl="${d.tbl||'stock_material'}" value="${d.qty}" style="width:100px;padding:4px;border:1px solid #CBD5E1;border-radius:5px;text-align:right"></td>
     <td style="padding:3px 6px;font-size:11px;color:#64748B;text-align:center">b.${d.batch_no||'-'}</td></tr>`).join('');
+  // โหลด lot ที่รับเข้าของ WO นี้ เพื่อแสดงหน่วย (ชิ้น/กระปุก/kg) ตามที่ยืนยัน
+  const _lotsTbl=isWIP?'wip_stock_lots':'stock_product_lots';
+  const _lotCol =isWIP?'wip_code':'sku';
+  const recvLots=await sbG(_lotsTbl,{f:[`${_lotCol}=eq.${wo.sku_code}`,`lot_no=like.${ppNo}*`],ord:'lot_no.asc'}).catch(()=>[]);
+  const recvRows=(recvLots||[]).map(l=>{
+    const unitTxt=(!isWIP && l.pcs) ? `${fmt(l.pcs,0)} ${l.unit_type==='jar'?'กระปุก':'ชิ้น'}${l.wpu_g?` × ${fmt(l.wpu_g,1)}g`:''}` : 'ชั่งเป็นน้ำหนัก (kg)';
+    return `<tr><td style="padding:3px 6px;font-family:monospace;font-size:11px">${l.lot_no}</td>
+      <td style="padding:3px 6px;text-align:right;font-weight:700">${fmt(l.qty_kg,2)} kg</td>
+      <td style="padding:3px 6px;font-size:11px;color:#475569">${unitTxt}</td></tr>`;
+  }).join('');
   openMo(`✏️ แก้ไขยอด ${ppNo}`, `
     <div style="font-size:12px;color:#64748B;margin-bottom:10px">${wo.product_name||wo.sku_code} · ${wo.num_batches} batch · LOT ${wo.lot_no||'-'}</div>
-    <label style="font-size:12px;font-weight:600">จำนวนสินค้าที่รับเข้า (${isWIP?'WIP':'FG'}) — kg</label>
+    <div style="font-weight:600;font-size:13px;margin-bottom:4px">📥 ยอดที่รับเข้า (ตามที่ยืนยัน — แสดงหน่วย)</div>
+    ${(recvLots&&recvLots.length)
+      ? `<div style="max-height:160px;overflow:auto;border:1px solid var(--border);border-radius:6px;margin-bottom:12px">
+          <table style="width:100%;border-collapse:collapse"><thead><tr style="background:#F0FDF4;font-size:11px">
+          <th style="padding:4px 6px;text-align:left">LOT</th><th style="padding:4px 6px;text-align:right">น้ำหนัก</th><th style="padding:4px 6px;text-align:left">หน่วยที่รับ</th></tr></thead>
+          <tbody>${recvRows}</tbody></table></div>`
+      : `<div style="font-size:11px;color:#94A3B8;margin-bottom:12px">— ไม่มีบันทึก lot การรับเข้า —</div>`}
+    <label style="font-size:12px;font-weight:600">แก้จำนวนสินค้าที่รับเข้ารวม (${isWIP?'WIP':'FG'}) — kg</label>
     <input id="ewo-actual" type="number" step="0.01" value="${+wo.actual_qty||0}" style="width:100%;padding:8px;border:1px solid #CBD5E1;border-radius:6px;margin:4px 0 14px;box-sizing:border-box">
     <div style="font-weight:600;font-size:13px;margin-bottom:4px">วัตถุดิบที่ตัด (แก้จำนวนได้)</div>
     ${(ded&&ded.length)
@@ -23756,6 +23774,7 @@ let _sdDeducted=[]; // batches ที่ตัดแล้ว
 let _sdPKDeducted=false;
 
 // ── Init ─────────────────────────────────────────────────────
+let _sdAllWOs=[];
 async function sdInit(){
   const sel=document.getElementById('sd-wo-sel');
   if(!sel) return;
@@ -23765,12 +23784,31 @@ async function sdInit(){
       f:['status=neq.cancelled','status=neq.เสร็จสิ้น'],
       ord:'pp_no.desc', s:'id,pp_no,sku_code,product_name,batch_kg,num_batches,status'
     });
-    sel.innerHTML='<option value="">— Select Work Order —</option>'+
-      wos.map(w=>`<option value="${w.id}" data-pp="${w.pp_no}" data-sku="${w.sku_code}"
-        data-batches="${w.num_batches||1}" data-kg="${w.batch_kg||50}">
-        ${w.pp_no} — ${w.product_name||w.sku_code} (${w.num_batches||1} batch)
-      </option>`).join('');
+    _sdAllWOs=wos||[];
+    sdRenderWOOptions(_sdAllWOs);
   }catch(e){ sel.innerHTML='<option value="">❌ Error: '+e.message+'</option>'; }
+}
+function sdRenderWOOptions(wos){
+  const sel=document.getElementById('sd-wo-sel'); if(!sel) return;
+  sel.innerHTML='<option value="">— Select Work Order —</option>'+
+    wos.map(w=>`<option value="${w.id}" data-pp="${w.pp_no}" data-sku="${w.sku_code}"
+      data-batches="${w.num_batches||1}" data-kg="${w.batch_kg||50}">
+      ${w.pp_no} — ${w.product_name||w.sku_code} (${w.num_batches||1} batch)
+    </option>`).join('');
+}
+// ค้นหา WO ด้วยการพิมพ์เลข WO (หรือชื่อสินค้า)
+function sdFilterWO(){
+  const q=(document.getElementById('sd-wo-search')?.value||'').toLowerCase().trim();
+  const list=q ? _sdAllWOs.filter(w=>
+    (w.pp_no||'').toLowerCase().includes(q) ||
+    (w.product_name||'').toLowerCase().includes(q) ||
+    (w.sku_code||'').toLowerCase().includes(q)
+  ) : _sdAllWOs;
+  sdRenderWOOptions(list);
+  // ถ้าตรงเป๊ะ/เหลือตัวเดียว → เลือก + โหลดให้อัตโนมัติ
+  const sel=document.getElementById('sd-wo-sel');
+  if(list.length===1){ sel.value=String(list[0].id); sdLoadWO(); }
+  else if(q){ const exact=list.find(w=>(w.pp_no||'').toLowerCase()===q); if(exact){ sel.value=String(exact.id); sdLoadWO(); } }
 }
 
 // ── Load WO + BOM ──────────────────────────────────────────────
