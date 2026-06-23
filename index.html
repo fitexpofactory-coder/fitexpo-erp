@@ -1148,6 +1148,8 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
     <span id="rmx-dash" style="display:none;align-self:center;color:var(--text3)">–</span>
     <input type="date" class="fc2" id="rmx-to" style="width:140px;display:none" onchange="rmxCustomEdit()">
     <button class="btn btnP sm" onclick="loadRMMatrix()">🔄 โหลด / รีเฟรช</button>
+    <button class="btn btnS sm" onclick="exportRMSummary()">📊 Export สรุป (Excel)</button>
+    <button class="btn btnS sm" onclick="printRMSummary()">🖨️ พิมพ์เฉพาะสรุป</button>
     <button class="btn btnT sm" onclick="printRMMatrix()">🖨️ พิมพ์</button>
     <span style="font-size:12px;color:var(--text3);align-self:center" id="rmx-summary"></span>
   </div>
@@ -15014,6 +15016,7 @@ async function execCopyBOM(srcCode, srcType){
 //  RM MATRIX — ตารางวัตถุดิบ × WO
 // ════════════════════════════════════════════════════════════
 // ── ตัวเลือกช่วงเวลาผลิตของ Matrix RM ───────────────────────
+let _rmxSummary=[], _rmxMeta={};
 function _rmxISO(d){ return d.toISOString().slice(0,10); }
 function rmxOnRange(){
   const mode=document.getElementById('rmx-range').value;
@@ -15222,6 +15225,8 @@ async function loadRMMatrix(){
       const price=matMap[mc]?.price||0;
       return {code:mc, name:matMap[mc]?.name||mc, unit:matMap[mc]?.unit||'kg', need, av, price, diff:av-need, cost:need*price, wip:mc.startsWith('WIP')};
     }).sort((a,b)=>b.need-a.need);
+    _rmxSummary=summaryList;
+    _rmxMeta={rangeLabel:_rngLabel, woCount:wos.length, totalCost:totalRMCost, from:rFrom, to:rTo, rangeMode, status};
     const sumRows = summaryList.map((s,i)=>`
       <tr style="border-bottom:1px solid var(--border)">
         <td style="padding:4px 8px;text-align:center;color:var(--text3);font-size:11px">${i+1}</td>
@@ -15301,6 +15306,50 @@ async function loadRMMatrix(){
     area.innerHTML=`<div class="al ale">${e.message}</div>`;
     console.error('loadRMMatrix:',e);
   }
+}
+
+function exportRMSummary(){
+  if(!_rmxSummary.length){ alert('ยังไม่มีข้อมูลสรุป — กดโหลด Matrix ก่อนครับ'); return; }
+  const m=_rmxMeta;
+  const head=['#','รหัสวัสดุ','ชื่อวัตถุดิบ','รวมใช้','หน่วย','คงเหลือ','พอ/ขาด','ราคา/หน่วย','ต้นทุนรวม'];
+  const rows=_rmxSummary.map((s,i)=>[i+1,s.code,s.name,Number(s.need.toFixed(2)),s.unit,Number(s.av.toFixed(2)),Number(s.diff.toFixed(2)),s.price||0,Number((s.cost||0).toFixed(2))]);
+  const aoa=[
+    ['สรุปการใช้วัตถุดิบรวม — '+((typeof COMPANY_INFO!=='undefined'&&COMPANY_INFO.name)||'FitExpo')],
+    ['วันผลิต:',m.rangeLabel,'','จำนวน WO:',m.woCount,'','รายการ:',_rmxSummary.length],
+    [],
+    head, ...rows,
+    ['','','รวมทั้งหมด','','','','','',Number((m.totalCost||0).toFixed(2))]
+  ];
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=[{wch:4},{wch:14},{wch:30},{wch:12},{wch:8},{wch:12},{wch:12},{wch:12},{wch:14}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'RM Summary');
+  const fn='RM_Summary_'+(m.rangeMode==='all'?'all':((m.from||'')+'_'+(m.to||'')))+'.xlsx';
+  XLSX.writeFile(wb,fn);
+}
+function printRMSummary(){
+  if(!_rmxSummary.length){ alert('ยังไม่มีข้อมูลสรุป — กดโหลด Matrix ก่อนครับ'); return; }
+  const m=_rmxMeta;
+  const rows=_rmxSummary.map((s,i)=>`<tr>
+    <td style="text-align:center">${i+1}</td><td>${s.code}</td><td>${s.name}</td>
+    <td class="r"><b>${fmt(s.need,2)}</b></td><td>${s.unit}</td>
+    <td class="r">${fmt(s.av,2)}</td><td class="r" style="color:${s.diff>=0?'#16803d':'#b91c1c'}">${s.diff>=0?'+':''}${fmt(s.diff,2)}</td>
+    <td class="r">${s.price>0?thb(s.cost):'-'}</td></tr>`).join('');
+  const coName=(typeof COMPANY_INFO!=='undefined'&&COMPANY_INFO.name)||'FitExpo';
+  const w=window.open('','_blank'); if(!w){ alert('เบราว์เซอร์บล็อก pop-up — อนุญาตก่อนครับ'); return; }
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>สรุปการใช้วัตถุดิบ</title>
+  <style>@page{size:A4 portrait;margin:12mm}body{font-family:'Sarabun',Arial,sans-serif;font-size:11pt;color:#111}
+  h2{margin:0 0 2px}.sub{color:#555;font-size:10pt;margin-bottom:10px}
+  table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:4px 6px;font-size:9pt}
+  th{background:#1B3A5C;color:#fff;text-align:left}.r{text-align:right;font-variant-numeric:tabular-nums}
+  tfoot td{font-weight:700;background:#eef2f7}</style></head><body>
+  <h2>สรุปการใช้วัตถุดิบรวม — ${coName}</h2>
+  <div class="sub">วันผลิต: ${m.rangeLabel} · ${m.woCount} WO · ${_rmxSummary.length} รายการ · พิมพ์เมื่อ ${new Date().toLocaleString('th-TH')}</div>
+  <table><thead><tr><th>#</th><th>รหัส</th><th>ชื่อวัตถุดิบ</th><th class="r">รวมใช้</th><th>หน่วย</th><th class="r">คงเหลือ</th><th class="r">พอ/ขาด</th><th class="r">ต้นทุน</th></tr></thead>
+  <tbody>${rows}</tbody>
+  <tfoot><tr><td colspan="7" style="text-align:right">ต้นทุนวัตถุดิบรวมทั้งหมด</td><td class="r">${thb(m.totalCost)}</td></tr></tfoot></table>
+  <scr`+`ipt>window.onload=function(){window.print();setTimeout(function(){window.close();},500);}</scr`+`ipt></body></html>`);
+  w.document.close();
 }
 
 function printRMMatrix(){
