@@ -7627,6 +7627,20 @@ async function finalizeProduction(woId, ppNo){
   }catch(e){alert('❌ '+e.message);}
 }
 
+// สลับหน่วยรับยอด (kg / ชิ้น / กระปุก) ในจอยืนยัน batch
+function fbUnitChange(){
+  const u=document.getElementById('fb-unit')?.value||'kg';
+  const kgRow=document.getElementById('fb-kg-row'), cntRow=document.getElementById('fb-cnt-row');
+  const lbl=document.getElementById('fb-cnt-label');
+  if(u==='kg'){ if(kgRow)kgRow.style.display=''; if(cntRow)cntRow.style.display='none'; }
+  else { if(kgRow)kgRow.style.display='none'; if(cntRow)cntRow.style.display=''; if(lbl)lbl.textContent=(u==='jar'?'กระปุก':'ชิ้น'); fbCalcKg(); }
+}
+function fbCalcKg(){
+  const cnt=parseFloat(document.getElementById('fb-count')?.value)||0;
+  const wpu=parseFloat(document.getElementById('fb-wpu')?.value)||0;
+  const kg=+(cnt*wpu/1000).toFixed(3);
+  const el=document.getElementById('fb-kg-calc'); if(el) el.textContent=fmt(kg,3);
+}
 // ── Confirm single batch + deduct RM ─────────────────────────
 async function fpConfirmBatch(woId, ppNo, batchNo, numBatches, batchKg){
   const wo=(await sbG('production_plan',{f:[`id=eq.${woId}`]}))[0];
@@ -7654,9 +7668,10 @@ async function fpConfirmBatch(woId, ppNo, batchNo, numBatches, batchKg){
 
   // หา baseBatchKg จาก master (สำหรับ scaleFactor)
   const masterArr=isFG
-    ? await sbG('master_product',{f:[`sku=eq.${wo.sku_code}`],s:'batch_kg'}).catch(()=>[])
+    ? await sbG('master_product',{f:[`sku=eq.${wo.sku_code}`],s:'batch_kg,size_g,net_weight_g'}).catch(()=>[])
     : await sbG('wip_master',{f:[`code=eq.${wo.sku_code}`],s:'batch_kg'}).catch(()=>[]);
   const baseBatchKgMaster=parseFloat(masterArr[0]?.batch_kg)||50;
+  const defWpuG=parseFloat(masterArr[0]?.net_weight_g||masterArr[0]?.size_g)||0;  // น้ำหนัก/ชิ้น (กรัม)
 
   // คำนวณ sec1Total สำหรับ scaleFactor
   const sec1Items=bom.filter(b=>{
@@ -7745,10 +7760,32 @@ async function fpConfirmBatch(woId, ppNo, batchNo, numBatches, batchKg){
     </div>
     ${!allItems.length?'<div class="al ali">⚠️ ไม่พบ BOM — ตรวจสอบ wip_bom หรือ bom_master</div>':''}
     <div style="background:#ECFDF5;border:1px solid #A7F3D0;border-radius:8px;padding:10px;margin:8px 0">
-      <label style="font-size:12px;font-weight:700;color:#065F46">📥 ยอดที่ผลิตได้ Batch ${batchNo} (kg)</label>
-      <input id="fb-yield" type="number" step="0.01" value="${batchKg}"
-        style="width:100%;padding:8px;border:1px solid #6EE7B7;border-radius:6px;margin-top:4px;box-sizing:border-box;font-size:15px;font-weight:700;text-align:right">
-      <div style="font-size:10px;color:#047857;margin-top:3px">* จะรับเข้า ${isFG?'FG':'WIP'} stock ทันที (LOT: ${ppNo}-B${batchNo}) เมื่อยืนยัน batch นี้</div>
+      <label style="font-size:12px;font-weight:700;color:#065F46">📥 ยอดที่ผลิตได้ Batch ${batchNo}</label>
+      ${isFG ? `
+      <select id="fb-unit" onchange="fbUnitChange()" style="width:100%;padding:7px;border:1px solid #6EE7B7;border-radius:6px;margin-top:6px;font-size:13px">
+        <option value="kg">น้ำหนักรวม (กิโลกรัม)</option>
+        <option value="pcs">เป็นชิ้น</option>
+        <option value="jar">เป็นกระปุก</option>
+      </select>
+      <div id="fb-kg-row" style="margin-top:6px">
+        <input id="fb-yield" type="number" step="0.01" value="${batchKg}" placeholder="กิโลกรัม"
+          style="width:100%;padding:8px;border:1px solid #6EE7B7;border-radius:6px;box-sizing:border-box;font-size:15px;font-weight:700;text-align:right">
+      </div>
+      <div id="fb-cnt-row" style="display:none;margin-top:6px">
+        <div style="display:flex;gap:6px">
+          <div style="flex:1"><label style="font-size:10px;color:#047857">จำนวน (<span id="fb-cnt-label">ชิ้น</span>)</label>
+            <input id="fb-count" type="number" step="1" placeholder="0" oninput="fbCalcKg()"
+              style="width:100%;padding:8px;border:1px solid #6EE7B7;border-radius:6px;box-sizing:border-box;text-align:right"></div>
+          <div style="flex:1"><label style="font-size:10px;color:#047857">น้ำหนัก/หน่วย (กรัม)</label>
+            <input id="fb-wpu" type="number" step="0.1" value="${defWpuG||''}" placeholder="กรัม" oninput="fbCalcKg()"
+              style="width:100%;padding:8px;border:1px solid #6EE7B7;border-radius:6px;box-sizing:border-box;text-align:right"></div>
+        </div>
+        <div style="font-size:13px;color:#065F46;margin-top:6px;text-align:right">น้ำหนักรวม: <b id="fb-kg-calc" style="font-size:16px">0</b> kg</div>
+      </div>`
+      : `<input type="hidden" id="fb-unit" value="kg">
+      <div style="margin-top:6px"><input id="fb-yield" type="number" step="0.01" value="${batchKg}" placeholder="กิโลกรัม"
+        style="width:100%;padding:8px;border:1px solid #6EE7B7;border-radius:6px;box-sizing:border-box;font-size:15px;font-weight:700;text-align:right"></div>`}
+      <div style="font-size:10px;color:#047857;margin-top:4px">* รับเข้า ${isFG?'FG':'WIP'} เป็นน้ำหนักรวม kg (LOT: ${ppNo}-B${batchNo})</div>
     </div>
     <button class="btn btnP" style="width:100%;padding:12px"
       onclick="fpDoDeductBatch(${woId},'${ppNo}',${batchNo},${numBatches},${batchKg})">
@@ -7804,7 +7841,17 @@ async function fpDoDeductBatch(woId, ppNo, batchNo, numBatches, batchKg){
   }
 
   // 📥 รับยอดที่ผลิตได้ของ batch นี้เข้า FG/WIP ทันที + สะสม actual_qty
-  const yieldKg = parseFloat(document.getElementById('fb-yield')?.value)||0;
+  const _fbUnit=document.getElementById('fb-unit')?.value||'kg';
+  let yieldKg=0, yieldNote='';
+  if(_fbUnit==='kg'){
+    yieldKg=parseFloat(document.getElementById('fb-yield')?.value)||0;
+    yieldNote=`${fmt(yieldKg,2)}kg`;
+  }else{
+    const _cnt=parseFloat(document.getElementById('fb-count')?.value)||0;
+    const _wpu=parseFloat(document.getElementById('fb-wpu')?.value)||0;
+    yieldKg=+(_cnt*_wpu/1000).toFixed(4);
+    yieldNote=`${fmt(_cnt,0)} ${_fbUnit==='jar'?'กระปุก':'ชิ้น'} × ${fmt(_wpu,1)}g = ${fmt(yieldKg,2)}kg`;
+  }
   if(yieldKg>0){
     try{
       const woNow=(await sbG('production_plan',{f:[`id=eq.${woId}`]}).catch(()=>[]))[0];
@@ -7816,7 +7863,7 @@ async function fpDoDeductBatch(woId, ppNo, batchNo, numBatches, batchKg){
       else         await upsertFGStock(sku, yieldKg, lotNo, today, null);
       const newActual=(+woNow?.actual_qty||0)+yieldKg;
       await sbU('production_plan',{actual_qty:newActual, status:'กำลังผลิต'},`id=eq.${woId}`);
-      await logA('UPDATE','production',`รับยอด Batch ${batchNo}/${numBatches} ${fmt(yieldKg,2)}kg → ${sku} (LOT ${lotNo})`,ppNo);
+      await logA('UPDATE','production',`รับยอด Batch ${batchNo}/${numBatches}: ${yieldNote} → ${sku} (LOT ${lotNo})`,ppNo);
     }catch(e){ errs.push('รับยอด: '+e.message); }
   }
 
