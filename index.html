@@ -5124,6 +5124,9 @@ async function editWOActual(woId, ppNo){
       <td style="padding:3px 6px;text-align:right;font-weight:700">${fmt(l.qty_kg,2)} kg</td>
       <td style="padding:3px 6px;font-size:11px;color:#475569">${unitTxt}</td></tr>`;
   }).join('');
+  // ค่าน้ำหนัก/หน่วยเริ่มต้นจาก master (สำหรับ FG)
+  let _ewoWpu=0;
+  if(!isWIP){ const mp=(await sbG('master_product',{f:[`sku=eq.${wo.sku_code}`],s:'size_g,net_weight_g'}).catch(()=>[]))[0]; _ewoWpu=parseFloat(mp?.net_weight_g||mp?.size_g)||0; }
   openMo(`✏️ แก้ไขยอด ${ppNo}`, `
     <div style="font-size:12px;color:#64748B;margin-bottom:10px">${wo.product_name||wo.sku_code} · ${wo.num_batches} batch · LOT ${wo.lot_no||'-'}</div>
     <div style="font-weight:600;font-size:13px;margin-bottom:4px">📥 ยอดที่รับเข้า (ตามที่ยืนยัน — แสดงหน่วย)</div>
@@ -5133,8 +5136,30 @@ async function editWOActual(woId, ppNo){
           <th style="padding:4px 6px;text-align:left">LOT</th><th style="padding:4px 6px;text-align:right">น้ำหนัก</th><th style="padding:4px 6px;text-align:left">หน่วยที่รับ</th></tr></thead>
           <tbody>${recvRows}</tbody></table></div>`
       : `<div style="font-size:11px;color:#94A3B8;margin-bottom:12px">— ไม่มีบันทึก lot การรับเข้า —</div>`}
-    <label style="font-size:12px;font-weight:600">แก้จำนวนสินค้าที่รับเข้ารวม (${isWIP?'WIP':'FG'}) — kg</label>
-    <input id="ewo-actual" type="number" step="0.01" value="${+wo.actual_qty||0}" style="width:100%;padding:8px;border:1px solid #CBD5E1;border-radius:6px;margin:4px 0 14px;box-sizing:border-box">
+    <label style="font-size:12px;font-weight:600">แก้จำนวนสินค้าที่รับเข้ารวม (${isWIP?'WIP — kg':'FG'})</label>
+    ${isWIP ? `
+    <input id="ewo-actual" type="number" step="0.01" value="${+wo.actual_qty||0}" style="width:100%;padding:8px;border:1px solid #CBD5E1;border-radius:6px;margin:4px 0 14px;box-sizing:border-box">`
+    : `
+    <select id="ewo-unit" onchange="ewoUnitChange()" style="width:100%;padding:7px;border:1px solid #CBD5E1;border-radius:6px;margin:4px 0;font-size:13px">
+      <option value="kg">น้ำหนักรวม (กิโลกรัม)</option>
+      <option value="pcs">เป็นชิ้น</option>
+      <option value="jar">เป็นกระปุก</option>
+    </select>
+    <div id="ewo-kg-row" style="margin-bottom:14px">
+      <input id="ewo-actual" type="number" step="0.01" value="${+wo.actual_qty||0}" placeholder="กิโลกรัม"
+        style="width:100%;padding:8px;border:1px solid #CBD5E1;border-radius:6px;box-sizing:border-box;text-align:right">
+    </div>
+    <div id="ewo-cnt-row" style="display:none;margin-bottom:14px">
+      <div style="display:flex;gap:6px">
+        <div style="flex:1"><label style="font-size:10px;color:#64748B">จำนวน (<span id="ewo-cnt-label">ชิ้น</span>)</label>
+          <input id="ewo-count" type="number" step="1" placeholder="0" oninput="ewoCalc()"
+            style="width:100%;padding:8px;border:1px solid #CBD5E1;border-radius:6px;box-sizing:border-box;text-align:right"></div>
+        <div style="flex:1"><label style="font-size:10px;color:#64748B">น้ำหนัก/หน่วย (กรัม)</label>
+          <input id="ewo-wpu" type="number" step="0.1" value="${_ewoWpu||''}" placeholder="กรัม" oninput="ewoCalc()"
+            style="width:100%;padding:8px;border:1px solid #CBD5E1;border-radius:6px;box-sizing:border-box;text-align:right"></div>
+      </div>
+      <div style="font-size:13px;color:#065F46;margin-top:6px;text-align:right">น้ำหนักรวม: <b id="ewo-kg-calc" style="font-size:16px">0</b> kg</div>
+    </div>`}
     <div style="font-weight:600;font-size:13px;margin-bottom:4px">วัตถุดิบที่ตัด (แก้จำนวนได้)</div>
     ${(ded&&ded.length)
       ? `<div style="max-height:240px;overflow:auto;border:1px solid var(--border);border-radius:6px">
@@ -5144,30 +5169,74 @@ async function editWOActual(woId, ppNo){
           <div style="font-size:11px;color:#64748B;margin-top:4px">* แก้แล้วระบบปรับ stock วัตถุดิบตามส่วนต่างให้</div>`
       : `<div style="font-size:12px;color:#92400E;background:#FEF3C7;padding:8px;border-radius:6px">
           WO นี้ไม่มีบันทึกการตัดวัตถุดิบรายรายการ (ตัดก่อนเปิดระบบบันทึก)<br>แก้ไขจำนวน RM ได้ที่หน้า "✂️ Deduct Stock"
-          <button class="btn btnS sm" style="margin-top:6px" onclick="closeMo();nav('stock-deduct')">→ ไปหน้า Deduct Stock</button></div>`}
+          <button class="btn btnS sm" style="margin-top:6px" onclick="sdGotoWO('${ppNo}')">→ ไปหน้า Deduct Stock (โหลด WO นี้)</button></div>`}
     <div style="display:flex;gap:8px;margin-top:16px">
       <button class="btn btnP" style="flex:1" onclick="saveEditWOActual(${woId},'${ppNo}',${isWIP})">💾 บันทึกการแก้ไข</button>
       <button class="btn btnS" onclick="closeMo()">ยกเลิก</button></div>`);
 }
+// สลับหน่วยในจอแก้ไขยอด
+function ewoUnitChange(){
+  const u=document.getElementById('ewo-unit')?.value||'kg';
+  const kgRow=document.getElementById('ewo-kg-row'), cntRow=document.getElementById('ewo-cnt-row'), lbl=document.getElementById('ewo-cnt-label');
+  if(u==='kg'){ if(kgRow)kgRow.style.display=''; if(cntRow)cntRow.style.display='none'; }
+  else { if(kgRow)kgRow.style.display='none'; if(cntRow)cntRow.style.display=''; if(lbl)lbl.textContent=(u==='jar'?'กระปุก':'ชิ้น'); ewoCalc(); }
+}
+function ewoCalc(){
+  const cnt=parseFloat(document.getElementById('ewo-count')?.value)||0;
+  const wpu=parseFloat(document.getElementById('ewo-wpu')?.value)||0;
+  const el=document.getElementById('ewo-kg-calc'); if(el) el.textContent=fmt(+(cnt*wpu/1000).toFixed(3),3);
+}
+// ลิงก์ไปหน้า Deduct Stock แล้วโหลด WO เจาะจง (รวม WO ที่ปิดแล้ว)
+async function sdGotoWO(ppNo){
+  closeMo();
+  nav('stock-deduct');
+  setTimeout(async ()=>{
+    window._sdForceWO=ppNo;
+    await sdInit();
+    window._sdForceWO=null;
+    const inp=document.getElementById('sd-wo-search'); if(inp) inp.value=ppNo;
+    sdFilterWO();
+  },300);
+}
 async function saveEditWOActual(woId, ppNo, isWIP){
   const wo=(await sbG('production_plan',{f:[`id=eq.${woId}`]}).catch(()=>[]))[0]; if(!wo) return;
   const oldQ=+wo.actual_qty||0;
-  const newQ=parseFloat(document.getElementById('ewo-actual').value)||0;
+  // อ่านยอดใหม่ตามหน่วยที่เลือก (FG: kg/ชิ้น/กระปุก, WIP: kg)
+  const _unit = isWIP ? 'kg' : (document.getElementById('ewo-unit')?.value||'kg');
+  let newQ=0, _pcsInfo=null;
+  if(_unit==='kg'){
+    newQ=parseFloat(document.getElementById('ewo-actual').value)||0;
+  }else{
+    const _cnt=parseFloat(document.getElementById('ewo-count')?.value)||0;
+    const _wpu=parseFloat(document.getElementById('ewo-wpu')?.value)||0;
+    newQ=+(_cnt*_wpu/1000).toFixed(4);
+    _pcsInfo={pcs:_cnt, unit_type:_unit, wpu_g:_wpu};
+  }
   const dQ=+(newQ-oldQ).toFixed(4);
   const rmInputs=[...document.querySelectorAll('.ewo-rm')];
   const rmChanges=rmInputs.map(inp=>({d:+(((parseFloat(inp.value)||0)-(parseFloat(inp.dataset.old)||0)).toFixed(4)),nq:parseFloat(inp.value)||0,id:inp.dataset.id,code:inp.dataset.code,tbl:inp.dataset.tbl})).filter(x=>x.d!==0);
-  if(dQ===0 && !rmChanges.length){ alert('ไม่มีการเปลี่ยนแปลง'); return; }
-  if(!confirm(`ยืนยันการแก้ไข?\n\nสินค้ารับเข้า: ${fmt(oldQ,2)} → ${fmt(newQ,2)} kg (${dQ>=0?'+':''}${fmt(dQ,2)})\nวัตถุดิบที่ปรับ: ${rmChanges.length} รายการ\n\nระบบจะปรับ stock ตามส่วนต่าง`)) return;
+  if(dQ===0 && !rmChanges.length && !_pcsInfo){ alert('ไม่มีการเปลี่ยนแปลง'); return; }
+  const _unitTxt=_pcsInfo?` (${fmt(_pcsInfo.pcs,0)} ${_unit==='jar'?'กระปุก':'ชิ้น'} × ${fmt(_pcsInfo.wpu_g,1)}g)`:'';
+  if(!confirm(`ยืนยันการแก้ไข?\n\nสินค้ารับเข้า: ${fmt(oldQ,2)} → ${fmt(newQ,2)} kg${_unitTxt} (${dQ>=0?'+':''}${fmt(dQ,2)})\nวัตถุดิบที่ปรับ: ${rmChanges.length} รายการ\n\nระบบจะปรับ stock ตามส่วนต่าง`)) return;
   try{
-    if(dQ!==0){
+    if(dQ!==0 || _pcsInfo){
       if(isWIP){
         const s=(await sbG('wip_stock',{f:[`code=eq.${wo.sku_code}`]}).catch(()=>[]))[0];
         if(s) await sbU('wip_stock',{qty_produced:Number(s.qty_produced||0)+dQ},`code=eq.${wo.sku_code}`);
         if(wo.lot_no){ const l=(await sbG('wip_stock_lots',{f:[`wip_code=eq.${wo.sku_code}`,`lot_no=eq.${wo.lot_no}`]}).catch(()=>[]))[0]; if(l) await sbU('wip_stock_lots',{qty_kg:Number(l.qty_kg||0)+dQ},`id=eq.${l.id}`); }
       }else{
+        // ปรับยอดรวม FG ตามส่วนต่าง
         const s=(await sbG('stock_product',{f:[`sku=eq.${wo.sku_code}`]}).catch(()=>[]))[0];
         if(s) await sbU('stock_product',{qty_in:Number(s.qty_in||0)+dQ},`sku=eq.${wo.sku_code}`);
-        if(wo.lot_no){ const l=(await sbG('stock_product_lots',{f:[`sku=eq.${wo.sku_code}`,`lot_no=eq.${wo.lot_no}`]}).catch(()=>[]))[0]; if(l) await sbU('stock_product_lots',{qty_kg:Number(l.qty_kg||0)+dQ},`id=eq.${l.id}`); }
+        else  await sbP('stock_product',{sku:wo.sku_code, qty_in:newQ, qty_sold:0}).catch(()=>{});
+        // สร้าง/อัปเดต lot ของ WO นี้ + บันทึกจำนวนชิ้น/กระปุก
+        const lotNo=wo.lot_no||ppNo;
+        const exist=(await sbG('stock_product_lots',{f:[`sku=eq.${wo.sku_code}`,`lot_no=eq.${lotNo}`]}).catch(()=>[]))[0];
+        const lotData={qty_kg:newQ, status:'available', prod_date: exist?.prod_date||new Date().toISOString().slice(0,10)};
+        if(_pcsInfo){ lotData.pcs=_pcsInfo.pcs; lotData.unit_type=_pcsInfo.unit_type; lotData.wpu_g=_pcsInfo.wpu_g; }
+        if(exist) await sbU('stock_product_lots',lotData,`id=eq.${exist.id}`);
+        else      await sbP('stock_product_lots',{sku:wo.sku_code, lot_no:lotNo, ...lotData});
+        if(!wo.lot_no) await sbU('production_plan',{lot_no:lotNo},`id=eq.${woId}`).catch(()=>{});
       }
       await sbU('production_plan',{actual_qty:newQ},`id=eq.${woId}`);
     }
@@ -5176,7 +5245,7 @@ async function saveEditWOActual(woId, ppNo, isWIP){
       else { const s=(await sbG('stock_material',{f:[`code=eq.${c.code}`]}).catch(()=>[]))[0]; if(s) await sbU('stock_material',{qty_out:Number(s.qty_out||0)+c.d},`code=eq.${c.code}`); }
       await sbU('wo_rm_deductions',{qty:c.nq},`id=eq.${c.id}`).catch(()=>{});
     }
-    await logA('UPDATE','production',`แก้ไขยอด ${ppNo}: รับเข้า ${fmt(oldQ,2)}→${fmt(newQ,2)}kg, ปรับ RM ${rmChanges.length} รายการ`,ppNo);
+    await logA('UPDATE','production',`แก้ไขยอด ${ppNo}: รับเข้า ${fmt(oldQ,2)}→${fmt(newQ,2)}kg${_unitTxt}, ปรับ RM ${rmChanges.length} รายการ`,ppNo);
     closeMo(); if(typeof loadProduction==='function') loadProduction();
     alert('✅ แก้ไขเรียบร้อย');
   }catch(e){ alert('ไม่สำเร็จ: '+e.message); }
@@ -23810,6 +23879,12 @@ async function sdInit(){
       ord:'pp_no.desc', s:'id,pp_no,sku_code,product_name,batch_kg,num_batches,status'
     });
     _sdAllWOs=wos||[];
+    // ถ้ามี WO ที่ขอเจาะจง (จากปุ่มแก้ไข) แม้ปิดงานแล้ว → ดึงมาเพิ่มในลิสต์
+    const _force=window._sdForceWO;
+    if(_force && !_sdAllWOs.some(w=>w.pp_no===_force)){
+      const _ex=await sbG('production_plan',{f:[`pp_no=eq.${_force}`],s:'id,pp_no,sku_code,product_name,batch_kg,num_batches,status'}).catch(()=>[]);
+      if(_ex&&_ex.length) _sdAllWOs=[_ex[0],..._sdAllWOs];
+    }
     sdRenderWOOptions(_sdAllWOs);
   }catch(e){ sel.innerHTML='<option value="">❌ Error: '+e.message+'</option>'; }
 }
