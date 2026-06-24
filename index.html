@@ -5317,12 +5317,13 @@ function _pkgRowHTML(r){
     <td><button class="btn sm" style="background:#FEE2E2;color:#B91C1C" onclick="this.closest('tr').remove()">✕</button></td></tr>`;
 }
 // ── Custom searchable dropdown (กรอง substring ทุกตำแหน่ง ทุกเบราว์เซอร์) ──
+function pkgMatName(m){ return (m.name||m.name_th||m.name_en||m.description||m.item_name||m.desc||m.product_name||'').toString(); }
 function pkgSearch(inp){
   window._pkgDDInput=inp;
   const q=(inp.value||'').trim().toLowerCase();
   const mats=window._pkgMats||[];
   const list=(q
-    ? mats.filter(m=>((m.code||'').toLowerCase().includes(q)||(m.name||'').toLowerCase().includes(q)))
+    ? mats.filter(m=>((m.code||'').toLowerCase().includes(q)||pkgMatName(m).toLowerCase().includes(q)))
     : mats).slice(0,50);
   window._pkgDDList=list;
   let dd=document.getElementById('pkg-dd');
@@ -5336,10 +5337,10 @@ function pkgSearch(inp){
   dd.style.left=rc.left+'px';
   dd.style.top=(rc.bottom+2)+'px';
   dd.style.minWidth=Math.max(rc.width,260)+'px';
-  dd.innerHTML=list.map((m,i)=>`<div onmousedown="pkgPickMat(event,${i})"
+  dd.innerHTML=list.map((m,i)=>{ const nm=pkgMatName(m); return `<div onmousedown="pkgPickMat(event,${i})"
     style="padding:6px 10px;cursor:pointer;border-bottom:1px solid #F1F5F9"
     onmouseover="this.style.background='#EFF6FF'" onmouseout="this.style.background='#fff'">
-    <b style="font-family:monospace">${(m.code||'')}</b> — ${(m.name||'')} ${m.unit?`<span style="color:#94A3B8">(${m.unit})</span>`:''}${m.category?` <span style="color:#A78BFA">[${m.category}]</span>`:''}</div>`).join('');
+    <b style="font-family:monospace">${(m.code||'')}</b>${nm?` — ${nm}`:''} ${m.unit?`<span style="color:#94A3B8">(${m.unit})</span>`:''}${m.category?` <span style="color:#A78BFA">[${m.category}]</span>`:''}</div>`; }).join('');
   dd.style.display='block';
 }
 function pkgPickMat(ev, i){
@@ -5349,7 +5350,7 @@ function pkgPickMat(ev, i){
   const tr=inp.closest('tr');
   const cd=tr.querySelector('.pkg-code'), nm=tr.querySelector('.pkg-name'), un=tr.querySelector('.pkg-unit');
   if(cd) cd.value=m.code||'';
-  if(nm) nm.value=m.name||'';
+  if(nm) nm.value=pkgMatName(m);
   if(un) un.value=m.unit||un.value||'';
   pkgDDHide(true);
 }
@@ -5359,10 +5360,9 @@ function pkgDDHide(now){
 }
 async function pkgRulesEdit(sku){
   const rules=await sbG('packaging_rules',{f:[`sku=eq.${encodeURIComponent(sku)}`],ord:'id.asc'}).catch(()=>[]);
-  // โหลดรายการวัตถุดิบสำหรับ autocomplete — ทนทาน (เผื่อไม่มีคอลัมน์ category)
-  let mats=await sbG('stock_material',{s:'code,name,unit,category',ord:'code.asc'}).catch(()=>null);
-  if(!mats) mats=await sbG('stock_material',{s:'code,name,unit',ord:'code.asc'}).catch(()=>null);
-  if(!mats) mats=await sbG('stock_material',{s:'code,name,unit'}).catch(()=>[]);
+  // โหลดรายการวัตถุดิบสำหรับ autocomplete — ดึงทุกคอลัมน์เพื่อให้ได้ชื่อจากฟิลด์ที่มีจริง
+  let mats=await sbG('stock_material',{ord:'code.asc'}).catch(()=>null);
+  if(!mats) mats=await sbG('stock_material').catch(()=>[]);
   window._pkgMats=mats||[];
   window._pkgRowTpl=_pkgRowHTML({mode:'per_unit',qty_per:1});
   const body=(rules&&rules.length)?rules.map(r=>_pkgRowHTML(r)).join(''):_pkgRowHTML({mode:'per_unit',qty_per:1});
