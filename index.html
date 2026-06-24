@@ -5264,10 +5264,24 @@ async function pkgCalcUsage(sku, totalUnits){
   const rules=await sbG('packaging_rules',{f:[`sku=eq.${encodeURIComponent(sku)}`],ord:'id.asc'}).catch(()=>[]);
   return (rules||[]).map(r=>{
     let qty;
-    if(r.mode==='per_n'){ const n=Number(r.per_n)||1; qty=n>0?+(totalUnits/n).toFixed(4):0; }
+    if(r.mode==='per_n'){ const n=Number(r.per_n)||1; const raw=n>0?totalUnits/n:0; qty=r.round_up?Math.ceil(raw):+raw.toFixed(4); }
     else { const q=Number(r.qty_per)||1; qty=+(totalUnits*q).toFixed(4); }
-    return {id:r.id, code:r.mat_code, name:r.mat_name||r.mat_code, unit:r.unit||'', qty, mode:r.mode, per_n:r.per_n, qty_per:r.qty_per};
+    return {id:r.id, code:r.mat_code, name:r.mat_name||r.mat_code, unit:r.unit||'', qty, mode:r.mode, per_n:r.per_n, qty_per:r.qty_per, round_up:r.round_up};
   });
+}
+// เช็คว่า WO นี้ตัดบรรจุภัณฑ์ไปแล้วหรือยัง (กันตัดซ้ำ)
+async function pkgAlreadyDeducted(ppNo){
+  const logs=await sbG('activity_log',{f:[`ref_code=eq.${ppNo}`,`action=eq.DEDUCT`],lim:50}).catch(()=>[]);
+  return (logs||[]).some(l=>(l.detail||'').includes('บรรจุภัณฑ์'));
+}
+// ตัดบรรจุภัณฑ์จริง (core) ใช้ทั้งกดเอง + อัตโนมัติตอนปิดงาน
+async function pkgDoDeduct(woId, ppNo, usage){
+  for(const u of usage){
+    const s=(await sbG('stock_material',{f:[`code=eq.${u.code}`]}).catch(()=>[]))[0];
+    if(s) await sbU('stock_material',{qty_out:Number(s.qty_out||0)+u.qty},`code=eq.${u.code}`);
+    await sbP('wo_rm_deductions',{pp_no:ppNo, wo_id:woId, code:u.code, qty:u.qty, tbl:'stock_material', batch_no:0, by_user:CU?.username||''}).catch(()=>{});
+  }
+  await logA('DEDUCT','rm',`ตัดบรรจุภัณฑ์ตามจำนวน — WO:${ppNo} (${usage.map(u=>u.code+':'+fmt(u.qty,2)).join(', ')})`,ppNo);
 }
 async function pkgOpenWO(woId, ppNo, sku){
   const total=await pkgTotalUnits(sku, ppNo);
@@ -5299,6 +5313,7 @@ function _pkgRowHTML(r){
       <option value="per_n" ${r.mode==='per_n'?'selected':''}>1 ต่อ N ชิ้น</option></select></td>
     <td><input class="pkg-qty" type="number" step="0.001" value="${r.mode==='per_n'?(r.per_n||2800):(r.qty_per!=null?r.qty_per:1)}" style="width:78px;padding:4px;border:1px solid #CBD5E1;border-radius:5px;text-align:right"></td>
     <td><input class="pkg-unit" value="${r.unit||''}" placeholder="หน่วย" style="width:64px;padding:4px;border:1px solid #CBD5E1;border-radius:5px"></td>
+    <td style="text-align:center"><input type="checkbox" class="pkg-roundup" ${r.round_up?'checked':''} title="ปัดขึ้นเต็มหน่วย (ใช้กับ 1 ต่อ N เช่น เศษ→1 ม้วนเต็ม)" style="width:16px;height:16px"></td>
     <td><button class="btn sm" style="background:#FEE2E2;color:#B91C1C" onclick="this.closest('tr').remove()">✕</button></td></tr>`;
 }
 async function pkgRulesEdit(sku){
@@ -5308,10 +5323,11 @@ async function pkgRulesEdit(sku){
   openMo(`⚙️ กฎบรรจุภัณฑ์ — ${sku}`, `
     <div style="font-size:11px;color:#64748B;margin-bottom:8px;line-height:1.5">
       <b>ต่อ 1 หน่วยผลิต</b>: ใช้ = จำนวน × (ชิ้น/กระปุกที่ผลิต) เช่น กระปุก/ฝา/ช้อน/ฟอยล์ = 1<br>
-      <b>1 ต่อ N ชิ้น</b>: ใช้ = (ชิ้นที่ผลิต ÷ N) คิดตามอัตราส่วน เช่น film 1 ม้วน/2800 ชิ้น
+      <b>1 ต่อ N ชิ้น</b>: ใช้ = (ชิ้นที่ผลิต ÷ N) คิดตามอัตราส่วน เช่น film 1 ม้วน/2800 ชิ้น<br>
+      <b>☑ ปัดขึ้น</b>: ถ้าผลิตไม่ครบ N (มีเศษ) ปัดขึ้นเป็นเต็มหน่วย เช่น 1,500 ชิ้น → film 1 ม้วนเต็ม
     </div>
     <div style="overflow:auto;max-height:300px"><table style="width:100%;border-collapse:collapse">
-      <thead><tr style="font-size:11px;color:#64748B"><th style="text-align:left">รหัส</th><th style="text-align:left">ชื่อ</th><th style="text-align:left">โหมด</th><th style="text-align:left">จำนวน/N</th><th style="text-align:left">หน่วย</th><th></th></tr></thead>
+      <thead><tr style="font-size:11px;color:#64748B"><th style="text-align:left">รหัส</th><th style="text-align:left">ชื่อ</th><th style="text-align:left">โหมด</th><th style="text-align:left">จำนวน/N</th><th style="text-align:left">หน่วย</th><th style="text-align:center">ปัดขึ้น</th><th></th></tr></thead>
       <tbody id="pkg-rows">${body}</tbody></table></div>
     <button class="btn btnS sm" style="margin-top:8px" onclick="document.getElementById('pkg-rows').insertAdjacentHTML('beforeend', window._pkgRowTpl)">+ เพิ่มแถว</button>
     <div style="display:flex;gap:8px;margin-top:14px">
@@ -5326,7 +5342,8 @@ async function pkgSaveRules(sku){
     const qv=parseFloat(tr.querySelector('.pkg-qty').value)||0;
     return {sku, mat_code:code, mat_name:tr.querySelector('.pkg-name').value.trim(),
       unit:tr.querySelector('.pkg-unit').value.trim(),
-      mode, per_n: mode==='per_n'?qv:null, qty_per: mode==='per_unit'?qv:null};
+      mode, per_n: mode==='per_n'?qv:null, qty_per: mode==='per_unit'?qv:null,
+      round_up: mode==='per_n' ? !!tr.querySelector('.pkg-roundup')?.checked : false};
   }).filter(Boolean);
   try{
     await sbD('packaging_rules',`sku=eq.${encodeURIComponent(sku)}`).catch(()=>{});
@@ -5339,24 +5356,38 @@ async function pkgDeductWO(woId, ppNo, sku){
   const total=await pkgTotalUnits(sku, ppNo);
   const usage=await pkgCalcUsage(sku, total);
   if(!usage.length || total<=0){ alert('ยังไม่มีกฎ หรือยังไม่มีจำนวนผลิต (ต้องรับยอดเป็นชิ้น/กระปุกก่อน)'); return; }
-  if(!confirm(`ตัดบรรจุภัณฑ์ตามจำนวนผลิต ${fmt(total,0)} ชิ้น/กระปุก?\n\n`+usage.map(u=>`${u.code}: ${fmt(u.qty,3)} ${u.unit}`).join('\n'))) return;
+  if(await pkgAlreadyDeducted(ppNo)){ if(!confirm('⚠️ WO นี้เคยตัดบรรจุภัณฑ์ไปแล้ว — ตัดซ้ำอีกครั้ง?')) return; }
+  if(!confirm(`ตัดบรรจุภัณฑ์ตามจำนวนผลิต ${fmt(total,0)} ชิ้น/กระปุก?\n\n`+usage.map(u=>`${u.code}: ${fmt(u.qty,3)} ${u.unit}${u.round_up?' (ปัดขึ้น)':''}`).join('\n'))) return;
   try{
-    for(const u of usage){
-      const s=(await sbG('stock_material',{f:[`code=eq.${u.code}`]}).catch(()=>[]))[0];
-      if(s) await sbU('stock_material',{qty_out:Number(s.qty_out||0)+u.qty},`code=eq.${u.code}`);
-      await sbP('wo_rm_deductions',{pp_no:ppNo, wo_id:woId, code:u.code, qty:u.qty, tbl:'stock_material', batch_no:0, by_user:CU?.username||''}).catch(()=>{});
-    }
-    await logA('DEDUCT','rm',`ตัดบรรจุภัณฑ์ตามจำนวน ${fmt(total,0)} หน่วย — WO:${ppNo}`,ppNo);
+    await pkgDoDeduct(woId, ppNo, usage);
     closeMo(); alert('✅ ตัดบรรจุภัณฑ์เรียบร้อย');
   }catch(e){ alert('ไม่สำเร็จ: '+e.message); }
 }
+// ตัดบรรจุภัณฑ์อัตโนมัติตอนปิดงาน (มี preview กันพลาด + กันตัดซ้ำ)
+async function pkgAutoOnClose(woId, ppNo, sku){
+  try{
+    if(!sku){ const w=(await sbG('production_plan',{f:[`id=eq.${woId}`]}).catch(()=>[]))[0]; sku=w?.sku_code||''; }
+    if(!sku) return;
+    if(await pkgAlreadyDeducted(ppNo)) return;
+    const total=await pkgTotalUnits(sku, ppNo);
+    if(total<=0) return;
+    const usage=await pkgCalcUsage(sku, total);
+    if(!usage.length) return;
+    if(!confirm(`ปิดงานแล้ว — ตัดบรรจุภัณฑ์ตามจำนวนผลิต ${fmt(total,0)} ชิ้น/กระปุก?\n\n`+
+      usage.map(u=>`${u.code}: ${fmt(u.qty,3)} ${u.unit}${u.round_up?' (ปัดขึ้น)':''}`).join('\n')+
+      `\n\n[OK] ตัดเลย   [Cancel] ข้ามไปก่อน (ตัดเองภายหลังได้)`)) return;
+    await pkgDoDeduct(woId, ppNo, usage);
+    alert('✅ ตัดบรรจุภัณฑ์อัตโนมัติเรียบร้อย');
+  }catch(e){ console.warn('pkgAutoOnClose:',e.message); }
+}
 // ปิดงาน WO เป็น "เสร็จสิ้น" แบบไม่ตัด stock ซ้ำ (กรณียืนยัน/ตัด stock แล้วแต่สถานะค้าง)
 async function closeWODone(id, ppNo){
-  if(!confirm(`ปิดงาน WO ${ppNo} เป็น "เสร็จสิ้น"?\n\nใช้กรณีที่ยืนยันยอด/ตัด stock ไปแล้ว แต่สถานะยังค้าง\n(ระบบจะเปลี่ยนสถานะอย่างเดียว — ไม่ตัด stock ซ้ำ)`)) return;
+  if(!confirm(`ปิดงาน WO ${ppNo} เป็น "เสร็จสิ้น"?\n\nใช้กรณีที่ยืนยันยอด/ตัด stock ไปแล้ว แต่สถานะยังค้าง\n(ระบบจะเปลี่ยนสถานะอย่างเดียว — ไม่ตัด stock วัตถุดิบหลักซ้ำ)`)) return;
   try{
     try{ await sbU('production_plan',{status:'เสร็จสิ้น',finish_date:new Date().toISOString().slice(0,10)},`id=eq.${id}`); }
     catch(e){ await sbU('production_plan',{status:'เสร็จสิ้น'},`id=eq.${id}`); }
-    await logA('UPDATE','production',`ปิดงาน ${ppNo} → เสร็จสิ้น (manual, ไม่ตัด stock ซ้ำ)`,ppNo);
+    await logA('UPDATE','production',`ปิดงาน ${ppNo} → เสร็จสิ้น`,ppNo);
+    await pkgAutoOnClose(id, ppNo);   // ตัดบรรจุภัณฑ์ตามจำนวน (ถ้ามีกฎ + ยังไม่ตัด)
     if(typeof loadProduction==='function') loadProduction();
   }catch(e){ alert('ไม่สำเร็จ: '+e.message); }
 }
@@ -8117,6 +8148,7 @@ async function fpFinalComplete(woId, ppNo, sku, numBatches, batchKg){
   if(!confirm(`ปิดงาน ${ppNo} เป็น "เสร็จสิ้น"?\n\nยอดรับเข้าสะสมจากทุก batch: ${fmt(recv,2)} kg\n(ระบบจะไม่รับยอดซ้ำ — ปิดงานอย่างเดียว)`)) return;
   await safeUpdateWO(woId,{status:'เสร็จสิ้น'});
   await logA('UPDATE','production',`ปิดงาน ${ppNo} → เสร็จสิ้น (รับครบทีละ batch รวม ${fmt(recv,2)}kg)`,ppNo);
+  await pkgAutoOnClose(woId, ppNo, sku);   // ตัดบรรจุภัณฑ์ตามจำนวน (ถ้ามีกฎ + ยังไม่ตัด)
   window._cachedRM=null;
   closeMo();
   if(typeof loadProduction==='function') loadProduction();
