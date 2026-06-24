@@ -5329,8 +5329,10 @@ function pkgPickName(inp){
 }
 async function pkgRulesEdit(sku){
   const rules=await sbG('packaging_rules',{f:[`sku=eq.${encodeURIComponent(sku)}`],ord:'id.asc'}).catch(()=>[]);
-  // โหลดรายการวัตถุดิบสำหรับ autocomplete (เน้น PK ก่อน แล้วตามด้วยทั้งหมด)
-  const mats=await sbG('stock_material',{s:'code,name,unit,category',ord:'category.desc,code.asc'}).catch(()=>[]);
+  // โหลดรายการวัตถุดิบสำหรับ autocomplete — ทนทาน (เผื่อไม่มีคอลัมน์ category)
+  let mats=await sbG('stock_material',{s:'code,name,unit,category',ord:'code.asc'}).catch(()=>null);
+  if(!mats) mats=await sbG('stock_material',{s:'code,name,unit',ord:'code.asc'}).catch(()=>null);
+  if(!mats) mats=await sbG('stock_material',{s:'code,name,unit'}).catch(()=>[]);
   window._pkgMats=mats||[];
   const _esc=s=>(s||'').replace(/"/g,'&quot;');
   const codeOpts=(mats||[]).map(m=>`<option value="${_esc(m.code)}">${_esc(m.name)}${m.category?' ['+m.category+']':''}</option>`).join('');
@@ -5344,7 +5346,7 @@ async function pkgRulesEdit(sku){
       <b>ต่อ 1 หน่วยผลิต</b>: ใช้ = จำนวน × (ชิ้น/กระปุกที่ผลิต) เช่น กระปุก/ฝา/ช้อน/ฟอยล์ = 1<br>
       <b>1 ต่อ N ชิ้น</b>: ใช้ = (ชิ้นที่ผลิต ÷ N) คิดตามอัตราส่วน เช่น film 1 ม้วน/2800 ชิ้น<br>
       <b>☑ ปัดขึ้น</b>: ถ้าผลิตไม่ครบ N (มีเศษ) ปัดขึ้นเป็นเต็มหน่วย เช่น 1,500 ชิ้น → film 1 ม้วนเต็ม<br>
-      <span style="color:#0C447C">💡 พิมพ์รหัสหรือชื่อในช่อง จะมีรายการวัตถุดิบให้เลือก แล้วเติมอีกช่องให้อัตโนมัติ</span>
+      <span style="color:#0C447C">💡 พิมพ์รหัสหรือชื่อในช่อง จะมีรายการวัตถุดิบให้เลือก แล้วเติมอีกช่องให้อัตโนมัติ (โหลด ${(mats||[]).length} รายการ)</span>
     </div>
     <div style="overflow:auto;max-height:300px"><table style="width:100%;border-collapse:collapse">
       <thead><tr style="font-size:11px;color:#64748B"><th style="text-align:left">รหัส</th><th style="text-align:left">ชื่อ</th><th style="text-align:left">โหมด</th><th style="text-align:left">จำนวน/N</th><th style="text-align:left">หน่วย</th><th style="text-align:center">ปัดขึ้น</th><th></th></tr></thead>
