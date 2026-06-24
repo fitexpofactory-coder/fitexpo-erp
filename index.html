@@ -5317,7 +5317,7 @@ function _pkgRowHTML(r){
     <td><button class="btn sm" style="background:#FEE2E2;color:#B91C1C" onclick="this.closest('tr').remove()">✕</button></td></tr>`;
 }
 // ── Custom searchable dropdown (กรอง substring ทุกตำแหน่ง ทุกเบราว์เซอร์) ──
-function pkgMatName(m){ return (m.name||m.name_th||m.name_en||m.description||m.item_name||m.desc||m.product_name||'').toString(); }
+function pkgMatName(m){ return (m.name||m.name_th||m.name_en||m.material_name||m.mat_name||m.description||m.desc||m.item_name||m.product_name||m.detail||m['ชื่อ']||m['ชื่อวัตถุดิบ']||m['รายการ']||m['ชื่อสินค้า']||(window._pkgNameByCode||{})[m.code]||'').toString(); }
 function pkgSearch(inp){
   window._pkgDDInput=inp;
   const q=(inp.value||'').trim().toLowerCase();
@@ -5363,7 +5363,24 @@ async function pkgRulesEdit(sku){
   // โหลดรายการวัตถุดิบสำหรับ autocomplete — ดึงทุกคอลัมน์เพื่อให้ได้ชื่อจากฟิลด์ที่มีจริง
   let mats=await sbG('stock_material',{ord:'code.asc'}).catch(()=>null);
   if(!mats) mats=await sbG('stock_material').catch(()=>[]);
-  window._pkgMats=mats||[];
+  mats=mats||[];
+  // เลือกเฉพาะบรรจุภัณฑ์ PK (รหัสขึ้นต้น PK หรือ category เป็น PK/บรรจุภัณฑ์)
+  const _isPK=m=>{
+    const c=(m.code||'').toUpperCase();
+    const cat=(m.category||m.cat||m['หมวด']||m['ประเภท']||'').toString().toUpperCase();
+    return c.startsWith('PK') || cat.includes('PK') || cat.includes('บรรจุ') || cat.includes('PACK');
+  };
+  const pkMats=mats.filter(_isPK);
+  window._pkgMats = pkMats.length ? pkMats : mats;   // ถ้าตรวจ PK ไม่เจอเลย ใช้ทั้งหมดกันพลาด
+  window._pkgPKonly = pkMats.length>0;
+  // ชื่อเสริมจาก BOM (กรณี stock_material ไม่มีชื่อ)
+  window._pkgNameByCode={};
+  try{
+    const bm=await sbG('bom_master',{s:'mat_code,mat_name'}).catch(()=>[]);
+    (bm||[]).forEach(b=>{ if(b.mat_code&&b.mat_name&&!window._pkgNameByCode[b.mat_code]) window._pkgNameByCode[b.mat_code]=b.mat_name; });
+    const wb=await sbG('wip_bom',{s:'rm_code,rm_name'}).catch(()=>[]);
+    (wb||[]).forEach(b=>{ if(b.rm_code&&b.rm_name&&!window._pkgNameByCode[b.rm_code]) window._pkgNameByCode[b.rm_code]=b.rm_name; });
+  }catch(e){}
   window._pkgRowTpl=_pkgRowHTML({mode:'per_unit',qty_per:1});
   const body=(rules&&rules.length)?rules.map(r=>_pkgRowHTML(r)).join(''):_pkgRowHTML({mode:'per_unit',qty_per:1});
   openMo(`⚙️ กฎบรรจุภัณฑ์ — ${sku}`, `
@@ -5371,7 +5388,7 @@ async function pkgRulesEdit(sku){
       <b>ต่อ 1 หน่วยผลิต</b>: ใช้ = จำนวน × (ชิ้น/กระปุกที่ผลิต) เช่น กระปุก/ฝา/ช้อน/ฟอยล์ = 1<br>
       <b>1 ต่อ N ชิ้น</b>: ใช้ = (ชิ้นที่ผลิต ÷ N) คิดตามอัตราส่วน เช่น film 1 ม้วน/2800 ชิ้น<br>
       <b>☑ ปัดขึ้น</b>: ถ้าผลิตไม่ครบ N (มีเศษ) ปัดขึ้นเป็นเต็มหน่วย เช่น 1,500 ชิ้น → film 1 ม้วนเต็ม<br>
-      <span style="color:#0C447C">💡 พิมพ์รหัสหรือชื่อในช่อง (ค้นได้ทุกตำแหน่ง) แล้วคลิกเลือกจากรายการ จะเติมรหัส/ชื่อ/หน่วยให้อัตโนมัติ (โหลด ${(mats||[]).length} รายการ)</span>
+      <span style="color:#0C447C">💡 พิมพ์รหัสหรือชื่อในช่อง (ค้นได้ทุกตำแหน่ง) แล้วคลิกเลือก จะเติมรหัส/ชื่อ/หน่วยให้อัตโนมัติ — แสดงเฉพาะบรรจุภัณฑ์ ${window._pkgPKonly?`(PK ${(window._pkgMats||[]).length} รายการ)`:`(ไม่พบหมวด PK — แสดงวัตถุดิบทั้งหมด ${(window._pkgMats||[]).length})`}</span>
     </div>
     <div style="overflow:auto;max-height:300px" onscroll="pkgDDHide(true)"><table style="width:100%;border-collapse:collapse">
       <thead><tr style="font-size:11px;color:#64748B"><th style="text-align:left">รหัส</th><th style="text-align:left">ชื่อ</th><th style="text-align:left">โหมด</th><th style="text-align:left">จำนวน/N</th><th style="text-align:left">หน่วย</th><th style="text-align:center">ปัดขึ้น</th><th></th></tr></thead>
