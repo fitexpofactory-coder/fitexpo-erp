@@ -5306,8 +5306,8 @@ async function pkgOpenWO(woId, ppNo, sku){
 function _pkgRowHTML(r){
   r=r||{};
   return `<tr class="pkg-row">
-    <td><input class="pkg-code" list="pkg-code-list" onchange="pkgPickCode(this)" value="${r.mat_code||''}" placeholder="รหัส PK" style="width:88px;padding:4px;border:1px solid #CBD5E1;border-radius:5px"></td>
-    <td><input class="pkg-name" list="pkg-name-list" onchange="pkgPickName(this)" value="${(r.mat_name||'').replace(/"/g,'&quot;')}" placeholder="ชื่อ" style="width:110px;padding:4px;border:1px solid #CBD5E1;border-radius:5px"></td>
+    <td><input class="pkg-code" autocomplete="off" oninput="pkgSearch(this)" onfocus="pkgSearch(this)" onblur="pkgDDHide()" value="${r.mat_code||''}" placeholder="รหัส PK" style="width:100px;padding:4px;border:1px solid #CBD5E1;border-radius:5px"></td>
+    <td><input class="pkg-name" autocomplete="off" oninput="pkgSearch(this)" onfocus="pkgSearch(this)" onblur="pkgDDHide()" value="${(r.mat_name||'').replace(/"/g,'&quot;')}" placeholder="ชื่อ (พิมพ์ค้นหา)" style="width:140px;padding:4px;border:1px solid #CBD5E1;border-radius:5px"></td>
     <td><select class="pkg-mode" style="padding:4px;border:1px solid #CBD5E1;border-radius:5px;font-size:11px">
       <option value="per_unit" ${r.mode!=='per_n'?'selected':''}>ต่อ 1 หน่วยผลิต</option>
       <option value="per_n" ${r.mode==='per_n'?'selected':''}>1 ต่อ N ชิ้น</option></select></td>
@@ -5316,16 +5316,46 @@ function _pkgRowHTML(r){
     <td style="text-align:center"><input type="checkbox" class="pkg-roundup" ${r.round_up?'checked':''} title="ปัดขึ้นเต็มหน่วย (ใช้กับ 1 ต่อ N เช่น เศษ→1 ม้วนเต็ม)" style="width:16px;height:16px"></td>
     <td><button class="btn sm" style="background:#FEE2E2;color:#B91C1C" onclick="this.closest('tr').remove()">✕</button></td></tr>`;
 }
-// เติมชื่อ/หน่วย เมื่อเลือกรหัส (และในทางกลับกัน)
-function pkgPickCode(inp){
-  const m=(window._pkgMats||[]).find(x=>(x.code||'')===inp.value.trim()); if(!m) return;
-  const tr=inp.closest('tr'); const nm=tr.querySelector('.pkg-name'), un=tr.querySelector('.pkg-unit');
-  if(nm) nm.value=m.name||''; if(un) un.value=m.unit||un.value||'';
+// ── Custom searchable dropdown (กรอง substring ทุกตำแหน่ง ทุกเบราว์เซอร์) ──
+function pkgSearch(inp){
+  window._pkgDDInput=inp;
+  const q=(inp.value||'').trim().toLowerCase();
+  const mats=window._pkgMats||[];
+  const list=(q
+    ? mats.filter(m=>((m.code||'').toLowerCase().includes(q)||(m.name||'').toLowerCase().includes(q)))
+    : mats).slice(0,50);
+  window._pkgDDList=list;
+  let dd=document.getElementById('pkg-dd');
+  if(!dd){
+    dd=document.createElement('div'); dd.id='pkg-dd';
+    dd.style.cssText='position:fixed;z-index:99999;background:#fff;border:1px solid #CBD5E1;border-radius:6px;max-height:240px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,.18);font-size:12px';
+    document.body.appendChild(dd);
+  }
+  if(!list.length){ dd.style.display='none'; return; }
+  const rc=inp.getBoundingClientRect();
+  dd.style.left=rc.left+'px';
+  dd.style.top=(rc.bottom+2)+'px';
+  dd.style.minWidth=Math.max(rc.width,260)+'px';
+  dd.innerHTML=list.map((m,i)=>`<div onmousedown="pkgPickMat(event,${i})"
+    style="padding:6px 10px;cursor:pointer;border-bottom:1px solid #F1F5F9"
+    onmouseover="this.style.background='#EFF6FF'" onmouseout="this.style.background='#fff'">
+    <b style="font-family:monospace">${(m.code||'')}</b> — ${(m.name||'')} ${m.unit?`<span style="color:#94A3B8">(${m.unit})</span>`:''}${m.category?` <span style="color:#A78BFA">[${m.category}]</span>`:''}</div>`).join('');
+  dd.style.display='block';
 }
-function pkgPickName(inp){
-  const m=(window._pkgMats||[]).find(x=>(x.name||'')===inp.value.trim()); if(!m) return;
-  const tr=inp.closest('tr'); const cd=tr.querySelector('.pkg-code'), un=tr.querySelector('.pkg-unit');
-  if(cd) cd.value=m.code||''; if(un) un.value=m.unit||un.value||'';
+function pkgPickMat(ev, i){
+  ev.preventDefault();
+  const m=(window._pkgDDList||[])[i]; const inp=window._pkgDDInput;
+  if(!m||!inp) return;
+  const tr=inp.closest('tr');
+  const cd=tr.querySelector('.pkg-code'), nm=tr.querySelector('.pkg-name'), un=tr.querySelector('.pkg-unit');
+  if(cd) cd.value=m.code||'';
+  if(nm) nm.value=m.name||'';
+  if(un) un.value=m.unit||un.value||'';
+  pkgDDHide(true);
+}
+function pkgDDHide(now){
+  const go=()=>{ const d=document.getElementById('pkg-dd'); if(d) d.style.display='none'; };
+  if(now) go(); else setTimeout(go,150);
 }
 async function pkgRulesEdit(sku){
   const rules=await sbG('packaging_rules',{f:[`sku=eq.${encodeURIComponent(sku)}`],ord:'id.asc'}).catch(()=>[]);
@@ -5334,21 +5364,16 @@ async function pkgRulesEdit(sku){
   if(!mats) mats=await sbG('stock_material',{s:'code,name,unit',ord:'code.asc'}).catch(()=>null);
   if(!mats) mats=await sbG('stock_material',{s:'code,name,unit'}).catch(()=>[]);
   window._pkgMats=mats||[];
-  const _esc=s=>(s||'').replace(/"/g,'&quot;');
-  const codeOpts=(mats||[]).map(m=>`<option value="${_esc(m.code)}">${_esc(m.name)}${m.category?' ['+m.category+']':''}</option>`).join('');
-  const nameOpts=(mats||[]).map(m=>`<option value="${_esc(m.name)}">${_esc(m.code)}</option>`).join('');
   window._pkgRowTpl=_pkgRowHTML({mode:'per_unit',qty_per:1});
   const body=(rules&&rules.length)?rules.map(r=>_pkgRowHTML(r)).join(''):_pkgRowHTML({mode:'per_unit',qty_per:1});
   openMo(`⚙️ กฎบรรจุภัณฑ์ — ${sku}`, `
-    <datalist id="pkg-code-list">${codeOpts}</datalist>
-    <datalist id="pkg-name-list">${nameOpts}</datalist>
     <div style="font-size:11px;color:#64748B;margin-bottom:8px;line-height:1.5">
       <b>ต่อ 1 หน่วยผลิต</b>: ใช้ = จำนวน × (ชิ้น/กระปุกที่ผลิต) เช่น กระปุก/ฝา/ช้อน/ฟอยล์ = 1<br>
       <b>1 ต่อ N ชิ้น</b>: ใช้ = (ชิ้นที่ผลิต ÷ N) คิดตามอัตราส่วน เช่น film 1 ม้วน/2800 ชิ้น<br>
       <b>☑ ปัดขึ้น</b>: ถ้าผลิตไม่ครบ N (มีเศษ) ปัดขึ้นเป็นเต็มหน่วย เช่น 1,500 ชิ้น → film 1 ม้วนเต็ม<br>
-      <span style="color:#0C447C">💡 พิมพ์รหัสหรือชื่อในช่อง จะมีรายการวัตถุดิบให้เลือก แล้วเติมอีกช่องให้อัตโนมัติ (โหลด ${(mats||[]).length} รายการ)</span>
+      <span style="color:#0C447C">💡 พิมพ์รหัสหรือชื่อในช่อง (ค้นได้ทุกตำแหน่ง) แล้วคลิกเลือกจากรายการ จะเติมรหัส/ชื่อ/หน่วยให้อัตโนมัติ (โหลด ${(mats||[]).length} รายการ)</span>
     </div>
-    <div style="overflow:auto;max-height:300px"><table style="width:100%;border-collapse:collapse">
+    <div style="overflow:auto;max-height:300px" onscroll="pkgDDHide(true)"><table style="width:100%;border-collapse:collapse">
       <thead><tr style="font-size:11px;color:#64748B"><th style="text-align:left">รหัส</th><th style="text-align:left">ชื่อ</th><th style="text-align:left">โหมด</th><th style="text-align:left">จำนวน/N</th><th style="text-align:left">หน่วย</th><th style="text-align:center">ปัดขึ้น</th><th></th></tr></thead>
       <tbody id="pkg-rows">${body}</tbody></table></div>
     <button class="btn btnS sm" style="margin-top:8px" onclick="document.getElementById('pkg-rows').insertAdjacentHTML('beforeend', window._pkgRowTpl)">+ เพิ่มแถว</button>
