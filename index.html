@@ -1038,11 +1038,14 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
         <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer">
           <input type="checkbox" id="wo-incl-wip" checked style="cursor:pointer"> รวม WIP WO
         </label>
+        <input class="fc2" id="wo-search" placeholder="🔍 ค้นหาเลข WO (รวมที่ปิดแล้ว)" style="width:200px;font-size:12px"
+          oninput="clearTimeout(window._woSrchT);window._woSrchT=setTimeout(loadProduction,350)"
+          onkeydown="if(event.key==='Enter')loadProduction()">
         <select class="fc2" id="wo-status-filter" style="width:140px;font-size:12px" onchange="loadProduction()">
           <option value="">สถานะทั้งหมด</option>
           <option value="จองแล้ว">จองแล้ว</option>
           <option value="กำลังผลิต">กำลังผลิต</option>
-          <option value="เสร็จแล้ว">เสร็จแล้ว</option>
+          <option value="เสร็จสิ้น">เสร็จสิ้น</option>
           <option value="ยกเลิก">ยกเลิก</option>
         </select>
         <button class="btn btnS sm" onclick="loadProduction()">🔄</button>
@@ -4514,10 +4517,19 @@ async function loadProduction(){
     const prods=window._cachedProds||[];
     if(prods.length){_bomProds=prods;}
     const statusFilter=document.getElementById('wo-status-filter')?.value||'';
-    const woFilter=statusFilter&&statusFilter!=='all'?{ord:'created_at.desc',f:[`status=eq.${statusFilter}`]}:{ord:'created_at.desc',lim:50};
+    const searchTerm=(document.getElementById('wo-search')?.value||'').trim();
+    let woFilter;
+    if(searchTerm){
+      // ค้นหาเลข WO — ดึงได้ทุกสถานะรวมที่ปิดแล้ว (ไม่จำกัดสถานะ)
+      woFilter={ord:'created_at.desc', f:[`pp_no=ilike.*${searchTerm}*`], lim:100};
+    }else if(statusFilter&&statusFilter!=='all'){
+      woFilter={ord:'created_at.desc',f:[`status=eq.${statusFilter}`]};
+    }else{
+      woFilter={ord:'created_at.desc',lim:50};
+    }
     const wos=await sbG('production_plan',woFilter);
     document.getElementById('wo-list').innerHTML=wos.length?wos.map(w=>{
-    const statusColor={'จองแล้ว':'var(--amber)','กำลังผลิต':'var(--accent)','เสร็จแล้ว':'var(--green)','จองแล้ว (WIP)':'var(--purple)'}[w.status]||'var(--text3)';
+    const statusColor={'จองแล้ว':'var(--amber)','กำลังผลิต':'var(--accent)','เสร็จแล้ว':'var(--green)','เสร็จสิ้น':'var(--green)','จองแล้ว (WIP)':'var(--purple)'}[w.status]||'var(--text3)';
     const isWIPwo=(w.pp_no||'').includes('WIP');
     return`<div style="border:1px solid var(--border);border-left:3px solid ${statusColor};border-radius:6px;padding:10px 12px;margin-bottom:6px;background:white" id="wo-card-${w.id}">
       <div style="display:flex;align-items:flex-start;gap:8px">
