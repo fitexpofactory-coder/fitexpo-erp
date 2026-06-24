@@ -5306,8 +5306,8 @@ async function pkgOpenWO(woId, ppNo, sku){
 function _pkgRowHTML(r){
   r=r||{};
   return `<tr class="pkg-row">
-    <td><input class="pkg-code" value="${r.mat_code||''}" placeholder="รหัส PK" style="width:88px;padding:4px;border:1px solid #CBD5E1;border-radius:5px"></td>
-    <td><input class="pkg-name" value="${(r.mat_name||'').replace(/"/g,'&quot;')}" placeholder="ชื่อ" style="width:110px;padding:4px;border:1px solid #CBD5E1;border-radius:5px"></td>
+    <td><input class="pkg-code" list="pkg-code-list" onchange="pkgPickCode(this)" value="${r.mat_code||''}" placeholder="รหัส PK" style="width:88px;padding:4px;border:1px solid #CBD5E1;border-radius:5px"></td>
+    <td><input class="pkg-name" list="pkg-name-list" onchange="pkgPickName(this)" value="${(r.mat_name||'').replace(/"/g,'&quot;')}" placeholder="ชื่อ" style="width:110px;padding:4px;border:1px solid #CBD5E1;border-radius:5px"></td>
     <td><select class="pkg-mode" style="padding:4px;border:1px solid #CBD5E1;border-radius:5px;font-size:11px">
       <option value="per_unit" ${r.mode!=='per_n'?'selected':''}>ต่อ 1 หน่วยผลิต</option>
       <option value="per_n" ${r.mode==='per_n'?'selected':''}>1 ต่อ N ชิ้น</option></select></td>
@@ -5316,15 +5316,35 @@ function _pkgRowHTML(r){
     <td style="text-align:center"><input type="checkbox" class="pkg-roundup" ${r.round_up?'checked':''} title="ปัดขึ้นเต็มหน่วย (ใช้กับ 1 ต่อ N เช่น เศษ→1 ม้วนเต็ม)" style="width:16px;height:16px"></td>
     <td><button class="btn sm" style="background:#FEE2E2;color:#B91C1C" onclick="this.closest('tr').remove()">✕</button></td></tr>`;
 }
+// เติมชื่อ/หน่วย เมื่อเลือกรหัส (และในทางกลับกัน)
+function pkgPickCode(inp){
+  const m=(window._pkgMats||[]).find(x=>(x.code||'')===inp.value.trim()); if(!m) return;
+  const tr=inp.closest('tr'); const nm=tr.querySelector('.pkg-name'), un=tr.querySelector('.pkg-unit');
+  if(nm) nm.value=m.name||''; if(un) un.value=m.unit||un.value||'';
+}
+function pkgPickName(inp){
+  const m=(window._pkgMats||[]).find(x=>(x.name||'')===inp.value.trim()); if(!m) return;
+  const tr=inp.closest('tr'); const cd=tr.querySelector('.pkg-code'), un=tr.querySelector('.pkg-unit');
+  if(cd) cd.value=m.code||''; if(un) un.value=m.unit||un.value||'';
+}
 async function pkgRulesEdit(sku){
   const rules=await sbG('packaging_rules',{f:[`sku=eq.${encodeURIComponent(sku)}`],ord:'id.asc'}).catch(()=>[]);
+  // โหลดรายการวัตถุดิบสำหรับ autocomplete (เน้น PK ก่อน แล้วตามด้วยทั้งหมด)
+  const mats=await sbG('stock_material',{s:'code,name,unit,category',ord:'category.desc,code.asc'}).catch(()=>[]);
+  window._pkgMats=mats||[];
+  const _esc=s=>(s||'').replace(/"/g,'&quot;');
+  const codeOpts=(mats||[]).map(m=>`<option value="${_esc(m.code)}">${_esc(m.name)}${m.category?' ['+m.category+']':''}</option>`).join('');
+  const nameOpts=(mats||[]).map(m=>`<option value="${_esc(m.name)}">${_esc(m.code)}</option>`).join('');
   window._pkgRowTpl=_pkgRowHTML({mode:'per_unit',qty_per:1});
   const body=(rules&&rules.length)?rules.map(r=>_pkgRowHTML(r)).join(''):_pkgRowHTML({mode:'per_unit',qty_per:1});
   openMo(`⚙️ กฎบรรจุภัณฑ์ — ${sku}`, `
+    <datalist id="pkg-code-list">${codeOpts}</datalist>
+    <datalist id="pkg-name-list">${nameOpts}</datalist>
     <div style="font-size:11px;color:#64748B;margin-bottom:8px;line-height:1.5">
       <b>ต่อ 1 หน่วยผลิต</b>: ใช้ = จำนวน × (ชิ้น/กระปุกที่ผลิต) เช่น กระปุก/ฝา/ช้อน/ฟอยล์ = 1<br>
       <b>1 ต่อ N ชิ้น</b>: ใช้ = (ชิ้นที่ผลิต ÷ N) คิดตามอัตราส่วน เช่น film 1 ม้วน/2800 ชิ้น<br>
-      <b>☑ ปัดขึ้น</b>: ถ้าผลิตไม่ครบ N (มีเศษ) ปัดขึ้นเป็นเต็มหน่วย เช่น 1,500 ชิ้น → film 1 ม้วนเต็ม
+      <b>☑ ปัดขึ้น</b>: ถ้าผลิตไม่ครบ N (มีเศษ) ปัดขึ้นเป็นเต็มหน่วย เช่น 1,500 ชิ้น → film 1 ม้วนเต็ม<br>
+      <span style="color:#0C447C">💡 พิมพ์รหัสหรือชื่อในช่อง จะมีรายการวัตถุดิบให้เลือก แล้วเติมอีกช่องให้อัตโนมัติ</span>
     </div>
     <div style="overflow:auto;max-height:300px"><table style="width:100%;border-collapse:collapse">
       <thead><tr style="font-size:11px;color:#64748B"><th style="text-align:left">รหัส</th><th style="text-align:left">ชื่อ</th><th style="text-align:left">โหมด</th><th style="text-align:left">จำนวน/N</th><th style="text-align:left">หน่วย</th><th style="text-align:center">ปัดขึ้น</th><th></th></tr></thead>
