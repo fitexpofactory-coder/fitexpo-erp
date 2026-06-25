@@ -5306,8 +5306,8 @@ async function pkgOpenWO(woId, ppNo, sku){
 function _pkgRowHTML(r){
   r=r||{};
   return `<tr class="pkg-row">
-    <td><input class="pkg-code" autocomplete="off" oninput="pkgSearch(this)" onfocus="pkgSearch(this)" onblur="pkgDDHide()" value="${r.mat_code||''}" placeholder="รหัส PK" style="width:100px;padding:4px;border:1px solid #CBD5E1;border-radius:5px"></td>
-    <td><input class="pkg-name" autocomplete="off" oninput="pkgSearch(this)" onfocus="pkgSearch(this)" onblur="pkgDDHide()" value="${(r.mat_name||'').replace(/"/g,'&quot;')}" placeholder="ชื่อ (พิมพ์ค้นหา)" style="width:140px;padding:4px;border:1px solid #CBD5E1;border-radius:5px"></td>
+    <td><input class="pkg-code" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="pkgSearch(this)" onfocus="pkgSearch(this)" onblur="pkgDDHide()" value="${r.mat_code||''}" placeholder="รหัส PK" style="width:100px;padding:4px;border:1px solid #CBD5E1;border-radius:5px"></td>
+    <td><input class="pkg-name" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="pkgSearch(this)" onfocus="pkgSearch(this)" onblur="pkgDDHide()" value="${(r.mat_name||'').replace(/"/g,'&quot;')}" placeholder="ชื่อ (พิมพ์ค้นหา)" style="width:140px;padding:4px;border:1px solid #CBD5E1;border-radius:5px"></td>
     <td><select class="pkg-mode" style="padding:4px;border:1px solid #CBD5E1;border-radius:5px;font-size:11px">
       <option value="per_unit" ${r.mode!=='per_n'?'selected':''}>ต่อ 1 หน่วยผลิต</option>
       <option value="per_n" ${r.mode==='per_n'?'selected':''}>1 ต่อ N ชิ้น</option></select></td>
@@ -5324,7 +5324,7 @@ function pkgSearch(inp){
   const mats=window._pkgMats||[];
   const list=(q
     ? mats.filter(m=>((m.code||'').toLowerCase().includes(q)||pkgMatName(m).toLowerCase().includes(q)))
-    : mats).slice(0,50);
+    : mats).slice(0,300);
   window._pkgDDList=list;
   let dd=document.getElementById('pkg-dd');
   if(!dd){
@@ -5360,9 +5360,10 @@ function pkgDDHide(now){
 }
 async function pkgRulesEdit(sku){
   const rules=await sbG('packaging_rules',{f:[`sku=eq.${encodeURIComponent(sku)}`],ord:'id.asc'}).catch(()=>[]);
-  // โหลดรายการวัตถุดิบสำหรับ autocomplete — ดึงทุกคอลัมน์เพื่อให้ได้ชื่อจากฟิลด์ที่มีจริง
-  let mats=await sbG('stock_material',{ord:'code.asc'}).catch(()=>null);
-  if(!mats) mats=await sbG('stock_material').catch(()=>[]);
+  // โหลดรายการวัตถุดิบสำหรับ autocomplete — ชื่ออยู่ใน master_material (stock_material เก็บแค่ยอด)
+  let mats=await sbG('master_material',{s:'code,name,unit,category',ord:'code.asc'}).catch(()=>null);
+  if(!mats) mats=await sbG('master_material').catch(()=>null);
+  if(!mats||!mats.length) mats=await sbG('stock_material').catch(()=>[]);  // fallback
   mats=mats||[];
   // เลือกเฉพาะบรรจุภัณฑ์ PK (รหัสขึ้นต้น PK หรือ category เป็น PK/บรรจุภัณฑ์)
   const _isPK=m=>{
