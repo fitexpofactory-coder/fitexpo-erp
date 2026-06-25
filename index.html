@@ -1048,6 +1048,9 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
           <option value="เสร็จสิ้น">เสร็จสิ้น</option>
           <option value="ยกเลิก">ยกเลิก</option>
         </select>
+        <input type="month" class="fc2" id="wo-month" style="width:150px;font-size:12px" onchange="loadProduction()" title="กรองตามเดือนผลิต">
+        <button class="btn btnS sm" onclick="document.getElementById('wo-month').value=new Date().toISOString().slice(0,7);loadProduction()" title="เดือนนี้">เดือนนี้</button>
+        <button class="btn btnT sm" onclick="document.getElementById('wo-month').value='';loadProduction()" title="ล้างเดือน">ล้างเดือน</button>
         <button class="btn btnS sm" onclick="loadProduction()">🔄</button>
       </div>
     </div>
@@ -4518,17 +4521,22 @@ async function loadProduction(){
     if(prods.length){_bomProds=prods;}
     const statusFilter=document.getElementById('wo-status-filter')?.value||'';
     const searchTerm=(document.getElementById('wo-search')?.value||'').trim();
+    const month=(document.getElementById('wo-month')?.value||'').trim();   // 'YYYY-MM'
+    const monthCond = month ? [`start_date=like.${month}*`] : [];
     let woFilter;
     if(searchTerm){
       // ค้นหาเลข WO — ดึงได้ทุกสถานะรวมที่ปิดแล้ว (ไม่จำกัดสถานะ)
-      woFilter={ord:'start_date.desc.nullslast', f:[`pp_no=ilike.*${searchTerm}*`], lim:100};
+      woFilter={ord:'start_date.desc.nullslast', f:[`pp_no=ilike.*${searchTerm}*`, ...monthCond], lim:100};
     }else if(statusFilter&&statusFilter!=='all'){
-      woFilter={ord:'start_date.desc.nullslast',f:[`status=eq.${statusFilter}`]};
+      woFilter={ord:'start_date.desc.nullslast', f:[`status=eq.${statusFilter}`, ...monthCond], lim:1000};
+    }else if(month){
+      woFilter={ord:'start_date.desc.nullslast', f:monthCond, lim:1000};
     }else{
-      woFilter={ord:'start_date.desc.nullslast',lim:100};
+      woFilter={ord:'start_date.desc.nullslast', lim:100};
     }
     const wos=await sbG('production_plan',woFilter);
-    document.getElementById('wo-list').innerHTML=wos.length?wos.map(w=>{
+    const _woHdr = month ? `<div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:6px;padding:6px 10px;margin-bottom:8px;font-size:12px;color:#1E40AF;font-weight:700">📅 เดือนผลิต ${month} — ${wos.length} Work Order</div>` : '';
+    document.getElementById('wo-list').innerHTML=_woHdr+(wos.length?wos.map(w=>{
     const statusColor={'จองแล้ว':'var(--amber)','กำลังผลิต':'var(--accent)','เสร็จแล้ว':'var(--green)','เสร็จสิ้น':'var(--green)','จองแล้ว (WIP)':'var(--purple)'}[w.status]||'var(--text3)';
     const isWIPwo=(w.pp_no||'').includes('WIP');
     return`<div style="border:1px solid var(--border);border-left:3px solid ${statusColor};border-radius:6px;padding:10px 12px;margin-bottom:6px;background:white" id="wo-card-${w.id}">
@@ -4568,7 +4576,7 @@ async function loadProduction(){
         </div>
       </div>
     </div>`;
-  }).join(''):'<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">ยังไม่มี Work Order</div>';
+  }).join(''):'<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">ไม่มี Work Order'+(month?` ในเดือน ${month}`:'')+'</div>');
   }catch(e){console.error(e);}
   // โหลด batch progress ใน background
   setTimeout(loadBatchProgress, 300);
