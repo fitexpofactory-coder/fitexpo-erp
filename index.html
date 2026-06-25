@@ -4581,7 +4581,14 @@ async function loadProduction(){
     const statusFilter=document.getElementById('wo-status-filter')?.value||'';
     const searchTerm=(document.getElementById('wo-search')?.value||'').trim();
     const month=(document.getElementById('wo-month')?.value||'').trim();   // 'YYYY-MM'
-    const monthCond = month ? [`start_date=like.${month}*`] : [];
+    let monthCond=[];
+    if(month){
+      const [yy,mm]=month.split('-').map(Number);
+      const first=`${month}-01`;
+      let ny=yy, nm=mm+1; if(nm>12){nm=1;ny++;}
+      const nextFirst=`${ny}-${String(nm).padStart(2,'0')}-01`;
+      monthCond=[`start_date=gte.${first}`, `start_date=lt.${nextFirst}`];
+    }
     let woFilter;
     if(searchTerm){
       // ค้นหาเลข WO — ดึงได้ทุกสถานะรวมที่ปิดแล้ว (ไม่จำกัดสถานะ)
@@ -4636,7 +4643,11 @@ async function loadProduction(){
       </div>
     </div>`;
   }).join(''):'<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">ไม่มี Work Order'+(month?` ในเดือน ${month}`:'')+'</div>');
-  }catch(e){console.error(e);}
+  }catch(e){
+    console.error('loadProduction:',e);
+    const el=document.getElementById('wo-list');
+    if(el) el.innerHTML='<div style="color:var(--red);padding:20px;text-align:center">โหลด Work Order ไม่สำเร็จ: '+(e.message||e)+'<br><button class="btn btnS sm" style="margin-top:8px" onclick="loadProduction()">ลองใหม่</button></div>';
+  }
   // โหลด batch progress ใน background
   setTimeout(loadBatchProgress, 300);
 }
