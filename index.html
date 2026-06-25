@@ -4521,11 +4521,11 @@ async function loadProduction(){
     let woFilter;
     if(searchTerm){
       // ค้นหาเลข WO — ดึงได้ทุกสถานะรวมที่ปิดแล้ว (ไม่จำกัดสถานะ)
-      woFilter={ord:'created_at.desc', f:[`pp_no=ilike.*${searchTerm}*`], lim:100};
+      woFilter={ord:'start_date.desc.nullslast', f:[`pp_no=ilike.*${searchTerm}*`], lim:100};
     }else if(statusFilter&&statusFilter!=='all'){
-      woFilter={ord:'created_at.desc',f:[`status=eq.${statusFilter}`]};
+      woFilter={ord:'start_date.desc.nullslast',f:[`status=eq.${statusFilter}`]};
     }else{
-      woFilter={ord:'created_at.desc',lim:50};
+      woFilter={ord:'start_date.desc.nullslast',lim:100};
     }
     const wos=await sbG('production_plan',woFilter);
     document.getElementById('wo-list').innerHTML=wos.length?wos.map(w=>{
@@ -24614,9 +24614,9 @@ async function psLoadWOs(){
   try{
     // โหลด WO ในสัปดาห์นี้ + ที่ไม่มีวัน
     _psWOs=await sbG('production_plan',{
-      f:['status=neq.cancelled','status=neq.เสร็จสิ้น'],
+      f:['status=neq.cancelled','status=neq.ยกเลิก'],
       s:'id,pp_no,sku_code,product_name,num_batches,batch_kg,status,start_date,actual_qty',
-      ord:'start_date.asc,pp_no.asc', lim:200
+      ord:'start_date.asc,pp_no.asc', lim:1000
     });
     psRenderWOs(from, to);
     psLoadUnscheduled();
@@ -25467,9 +25467,9 @@ psLoadWOs = async function(){
   const to=psDateStr(endDate);
   try{
     _psWOs=await sbG('production_plan',{
-      f:['status=neq.cancelled','status=neq.เสร็จสิ้น'],
+      f:['status=neq.cancelled','status=neq.ยกเลิก'],
       s:'id,pp_no,sku_code,product_name,num_batches,batch_kg,status,start_date',
-      ord:'start_date.asc,pp_no.asc', lim:200
+      ord:'start_date.asc,pp_no.asc', lim:1000
     });
     psRenderWOs(from,to);
     psLoadUnscheduled();
