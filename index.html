@@ -30079,8 +30079,8 @@ function scRenderDetail(c,moves){
         +(c.supplier?'<div style="font-size:12px;color:#64748B;margin-top:8px">Supplier: '+c.supplier+(c.remark?(' · '+c.remark):'')+'</div>':'')
       +'</div></div>'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">'
-      +'<button class="btn btnP sm" onclick="scMove(\'in\')">📥 รับเข้า</button>'
-      +'<button class="btn sm" style="background:#DC2626;color:white" onclick="scMove(\'out\')">📤 เบิกออก</button>'
+      +'<button class="btn btnP sm" onclick="scGoReceive()">📥 รับเข้า (ลง Stock RM/PK)</button>'
+      +'<button class="btn sm" style="background:#DC2626;color:white" onclick="scGoIssue()">📤 เบิกออก (FIFO, Stock RM/PK)</button>'
       +'<button class="btn btnS sm" onclick="scMove(\'adjust\')">⚖️ ปรับยอด</button>'
       +'<button class="btn btnS sm" onclick="scMove(\'move\')">🔀 ย้ายโลเคชัน</button>'
       +'<button class="btn btnS sm" onclick="scMove(\'count\')">🔢 นับสต็อก</button></div>'
@@ -30128,6 +30128,20 @@ async function scSaveEdit(){
   try{ await sbU('stock_cards',upd,'card_code=eq.'+encodeURIComponent(c.card_code));
     Object.assign(c,upd); scCloseEditor(); await scLoadList(); scOpenDetail(c.card_code);
   }catch(e){ alert('บันทึกไม่สำเร็จ: '+(e.response?.data?.message||e.message)); }
+}
+
+// ── เชื่อมปุ่มรับเข้า/เบิกออก ของ Stock Card → ไปบันทึกที่ Stock RM & PK โดยตรง ──
+function scGoReceive(){
+  const c=_scCur; if(!c){ alert('ไม่พบการ์ด'); return; }
+  if(!c.material_code){ alert('การ์ดนี้ไม่มีรหัสวัตถุดิบ (material_code) — แก้ไขการ์ดให้ผูกรหัสก่อน'); return; }
+  if(typeof scCloseDetail==='function') scCloseDetail();
+  showReceiveRM(c.material_code, c.material_name||'');
+}
+function scGoIssue(){
+  const c=_scCur; if(!c){ alert('ไม่พบการ์ด'); return; }
+  if(!c.material_code){ alert('การ์ดนี้ไม่มีรหัสวัตถุดิบ (material_code) — แก้ไขการ์ดให้ผูกรหัสก่อน'); return; }
+  if(typeof scCloseDetail==='function') scCloseDetail();
+  showIssueRM(c.material_code);
 }
 
 // ── เคลื่อนไหว: รับ/เบิก/ปรับ/ย้าย/นับ ──────────────────────
