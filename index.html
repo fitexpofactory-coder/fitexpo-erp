@@ -2792,6 +2792,13 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
         <button class="btn btnS sm" onclick="sdInit()">🔄 Reload</button>
       </div>
     </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;padding:0 16px 12px">
+      <span style="font-size:12px;color:var(--text3);align-self:center">📄 แบบฟอร์มเบิกประจำวัน (พิมพ์ให้พนักงานกรอก):</span>
+      <button class="btn btnS sm" onclick="printReqForm('RM',false)">🧱 วัตถุดิบ (เปล่า)</button>
+      <button class="btn btnS sm" onclick="printReqForm('RM',true)">🧱 วัตถุดิบ (มีรายการ)</button>
+      <button class="btn btnS sm" onclick="printReqForm('PK',false)">📦 บรรจุภัณฑ์ (เปล่า)</button>
+      <button class="btn btnS sm" onclick="printReqForm('PK',true)">📦 บรรจุภัณฑ์ (มีรายการ)</button>
+    </div>
     <div id="sd-wo-info" style="display:none;background:var(--navy-light);border-radius:8px;
       padding:10px;margin-bottom:12px;font-size:12px">
     </div>
@@ -24143,6 +24150,85 @@ let _sdDeducted=[]; // batches ที่ตัดแล้ว
 let _sdPKDeducted=false;
 
 // ── Init ─────────────────────────────────────────────────────
+// ── แบบฟอร์มเบิกใช้วัตถุดิบ / บรรจุภัณฑ์ ประจำวัน (พิมพ์ให้พนักงานกรอก) ──
+async function printReqForm(type, withList){
+  const isPK = type==='PK';
+  const title   = isPK ? 'ใบเบิกใช้บรรจุภัณฑ์ประจำวัน' : 'ใบเบิกใช้วัตถุดิบประจำวัน';
+  const titleEn = isPK ? 'Daily Packaging Requisition Form' : 'Daily Raw Material Requisition Form';
+  const itemHd  = isPK ? 'รายการบรรจุภัณฑ์' : 'รายการวัตถุดิบ';
+  const coName  = (typeof COMPANY_INFO!=='undefined'&&COMPANY_INFO.name)||'FitExpo';
+  const _nm=m=>(m.name||m.name_th||m.name_en||m.material_name||m.mat_name||m.description||m['ชื่อ']||(window._pkgNameByCode||{})[m.code]||'').toString();
+  const row=(n,code,name,unit)=>`<tr>
+    <td style="text-align:center">${n}</td>
+    <td>${code||''}</td>
+    <td>${name||''}</td>
+    <td style="text-align:center">${unit||''}</td>
+    <td></td><td></td><td></td></tr>`;
+  let rows='';
+  if(withList){
+    let mats=await sbG('stock_material').catch(()=>[]);
+    mats=(mats||[]).filter(m=>{
+      const c=(m.code||'').toUpperCase();
+      const cat=(m.category||m.cat||m['หมวด']||'').toString().toUpperCase();
+      const pk=c.startsWith('PK')||cat.includes('PK')||cat.includes('บรรจุ')||cat.includes('PACK');
+      return isPK?pk:!pk;
+    }).sort((a,b)=>(a.code||'').localeCompare(b.code||''));
+    rows=mats.map((m,i)=>row(i+1,m.code,_nm(m),m.unit)).join('');
+    for(let i=0;i<6;i++) rows+=row(mats.length+i+1,'','','');
+    if(!mats.length) rows=Array.from({length:25},(_,i)=>row(i+1,'','','')).join('');
+  }else{
+    rows=Array.from({length:25},(_,i)=>row(i+1,'','','')).join('');
+  }
+  const w=window.open('','_blank');
+  if(!w){ alert('เบราว์เซอร์บล็อก pop-up — อนุญาตก่อนครับ'); return; }
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
+  <style>@page{size:A4 portrait;margin:12mm}
+  *{box-sizing:border-box}
+  body{font-family:'Sarabun',Arial,sans-serif;font-size:11pt;color:#111;margin:0}
+  h2{margin:0;text-align:center;font-size:15pt}
+  .sub{text-align:center;color:#555;font-size:9pt;margin:2px 0 6px}
+  .co{text-align:center;font-weight:700;font-size:12pt}
+  .hdr{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:10pt;margin:8px 0 6px}
+  .hdr span{white-space:nowrap}
+  .u{display:inline-block;border-bottom:1px dotted #555;min-width:120px}
+  .u.sm{min-width:70px}
+  table{border-collapse:collapse;width:100%;table-layout:fixed}
+  th,td{border:1px solid #555;padding:3px 5px;font-size:9pt;vertical-align:middle}
+  th{background:#1B3A5C;color:#fff;text-align:center}
+  td{height:22px}
+  .sign{display:flex;justify-content:space-around;margin-top:24px;font-size:10pt;gap:10px}
+  .sign div{text-align:center;flex:1}
+  .ln{border-top:1px solid #555;margin:34px 12px 3px}
+  .note{font-size:8.5pt;color:#666;margin-top:8px;border:1px dashed #999;padding:5px 8px;border-radius:4px}
+  @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+  </style></head><body>
+  <div class="co">${coName}</div>
+  <h2>${title}</h2>
+  <div class="sub">${titleEn}</div>
+  <div class="hdr">
+    <span>วันที่: <span class="u"></span></span>
+    <span>แผนก/ไลน์: <span class="u"></span></span>
+    <span>กะ: <span class="u sm"></span></span>
+    <span>เลขที่ผลิต/WO: <span class="u"></span></span>
+  </div>
+  <table>
+    <colgroup><col style="width:8%"><col style="width:16%"><col style="width:30%"><col style="width:9%"><col style="width:13%"><col style="width:12%"><col style="width:12%"></colgroup>
+    <thead><tr>
+      <th>ลำดับ</th><th>รหัส</th><th>${itemHd}</th><th>หน่วย</th><th>จำนวนที่เบิก</th><th>Lot/รุ่น</th><th>หมายเหตุ</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="note">📌 บันทึกการเบิกใช้จริงในแบบฟอร์มนี้ แล้วนำไปคีย์ตัด stock ในระบบ (เมนู Deduct Stock) · ตัด stock ในระบบเมื่อวันที่: <span class="u sm"></span> โดย: <span class="u sm"></span></div>
+  <div class="sign">
+    <div><div class="ln"></div>ผู้เบิก / ผู้ผลิต</div>
+    <div><div class="ln"></div>ผู้จ่าย (คลัง)</div>
+    <div><div class="ln"></div>ผู้ตรวจ/อนุมัติ</div>
+  </div>
+  <scr`+`ipt>window.onload=function(){window.print();setTimeout(function(){window.close();},500);}</scr`+`ipt>
+  </body></html>`);
+  w.document.close();
+}
+
 let _sdAllWOs=[];
 async function sdInit(){
   const sel=document.getElementById('sd-wo-sel');
