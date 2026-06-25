@@ -1051,6 +1051,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
         <input type="month" class="fc2" id="wo-month" style="width:150px;font-size:12px" onchange="loadProduction()" title="กรองตามเดือนผลิต">
         <button class="btn btnS sm" onclick="document.getElementById('wo-month').value=new Date().toISOString().slice(0,7);loadProduction()" title="เดือนนี้">เดือนนี้</button>
         <button class="btn btnT sm" onclick="document.getElementById('wo-month').value='';loadProduction()" title="ล้างเดือน">ล้างเดือน</button>
+        <button class="btn btnP sm" onclick="loadProductionSummary()" title="สรุป WO แยกตามเดือน">📊 สรุปรายเดือน</button>
         <button class="btn btnS sm" onclick="loadProduction()">🔄</button>
       </div>
     </div>
@@ -4514,6 +4515,64 @@ async function delBOMRow(id,code,table){
 // ════════════════════════════════════════════════════════════
 //  PRODUCTION MODULE
 // ════════════════════════════════════════════════════════════
+// ── สรุป Work Order แยกตามเดือน (พับ/กางได้) ──────────────────
+function _woThaiMonth(m){
+  if(m==='ไม่กำหนดวัน') return m;
+  const [y,mo]=m.split('-');
+  const names=['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  return `${names[+mo]||mo} ${(+y)+543}`;
+}
+function woGotoMonth(m){
+  const el=document.getElementById('wo-month'); if(el) el.value=m;
+  loadProduction();
+}
+async function loadProductionSummary(){
+  const list=document.getElementById('wo-list');
+  if(!list) return;
+  list.innerHTML='<div style="text-align:center;padding:30px"><span class="spin"></span> กำลังสรุป...</div>';
+  try{
+    const wos=await sbG('production_plan',{
+      f:['status=neq.cancelled','status=neq.ยกเลิก'],
+      s:'id,pp_no,sku_code,product_name,num_batches,batch_kg,status,start_date,actual_qty',
+      ord:'start_date.desc.nullslast', lim:1000
+    });
+    const groups={};
+    wos.forEach(w=>{ const m=(w.start_date||'').slice(0,7)||'ไม่กำหนดวัน'; (groups[m]=groups[m]||[]).push(w); });
+    const months=Object.keys(groups).sort((a,b)=> a==='ไม่กำหนดวัน'?1 : b==='ไม่กำหนดวัน'?-1 : (a<b?1:-1));
+    const statusC={'จองแล้ว':'#D97706','กำลังผลิต':'#2563EB','เสร็จสิ้น':'#16a34a','เสร็จแล้ว':'#16a34a','จองแล้ว (WIP)':'#7C3AED'};
+    let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <div style="font-weight:700;color:var(--navy)">📊 สรุป Work Order รายเดือน — รวม ${wos.length} รายการ / ${months.length} เดือน</div>
+      <button class="btn btnS sm" onclick="loadProduction()">← มุมมองปกติ</button></div>`;
+    months.forEach(m=>{
+      const g=groups[m];
+      const totBatch=g.reduce((s,w)=>s+(+w.num_batches||0),0);
+      const byStatus={}; g.forEach(w=>byStatus[w.status]=(byStatus[w.status]||0)+1);
+      const chips=Object.entries(byStatus).map(([s,n])=>`<span style="font-size:10px;background:${statusC[s]||'#6B7280'};color:white;border-radius:4px;padding:1px 6px">${s} ${n}</span>`).join(' ');
+      const rows=g.map(w=>{
+        const sc=statusC[w.status]||'#6B7280';
+        const isFG=!(w.sku_code||'').startsWith('WIP');
+        return `<div style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-bottom:1px solid #F1F5F9;font-size:12px">
+          <span style="color:#94A3B8;font-size:10px;min-width:74px">${w.start_date||'—'}</span>
+          <span class="mn" style="color:var(--accent);font-weight:600;min-width:120px">${w.pp_no}</span>
+          <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${isFG?'📦':'🏭'} ${w.product_name||w.sku_code}</span>
+          <span style="font-size:10px;color:#64748B">${w.num_batches||1}B</span>
+          <span style="font-size:10px;background:${sc};color:white;border-radius:4px;padding:1px 6px;white-space:nowrap">${w.status||''}</span>
+        </div>`;
+      }).join('');
+      html+=`<div style="border:1px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden">
+        <div onclick="const b=this.nextElementSibling;b.style.display=b.style.display==='none'?'block':'none'"
+          style="display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer;background:var(--navy);color:white;padding:8px 12px;flex-wrap:wrap">
+          <div style="font-weight:700">📅 ${_woThaiMonth(m)} <span style="opacity:.85;font-weight:400;font-size:12px">· ${g.length} WO · ${totBatch} batch</span></div>
+          <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${chips}
+            ${m!=='ไม่กำหนดวัน'?`<button class="btn sm" style="background:white;color:var(--navy);padding:2px 8px" onclick="event.stopPropagation();woGotoMonth('${m}')">🔍 ดูเต็ม</button>`:''}</div>
+        </div>
+        <div style="display:block">${rows}</div>
+      </div>`;
+    });
+    list.innerHTML=html;
+  }catch(e){ list.innerHTML='<div style="color:var(--red);padding:20px">ผิดพลาด: '+e.message+'</div>'; }
+}
+
 async function loadProduction(){
   try{
     if(!window._cachedProds?.length) window._cachedProds=await sbG('master_product',{s:'sku,name_en,batch_kg,min_batch_kg,max_batch_kg,yield_pct,size_g'});
