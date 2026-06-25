@@ -24166,7 +24166,8 @@ async function printReqForm(type, withList){
     <td></td><td></td><td></td></tr>`;
   let rows='';
   if(withList){
-    let mats=await sbG('stock_material').catch(()=>[]);
+    let mats=await sbG('master_material',{s:'code,name,unit,category',ord:'code.asc'}).catch(()=>null);
+    if(!mats) mats=await sbG('master_material').catch(()=>[]);
     mats=(mats||[]).filter(m=>{
       const c=(m.code||'').toUpperCase();
       const cat=(m.category||m.cat||m['หมวด']||'').toString().toUpperCase();
