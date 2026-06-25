@@ -1583,6 +1583,8 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
       <button class="btn btnS sm" onclick="filterLocCat('FG',this)">FG</button>
     </div>
     <button class="btn btnP sm" onclick="showAddLoc()">+ เพิ่ม Location</button>
+    <button class="btn btnP sm" onclick="showAddRoom()">➕ เพิ่มห้อง (หลาย Location)</button>
+    <button class="btn btnT sm" onclick="seedFGRMRooms()">⚡ สร้างห้อง FG/RM</button>
     <button class="btn btnS sm" onclick="loadInvLocations()">🔄</button>
   </div>
   <div class="g3 mb4" id="loc-rooms"></div>
@@ -7503,7 +7505,8 @@ function renderRoomCards(data){
   el.innerHTML=Object.values(rooms).map(r=>`<div class="card">
     <div class="ch"><div><div class="ct">${r.cat==='RM'?'🧱':r.cat==='WIP'?'🏭':'📦'} ${r.name}</div>
       <div style="font-size:11px;color:var(--text3)">${r.code} | ${r.temp==='chilled'?'🧊 เย็น':'🌡️ ปกติ'}</div></div>
-      <span class="badge ${r.cat==='RM'?'bb':r.cat==='WIP'?'bp':'bg'}">${r.slots.length} ช่อง</span></div>
+      <span class="badge ${r.cat==='RM'?'bb':r.cat==='WIP'?'bp':'bg'}">${r.slots.length} ช่อง</span>
+      <button class="btn btnD sm" style="margin-left:6px" onclick="delRoom('${r.code}','${(r.name||'').replace(/'/g,'')}')" title="ลบห้องนี้ทั้งหมด">🗑</button></div>
     <div style="display:flex;flex-wrap:wrap;gap:5px">${r.slots.map(s=>`<div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:11px;text-align:center;min-width:80px"><div class="mn" style="color:var(--teal)">${s.location_code}</div><div style="color:var(--text3);font-size:10px">${s.rack_no}/${s.slot_no}</div></div>`).join('')}</div>
   </div>`).join('');
 }
@@ -7541,6 +7544,95 @@ async function saveLoc(id){
 }
 async function editLoc(id){const r=(await sbG('locations',{f:[`id=eq.${id}`]}))[0];openMo(`✏️ แก้ไข: ${r.location_code}`,locForm(r));}
 async function delLoc(id){if(!confirm('ปิดการใช้งาน Location นี้?'))return;await sbU('locations',{is_active:false},`id=eq.${id}`);loadInvLocations();}
+
+// ── เพิ่มห้อง + หลาย Location พร้อมกัน ──────────────────────────
+function showAddRoom(){
+  openMo('➕ เพิ่มห้อง + หลาย Location',`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fgrp"><label class="flbl">รหัสห้อง (Room Code)</label><input class="fc2" id="rf-code" placeholder="FGR"></div>
+      <div class="fgrp"><label class="flbl">ชื่อห้อง</label><input class="fc2" id="rf-name" placeholder="ห้องเก็บสินค้า"></div>
+      <div class="fgrp"><label class="flbl">ประเภท</label><select class="fc2" id="rf-cat"><option value="FG">📦 FG (สินค้า)</option><option value="RM">🧱 RM & PK (วัตถุดิบ)</option><option value="WIP">🏭 WIP</option></select></div>
+      <div class="fgrp"><label class="flbl">อุณหภูมิ</label><select class="fc2" id="rf-temp"><option value="ambient">🌡️ ปกติ</option><option value="chilled">🧊 เย็น</option><option value="frozen">❄️ แช่แข็ง</option></select></div>
+    </div>
+    <div class="fgrp"><label class="flbl">รายการ Location (1 บรรทัด/รหัส หรือคั่นด้วยคอมมา/เว้นวรรค)</label>
+      <textarea class="fc2" id="rf-locs" rows="5" placeholder="FGR1-1
+FGR1-2
+FGR1-3
+..."></textarea></div>
+    <div style="font-size:11px;color:#64748B;margin-bottom:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">⚙️ สร้างรหัสอัตโนมัติ:
+      prefix <input id="rf-gp" placeholder="FGR" style="width:80px;padding:3px;border:1px solid #CBD5E1;border-radius:5px">
+      ชั้น <input id="rf-gr" type="number" value="4" style="width:50px;padding:3px;border:1px solid #CBD5E1;border-radius:5px">
+      ช่อง/ชั้น <input id="rf-gs" type="number" value="4" style="width:50px;padding:3px;border:1px solid #CBD5E1;border-radius:5px">
+      <button class="btn btnS sm" onclick="roomGen()">สร้างรหัส</button></div>
+    <button class="btn btnP" style="width:100%" onclick="saveRoom()">💾 บันทึกห้อง + Location</button>
+    <div id="rf-msg" style="margin-top:8px"></div>`);
+}
+function roomGen(){
+  const p=document.getElementById('rf-gp').value.trim();
+  const r=+document.getElementById('rf-gr').value||0, s=+document.getElementById('rf-gs').value||0;
+  if(!p||!r||!s){alert('กรอก prefix / ชั้น / ช่อง ให้ครบ');return;}
+  const out=[];
+  for(let i=1;i<=r;i++) for(let j=1;j<=s;j++) out.push(`${p}${i}-${j}`);
+  document.getElementById('rf-locs').value=out.join('\n');
+  if(!document.getElementById('rf-code').value) document.getElementById('rf-code').value=p;
+}
+function _locParse(code){
+  const parts=String(code).split('-');
+  const slot=parts[parts.length-1];
+  const left=parts.slice(0,-1).join('-');
+  const rack=((left.match(/(\d+)$/)||[])[1])||left||'';
+  return {rack, slot};
+}
+async function saveRoom(){
+  const code=document.getElementById('rf-code').value.trim();
+  const name=document.getElementById('rf-name').value.trim();
+  const cat=document.getElementById('rf-cat').value, temp=document.getElementById('rf-temp').value;
+  const raw=document.getElementById('rf-locs').value.trim();
+  if(!code||!name){msgEl('rf-msg','กรุณากรอกรหัสและชื่อห้อง','e');return;}
+  const codes=[...new Set(raw.split(/[\n,\s]+/).map(x=>x.trim()).filter(Boolean))];
+  if(!codes.length){msgEl('rf-msg','ใส่รายการ Location อย่างน้อย 1 รายการ','e');return;}
+  msgEl('rf-msg','⏳ กำลังบันทึก '+codes.length+' location...','i');
+  try{
+    let ok=0;
+    for(const c of codes){
+      const {rack,slot}=_locParse(c);
+      await sbP('locations',{room_code:code,room_name:name,rack_no:rack,slot_no:slot,location_code:c,location_name:`${name} ${c}`,category:cat,temp_control:temp,capacity_kg:0,is_active:true});
+      ok++;
+    }
+    msgEl('rf-msg','✅ เพิ่ม '+ok+' location สำเร็จ','s');
+    setTimeout(()=>{closeMo();loadInvLocations();},800);
+  }catch(e){msgEl('rf-msg','❌ '+e.message,'e');}
+}
+// ── สร้างห้อง FG + RM ตามผังที่กำหนด ──────────────────────────
+async function seedFGRMRooms(){
+  if(!confirm('สร้างห้องเก็บสินค้า (FGR) + ห้องเก็บวัตถุดิบ (RMR) พร้อม Location ตามผังที่กำหนด?')) return;
+  const clear=confirm('ต้องการลบ Location เดิมทั้งหมดก่อนสร้างใหม่ไหม?\n\n[OK] = ลบของเดิมทั้งหมด แล้วสร้างใหม่\n[Cancel] = เก็บของเดิมไว้ แล้วเพิ่มใหม่');
+  try{
+    if(clear){ await sbD('locations','id=gt.0'); }
+    const mk=p=>{ const a=[]; [[1,4],[2,4],[3,4],[4,6]].forEach(([r,n])=>{for(let s=1;s<=n;s++)a.push(`${p}${r}-${s}`);}); return a; };
+    const sets=[
+      {code:'FGR',name:'ห้องเก็บสินค้า (FG)',cat:'FG',codes:mk('FGR')},
+      {code:'RMR',name:'ห้องเก็บวัตถุดิบ (RM)',cat:'RM',codes:mk('RMR')}
+    ];
+    let ok=0;
+    for(const st of sets){
+      for(const c of st.codes){
+        const {rack,slot}=_locParse(c);
+        await sbP('locations',{room_code:st.code,room_name:st.name,rack_no:rack,slot_no:slot,location_code:c,location_name:`${st.name} ${c}`,category:st.cat,temp_control:'ambient',capacity_kg:0,is_active:true});
+        ok++;
+      }
+    }
+    alert('✅ สร้างเรียบร้อย '+ok+' location (FG 18 + RM 18)');
+    loadInvLocations();
+  }catch(e){ alert('❌ '+e.message); }
+}
+async function delRoom(roomCode, roomName){
+  if(!confirm('ลบห้อง "'+(roomName||roomCode)+'" และ Location ทั้งหมดในห้องนี้ถาวร?')) return;
+  try{
+    await sbD('locations',`room_code=eq.${encodeURIComponent(roomCode)}`);
+    loadInvLocations();
+  }catch(e){ alert('❌ '+e.message); }
+}
 function loadRoomFilter(){
   const rooms=[...new Set(_invLocs.map(l=>l.room_code))];
   const sel=document.getElementById('cs-room');if(!sel)return;
