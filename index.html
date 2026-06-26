@@ -16166,6 +16166,10 @@ async function _renderStockLots(code, type){
 
     const lotTable=type==='wip'?'wip_stock_lots':'stock_product_lots';
     const lotField =type==='wip'?'wip_code':'sku';
+    // สินค้าเป็นชิ้น/กระปุก → แสดง pcs เป็นจำนวนหลัก, qty_kg เก็บเป็นน้ำหนัก (KPI yield/loss)
+    const isPcs = type!=='wip' && /pcs|ชิ้น|กระปุก|ใบ|จุก|piece|unit|ซอง|ถุง|กล่อง|box/i.test(stockUnit||'');
+    const pcsOf = r => { const p=Number(r.pcs)||0, k=Number(r.qty_kg)||0; return isPcs ? (p>0?p:k) : k; };
+    const kgOf  = r => { const p=Number(r.pcs)||0, k=Number(r.qty_kg)||0; if(!isPcs) return k; return (p>0 && k>0) ? k : null; };
     let lots=await sbG(lotTable,{f:[`${lotField}=eq.${code}`],ord:'prod_date.desc'}).catch(()=>[]);
     let fromWO=false;
     if(!lots.length){
@@ -16178,8 +16182,9 @@ async function _renderStockLots(code, type){
       fromWO=lots.length>0;
     }
 
-    // คำนวณ qty รวมใน lots vs balance จริง
-    const lotTotal = lots.reduce((s,r)=>s+Number(r.qty_kg||0),0);
+    // คำนวณ qty รวมใน lots vs balance จริง (เป็นชิ้นถ้าเป็นสินค้าชิ้น)
+    const lotTotal = lots.reduce((s,r)=>s+pcsOf(r),0);
+    const lotKgTotal = lots.reduce((s,r)=>{ const k=kgOf(r); return s+(k||0); },0);
     const unaccounted = Math.max(0, balance - lotTotal);
 
     // โหลด activity log สำหรับ stock นี้
@@ -16193,7 +16198,8 @@ async function _renderStockLots(code, type){
       <tr>
         <td style="text-align:center;color:var(--text3);font-size:11px">${i+1}</td>
         <td class="mn" style="font-weight:700;color:var(--accent)">${r.lot_no||'—'}</td>
-        <td class="mn" style="font-weight:600">${r.qty_kg?fmt(Number(r.qty_kg),0)+' '+stockUnit:'—'}</td>
+        <td class="mn" style="font-weight:700">${pcsOf(r)?fmt(pcsOf(r),0)+' '+stockUnit:'—'}</td>
+        <td class="mn" style="font-weight:500;color:#64748B;font-size:12px">${kgOf(r)?fmt(kgOf(r),2)+' kg':'—'}</td>
         <td style="font-size:11px">${r.prod_date||'—'}</td>
         <td style="font-size:11px;color:${r.exp_date?'var(--red)':'var(--text3)'}">${r.exp_date||'—'}</td>
         <td><span class="badge ${r.status==='available'||r.status==='เสร็จสิ้น'?'bg':'ba'}" style="font-size:10px">${r.status||'—'}</span></td>
@@ -16203,7 +16209,7 @@ async function _renderStockLots(code, type){
             :`<button class="btn btnT sm" style="font-size:10px" onclick="convertWOToLot('${code}','${type}','${r.lot_no}',${r.qty_kg},'${r.prod_date}')">💾</button>`}
         </td>
       </tr>`).join('')
-    :`<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px">
+    :`<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px">
         <div style="font-size:28px;margin-bottom:6px">📭</div>
         <div style="font-weight:600;color:var(--navy);margin-bottom:8px">ยังไม่มีข้อมูล Lot</div>
         ${balance>0?`
@@ -16271,6 +16277,7 @@ async function _renderStockLots(code, type){
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
         <div style="font-weight:700;font-size:13px;color:var(--navy)">
           📋 รายการ Lot (${lots.length} Lot)
+          <span style="font-size:10px;color:#64748B;font-weight:400">· รวม ${fmt(lotTotal,0)} ${stockUnit}${isPcs&&lotKgTotal>0?` · น้ำหนักรวม ${fmt(lotKgTotal,2)} kg (สำหรับ KPI yield/loss)`:''}</span>
           ${fromWO?'<span style="font-size:10px;color:var(--amber);font-weight:400;margin-left:4px">⚠️ จาก WO</span>':''}
         </div>
         <button class="btn btnP sm" onclick="addNewLot('${code}','${type}','${stockUnit}')">+ เพิ่ม Lot ใหม่</button>
@@ -16282,6 +16289,7 @@ async function _renderStockLots(code, type){
             <th style="width:28px">#</th>
             <th>Lot No.</th>
             <th style="text-align:right">จำนวน (${stockUnit})</th>
+            <th style="text-align:right">น้ำหนัก (kg)</th>
             <th>Production Date / วันผลิต</th>
             <th>Expiry / วันหมดอายุ</th>
             <th>Status / สถานะ</th>
@@ -16432,16 +16440,21 @@ async function editLotRow(lotId, code, type){
   const rows = await sbG(lotTable,{f:[`id=eq.${lotId}`]}).catch(()=>[]);
   const r = rows[0];
   if(!r){ alert('ไม่พบ Lot'); return; }
+  const isWip = type==='wip';
+  const qtyFields = isWip
+    ? `<div class="fgrp"><label class="flbl">⚖️ จำนวน (kg)</label>
+        <input type="number" class="fc2" id="el-qty" value="${r.qty_kg||0}" step="0.001" min="0"></div>`
+    : `<div class="fgrp"><label class="flbl">🔢 จำนวนชิ้น (pcs)</label>
+        <input type="number" class="fc2" id="el-pcs" value="${r.pcs!=null?r.pcs:''}" step="1" min="0" placeholder="จำนวนชิ้น/กระปุก"></div>
+       <div class="fgrp"><label class="flbl">⚖️ น้ำหนัก (kg) <span style="color:#94A3B8;font-weight:400;font-size:10px">— เก็บไว้คำนวณ KPI</span></label>
+        <input type="number" class="fc2" id="el-qty" value="${r.qty_kg||0}" step="0.001" min="0" placeholder="น้ำหนักรวม"></div>`;
   openMo(`✏️ แก้ไข Lot — ${r.lot_no||lotId}`,`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="fgrp">
         <label class="flbl">🏷️ Lot No.</label>
         <input type="text" class="fc2" id="el-lot" value="${r.lot_no||''}">
       </div>
-      <div class="fgrp">
-        <label class="flbl">⚖️ จำนวน (kg)</label>
-        <input type="number" class="fc2" id="el-qty" value="${r.qty_kg||0}" step="0.001" min="0">
-      </div>
+      ${qtyFields}
       <div class="fgrp">
         <label class="flbl">📅 วันผลิต</label>
         <input type="date" class="fc2" id="el-prod" value="${r.prod_date||''}">
@@ -16480,18 +16493,18 @@ async function saveLotEdit(lotId, code, type){
   const lotTable = type==='wip'?'wip_stock_lots':'stock_product_lots';
   const lotNo   = document.getElementById('el-lot')?.value.trim();
   const qty     = parseFloat(document.getElementById('el-qty')?.value)||0;
+  const pcsEl   = document.getElementById('el-pcs');
+  const pcs     = pcsEl ? (parseFloat(pcsEl.value)||0) : null;
   const prodDate= document.getElementById('el-prod')?.value||'';
   const expDate = document.getElementById('el-exp')?.value||null;
   const status  = document.getElementById('el-status')?.value||'available';
   const note    = document.getElementById('el-note')?.value||'';
   msgEl('el-msg','<span class="spin"></span> บันทึก...','i');
   try{
-    await sbU(lotTable,{
-      lot_no:lotNo, qty_kg:qty,
-      prod_date:prodDate||null, exp_date:expDate||null,
-      status, note
-    },`id=eq.${lotId}`);
-    await logA('UPDATE','stock',`แก้ไข Lot ${lotNo} ${qty}kg (${code})`);
+    const upd={ lot_no:lotNo, qty_kg:qty, prod_date:prodDate||null, exp_date:expDate||null, status, note };
+    if(pcs!==null) upd.pcs=pcs;   // FG: เก็บจำนวนชิ้นแยกจากน้ำหนัก
+    await sbU(lotTable,upd,`id=eq.${lotId}`);
+    await logA('UPDATE','stock',`แก้ไข Lot ${lotNo}${pcs!==null?` ${pcs} pcs`:''} ${qty}kg (${code})`);
     msgEl('el-msg','✅ บันทึกแล้ว','s');
     setTimeout(()=>{ closeMo(); showStockLots(code,type); },800);
   }catch(e){ msgEl('el-msg','❌ '+e.message,'e'); }
