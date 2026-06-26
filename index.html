@@ -10783,6 +10783,7 @@ function renderRMTable(data){
       <td style="white-space:nowrap">
         <button class="btn btnT sm" data-rmlot="${r.code}" data-rmname="${(r.name||'').replace(/"/g,'')}" data-rmunit="${r.unit||'kg'}" onclick="showRMLots(this.dataset.rmlot,this.dataset.rmname,this.dataset.rmunit)" title="Lot Detail">📋</button>
         <button class="btn btnN sm" onclick="printRMQRSticker('${r.code}')" title="พิมพ์ QR Sticker">🏷️</button>
+        <button class="btn btnT sm" onclick="rmStockCard('${r.code}','${(r.name||'').replace(/'/g,"\\'")}','${r.unit||''}')" title="Stock Card QR — สร้าง/เปิด/พิมพ์ เพื่อคุมสต็อก">📇</button>
         <button class="btn btnS sm" onclick="editMat(${r.id})" title="แก้ไข Master">✏️</button>
         <button class="btn btnN sm" onclick="editStockBalance('rm','${r.code}',${av},${r.balance_opening||0},${r.qty_in||0},${r.qty_out||0})" title="แก้ยอดคงเหลือ">⚖️</button>
         <button class="btn btnP sm" onclick="showReceiveRM('${r.code}','${(r.name||'').replace(/'/g,"\'")}')">📥</button>
@@ -30060,12 +30061,22 @@ function scMatOptions(sel){
   return '<option value="">— เลือกวัสดุ —</option>'+_scMats.map(m=>
     '<option value="'+m.code+'" '+(m.code===sel?'selected':'')+'>'+m.code+' · '+(m.name||'')+'</option>').join('');
 }
-function scNewCard(){
+async function scLoadLocs(){
+  if(window._scLocs && window._scLocs.length) return window._scLocs;
+  window._scLocs = (await sbG('locations',{f:['is_active=neq.false'],ord:'location_code.asc'}).catch(()=>[]))||[];
+  return window._scLocs;
+}
+function scLocDatalist(){
+  return '<datalist id="scf-loc-dl">'+(window._scLocs||[]).map(l=>
+    '<option value="'+l.location_code+'">'+(l.room_name||l.room_code||'')+'</option>').join('')+'</datalist>';
+}
+async function scNewCard(){
+  await scLoadLocs();
   const ed=document.getElementById('sc-editor'); const box=document.getElementById('sc-editor-box');
   box.innerHTML='<div style="font-weight:700;font-size:15px;margin-bottom:12px">➕ บัตรสต็อกใหม่</div>'
     +scField('วัสดุ','<select id="scf-mat" onchange="scOnMatPick()" style="'+SCI+'">'+scMatOptions('')+'</select>')
     +'<div style="display:flex;gap:8px">'+scField('ล็อต (Lot)','<input id="scf-lot" style="'+SCI+'">')+scField('Supplier','<input id="scf-supplier" style="'+SCI+'">')+'</div>'
-    +'<div style="display:flex;gap:8px">'+scField('โลเคชัน','<input id="scf-loc" placeholder="เช่น A-01" style="'+SCI+'">')+scField('พาเลทเลขที่','<input id="scf-pallet" style="'+SCI+'">')+'</div>'
+    +'<div style="display:flex;gap:8px">'+scField('โลเคชัน','<input id="scf-loc" list="scf-loc-dl" placeholder="เลือก/พิมพ์ เช่น FGR1-1" style="'+SCI+'">'+scLocDatalist())+scField('พาเลทเลขที่','<input id="scf-pallet" style="'+SCI+'">')+'</div>'
     +'<div style="display:flex;gap:8px">'+scField('จำนวนรับเข้า','<input id="scf-qty" type="number" step="0.01" style="'+SCI+'">')+scField('หน่วย','<input id="scf-unit" style="'+SCI+'">')+'</div>'
     +'<div style="display:flex;gap:8px">'+scField('วันที่รับ','<input id="scf-recv" type="date" value="'+new Date().toISOString().slice(0,10)+'" style="'+SCI+'">')+scField('วันหมดอายุ','<input id="scf-exp" type="date" style="'+SCI+'">')+'</div>'
     +scField('COA / หมายเหตุ','<input id="scf-remark" style="'+SCI+'">')
@@ -30074,6 +30085,19 @@ function scNewCard(){
   ed.style.display='flex';
 }
 const SCI='width:100%;padding:7px 9px;border:1px solid #CBD5E1;border-radius:6px;font-size:13px;box-sizing:border-box';
+// ── เรียก Stock Card QR จากหน้า Stock RM & PK (สร้าง/เปิด เพื่อคุมสต็อก) ──
+async function rmStockCard(code, name, unit){
+  try{
+    if(!_scMats || !_scMats.length) _scMats=await sbG('master_material',{s:'code,name,unit,category'}).catch(()=>[]);
+    _scAll=await sbG('stock_cards',{ord:'created_at.desc'}).catch(()=>_scAll||[]);
+    await scLoadLocs();
+    const existing=(_scAll||[]).filter(c=>c.material_code===code && c.status!=='depleted');
+    if(existing.length){ scOpenDetail(existing[0].card_code); return; }   // เปิดการ์ดล่าสุด → QR + รับเข้า/เบิก + พิมพ์ป้าย
+    await scNewCard();                                                     // ไม่มีการ์ด → เปิดฟอร์มสร้าง พร้อมเลือกวัสดุให้
+    const sel=document.getElementById('scf-mat'); if(sel){ sel.value=code; scOnMatPick(); }
+    const u=document.getElementById('scf-unit'); if(u && !u.value) u.value=unit||'';
+  }catch(e){ alert('เปิด Stock Card ไม่สำเร็จ: '+e.message); }
+}
 function scField(label,inner){ return '<div style="flex:1;margin-bottom:9px"><label style="font-size:11px;color:#64748B;display:block;margin-bottom:3px">'+label+'</label>'+inner+'</div>'; }
 function scOnMatPick(){
   const code=document.getElementById('scf-mat').value;
