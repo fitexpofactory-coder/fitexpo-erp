@@ -16271,6 +16271,7 @@ async function _renderStockLots(code, type){
         <button class="btn btnP sm" onclick="addNewLotFromBalance('${code}','${type}',${unaccounted},'${stockUnit}')">
           ➕ บันทึก Lot
         </button>
+        <button class="btn btnT sm" onclick="reconcileAndRefresh('${code}','${type}')" title="ปรับยอดคงเหลือรวมให้ = ผลรวม Lot">🔄 ปรับยอดให้ตรง Lot</button>
       </div>`:''}
 
       <!-- Lot table -->
@@ -16489,6 +16490,25 @@ async function editLotRow(lotId, code, type){
     <div id="el-msg" style="margin-top:8px"></div>`);
 }
 
+// ── ปรับยอดคงเหลือรวมให้ = ผลรวม lot เสมอ ────────────────────
+async function reconcileStockBalance(code, type){
+  try{
+    if(type==='wip'){
+      const lots=await sbG('wip_stock_lots',{f:[`wip_code=eq.${code}`],s:'qty_kg'}).catch(()=>[]);
+      const sum=(lots||[]).reduce((s,l)=>s+(Number(l.qty_kg)||0),0);
+      const st=(await sbG('wip_stock',{f:[`code=eq.${code}`]}).catch(()=>[]))[0];
+      if(st){ const issued=Number(st.qty_issued||0); await sbU('wip_stock',{qty_produced:+(sum+issued).toFixed(3)},`code=eq.${code}`); }
+    }else{
+      const m=(await sbG('master_product',{f:[`sku=eq.${code}`],s:'sku,stock_unit'}).catch(()=>[]))[0]||{};
+      const isPcs=/pcs|ชิ้น|กระปุก|ใบ|จุก|piece|unit|ซอง|ถุง|กล่อง|box/i.test(m.stock_unit||'');
+      const lots=await sbG('stock_product_lots',{f:[`sku=eq.${code}`],s:'qty_kg,pcs'}).catch(()=>[]);
+      const sum=(lots||[]).reduce((s,l)=>{ const p=Number(l.pcs)||0,k=Number(l.qty_kg)||0; return s+(isPcs?(p>0?p:k):k); },0);
+      const st=(await sbG('stock_product',{f:[`sku=eq.${code}`]}).catch(()=>[]))[0];
+      if(st){ const sold=Number(st.qty_sold||0); await sbU('stock_product',{qty_in:+(sum+sold).toFixed(3)},`sku=eq.${code}`); }
+    }
+  }catch(e){ console.warn('reconcileStockBalance:',e.message); }
+}
+
 async function saveLotEdit(lotId, code, type){
   const lotTable = type==='wip'?'wip_stock_lots':'stock_product_lots';
   const lotNo   = document.getElementById('el-lot')?.value.trim();
@@ -16504,18 +16524,27 @@ async function saveLotEdit(lotId, code, type){
     const upd={ lot_no:lotNo, qty_kg:qty, prod_date:prodDate||null, exp_date:expDate||null, status, note };
     if(pcs!==null) upd.pcs=pcs;   // FG: เก็บจำนวนชิ้นแยกจากน้ำหนัก
     await sbU(lotTable,upd,`id=eq.${lotId}`);
+    await reconcileStockBalance(code,type);   // ปรับยอดคงเหลือรวมให้ตรงผลรวม lot
     await logA('UPDATE','stock',`แก้ไข Lot ${lotNo}${pcs!==null?` ${pcs} pcs`:''} ${qty}kg (${code})`);
-    msgEl('el-msg','✅ บันทึกแล้ว','s');
+    msgEl('el-msg','✅ บันทึกแล้ว (ปรับยอดคงเหลือให้ตรงผลรวม Lot)','s');
     setTimeout(()=>{ closeMo(); showStockLots(code,type); },800);
   }catch(e){ msgEl('el-msg','❌ '+e.message,'e'); }
 }
 
+// ── ปรับยอดคงเหลือ + รีเฟรช (ปุ่มแมนนวล) ──
+async function reconcileAndRefresh(code, type){
+  await reconcileStockBalance(code, type);
+  await logA('UPDATE','stock',`ปรับยอดคงเหลือ = ผลรวม Lot (${code})`);
+  showStockLots(code, type);
+}
+
 async function deleteLotRow(lotId, code, type){
-  if(!confirm('ลบ Lot นี้ออก?\n(ยอด stock จะไม่เปลี่ยน)')) return;
+  if(!confirm('ลบ Lot นี้ออก?\n(ยอดคงเหลือรวมจะถูกปรับให้ = ผลรวม Lot ที่เหลือ)')) return;
   const lotTable = type==='wip'?'wip_stock_lots':'stock_product_lots';
   try{
     await sbD(lotTable,`id=eq.${lotId}`);
-    await logA('DELETE','stock',`ลบ Lot id=${lotId} (${code})`);
+    await reconcileStockBalance(code, type);
+    await logA('DELETE','stock',`ลบ Lot id=${lotId} + ปรับยอดคงเหลือ (${code})`);
     closeMo();
     showStockLots(code,type);
   }catch(e){ alert('❌ '+e.message); }
