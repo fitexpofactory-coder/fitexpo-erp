@@ -1157,6 +1157,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
     <button class="btn btnP sm" onclick="loadRMMatrix()">🔄 โหลด / รีเฟรช</button>
     <button class="btn btnS sm" onclick="exportRMSummary()">📊 Export สรุป (Excel)</button>
     <button class="btn btnS sm" onclick="printRMSummary()">🖨️ พิมพ์เฉพาะสรุป</button>
+    <button class="btn btnP sm" onclick="rmxPickUsage()">📦 พิมพ์สรุปใช้ต่อสินค้า</button>
     <button class="btn btnT sm" onclick="printRMMatrix()">🖨️ พิมพ์</button>
     <span style="font-size:12px;color:var(--text3);align-self:center" id="rmx-summary"></span>
   </div>
@@ -4582,6 +4583,14 @@ async function loadProductionSummary(){
   }catch(e){ list.innerHTML='<div style="color:var(--red);padding:20px">ผิดพลาด: '+e.message+'</div>'; }
 }
 
+// ── ดู WO ทั้งหมด: ล้างตัวกรองทั้งหมดก่อนโหลด แล้วเลื่อนไปที่รายการ ──
+function viewAllWO(){
+  ['wo-search','wo-month'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
+  const st=document.getElementById('wo-status-filter'); if(st) st.value='';
+  loadProduction();
+  setTimeout(()=>{ const el=document.getElementById('wo-list'); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); },150);
+}
+
 async function loadProduction(){
   try{
     if(!window._cachedProds?.length) window._cachedProds=await sbG('master_product',{s:'sku,name_en,batch_kg,min_batch_kg,max_batch_kg,yield_pct,size_g'});
@@ -4600,8 +4609,12 @@ async function loadProduction(){
     }
     let woFilter;
     if(searchTerm){
-      // ค้นหาเลข WO — ดึงได้ทุกสถานะรวมที่ปิดแล้ว (ไม่จำกัดสถานะ)
-      woFilter={ord:'start_date.desc.nullslast', f:[`pp_no=ilike.*${searchTerm}*`, ...monthCond], lim:100};
+      // คำค้นอาจเป็นเลข WO หรือ SKU/ชื่อสินค้า (เช่น "FLB... — ชื่อ") → ตัดเอาส่วนหน้า + encode กัน URL พัง
+      const term=(searchTerm.split('—')[0].split(' - ')[0].trim())||searchTerm;
+      const like=encodeURIComponent(`*${term}*`);
+      woFilter={ ord:'start_date.desc.nullslast',
+        f:[`or=(pp_no.ilike.${like},sku_code.ilike.${like},product_name.ilike.${like})`],
+        lim:100 };   // ค้นหาข้ามทุกเดือน/สถานะ
     }else if(statusFilter&&statusFilter!=='all'){
       woFilter={ord:'start_date.desc.nullslast', f:[`status=eq.${statusFilter}`, ...monthCond], lim:1000};
     }else if(month){
@@ -4963,7 +4976,7 @@ async function createWorkOrder(){
           <button class="btn btnT sm" onclick="buildDocHTML('${sku}',${n},'${dt}','${op}','${machine}')">
             🖨️ พิมพ์ Batch Record
           </button>
-          <button class="btn btnS sm" onclick="loadProduction()">📋 ดู WO ทั้งหมด</button>
+          <button class="btn btnS sm" onclick="viewAllWO()">📋 ดู WO ทั้งหมด</button>
         </div>
       </div>`,'');
   }catch(e){msgEl('mrc-result','❌ '+e.message,'e');}
@@ -15678,7 +15691,7 @@ async function execCopyBOM(srcCode, srcType){
 //  RM MATRIX — ตารางวัตถุดิบ × WO
 // ════════════════════════════════════════════════════════════
 // ── ตัวเลือกช่วงเวลาผลิตของ Matrix RM ───────────────────────
-let _rmxSummary=[], _rmxMeta={};
+let _rmxSummary=[], _rmxMeta={}, _rmxMatrix={}, _rmxWOs=[], _rmxMatMap={};
 function _rmxISO(d){ return d.toISOString().slice(0,10); }
 function rmxOnRange(){
   const mode=document.getElementById('rmx-range').value;
@@ -15888,6 +15901,7 @@ async function loadRMMatrix(){
       return {code:mc, name:matMap[mc]?.name||mc, unit:matMap[mc]?.unit||'kg', need, av, price, diff:av-need, cost:need*price, wip:mc.startsWith('WIP')};
     }).sort((a,b)=>b.need-a.need);
     _rmxSummary=summaryList;
+    _rmxMatrix=matrixData; _rmxWOs=wos; _rmxMatMap=matMap;
     _rmxMeta={rangeLabel:_rngLabel, woCount:wos.length, totalCost:totalRMCost, from:rFrom, to:rTo, rangeMode, status};
     const sumRows = summaryList.map((s,i)=>`
       <tr style="border-bottom:1px solid var(--border)">
@@ -16010,6 +16024,99 @@ function printRMSummary(){
   <table><thead><tr><th>#</th><th>รหัส</th><th>ชื่อวัตถุดิบ</th><th class="r">รวมใช้</th><th>หน่วย</th><th class="r">คงเหลือ</th><th class="r">พอ/ขาด</th><th class="r">ต้นทุน</th></tr></thead>
   <tbody>${rows}</tbody>
   <tfoot><tr><td colspan="7" style="text-align:right">ต้นทุนวัตถุดิบรวมทั้งหมด</td><td class="r">${thb(m.totalCost)}</td></tr></tfoot></table>
+  <scr`+`ipt>window.onload=function(){window.print();setTimeout(function(){window.close();},500);}</scr`+`ipt></body></html>`);
+  w.document.close();
+}
+
+// ── สรุปการใช้วัตถุดิบ "ต่อสินค้า" (เลือก RM แล้วพิมพ์) ──────────────
+function rmxPickUsage(){
+  if(!_rmxSummary || !_rmxSummary.length){ alert('ยังไม่มีข้อมูล — กด "โหลด / รีเฟรช" ก่อนครับ'); return; }
+  const rows=_rmxSummary.map(s=>`<label style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-bottom:1px solid #F1F5F9;font-size:12px;cursor:pointer">
+    <input type="checkbox" class="rmx-pick" value="${s.code}" checked style="width:15px;height:15px">
+    <span style="font-family:monospace;color:${s.wip?'#7C3AED':'#1B5EC7'};min-width:90px">${s.code}</span>
+    <span style="flex:1;min-width:0">${s.name}</span>
+    <span style="color:#64748B;white-space:nowrap">${fmt(s.need,2)} ${s.unit}</span></label>`).join('');
+  openMo(`🖨️ พิมพ์สรุปการใช้วัตถุดิบต่อสินค้า — ${_rmxMeta.rangeLabel||''}`,`
+    <div style="font-size:12px;color:#64748B;margin-bottom:8px">เลือกวัตถุดิบที่ต้องการดูว่าถูกใช้กับสินค้าอะไรบ้าง จำนวนเท่าไร (ช่วงเวลา: ${_rmxMeta.rangeLabel||'ทุกช่วงเวลา'})</div>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button class="btn btnS sm" onclick="document.querySelectorAll('.rmx-pick').forEach(c=>c.checked=true)">เลือกทั้งหมด</button>
+      <button class="btn btnS sm" onclick="document.querySelectorAll('.rmx-pick').forEach(c=>c.checked=false)">ล้าง</button>
+    </div>
+    <div style="max-height:330px;overflow:auto;border:1px solid var(--border);border-radius:6px">${rows}</div>
+    <button class="btn btnP" style="width:100%;margin-top:12px" onclick="rmxPrintPicked()">🖨️ พิมพ์สรุป</button>`);
+}
+function rmxPrintPicked(){
+  const codes=[...document.querySelectorAll('.rmx-pick:checked')].map(c=>c.value);
+  if(!codes.length){ alert('เลือกวัตถุดิบอย่างน้อย 1 รายการ'); return; }
+  closeMo();
+  printRMUsageByProduct(codes);
+}
+function _rmxBuildUsage(codes){
+  return codes.map(code=>{
+    const woMap=_rmxMatrix[code]||{};
+    const byProd={}; let total=0;
+    _rmxWOs.forEach(w=>{
+      const q=woMap[w.id]||0; if(q<=0) return;
+      const sku=w.sku_code||'—';
+      if(!byProd[sku]) byProd[sku]={name:w.product_name||sku, qty:0, wos:[]};
+      byProd[sku].qty+=q;
+      byProd[sku].wos.push({pp_no:w.pp_no||w.id, start_date:w.start_date||'', qty:q});
+      total+=q;
+    });
+    const products=Object.entries(byProd).map(([sku,v])=>({sku, name:v.name, qty:v.qty, wos:v.wos})).sort((a,b)=>b.qty-a.qty);
+    const price=(_rmxMatMap[code]?.price)||0;
+    return { code, name:(_rmxMatMap[code]?.name||code), unit:(_rmxMatMap[code]?.unit||'kg'), total, price, products };
+  });
+}
+function printRMUsageByProduct(codes){
+  if(!codes||!codes.length){ alert('เลือกวัตถุดิบอย่างน้อย 1 รายการ'); return; }
+  const data=_rmxBuildUsage(codes);
+  const meta=_rmxMeta||{};
+  const period = (meta.rangeMode==='all'||!meta.from) ? 'ทุกช่วงเวลา' : `${meta.from} ถึง ${meta.to}`;
+  const co=(typeof COMPANY_INFO!=='undefined'&&COMPANY_INFO.name)||'FitExpo';
+  const blocks=data.map(m=>{
+    if(!m.products.length){
+      return `<h3>${m.code} — ${m.name}</h3><p style="color:#888">ไม่มีการใช้ในช่วงเวลานี้</p>`;
+    }
+    const rows=m.products.map((p,i)=>`<tr>
+      <td class="c">${i+1}</td>
+      <td class="mono">${p.sku}</td>
+      <td>${p.name}</td>
+      <td class="num"><b>${fmt(p.qty,2)}</b></td>
+      <td class="c">${m.unit}</td>
+      <td class="c">${p.wos.length}</td>
+      <td class="small">${p.wos.map(w=>w.pp_no).join(', ')}</td>
+    </tr>`).join('');
+    const costTxt = m.price>0 ? ` · มูลค่าโดยประมาณ ${thb(m.total*m.price)}` : '';
+    return `<h3>${m.code} — ${m.name} <span class="tot">(รวม ${fmt(m.total,2)} ${m.unit}${costTxt})</span></h3>
+      <table>
+        <thead><tr><th>#</th><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th>จำนวนที่ใช้</th><th>หน่วย</th><th>จำนวน WO</th><th>เลขที่ WO</th></tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr><td colspan="3" class="r">รวมการใช้ ${m.name}</td><td class="num"><b>${fmt(m.total,2)}</b></td><td class="c">${m.unit}</td><td colspan="2"></td></tr></tfoot>
+      </table>`;
+  }).join('');
+  const w=window.open('','_blank');
+  if(!w){ alert('เบราว์เซอร์บล็อก pop-up — อนุญาตก่อนครับ'); return; }
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>สรุปการใช้วัตถุดิบต่อสินค้า</title>
+  <style>@page{size:A4 portrait;margin:14mm}
+  *{box-sizing:border-box} body{font-family:'Sarabun',Arial,sans-serif;color:#111;margin:0;font-size:13px}
+  .co{text-align:center;font-weight:700;font-size:16px}
+  h1{text-align:center;font-size:18px;margin:2px 0}
+  .sub{text-align:center;color:#555;font-size:12px;margin-bottom:10px}
+  h3{background:#1B3A5C;color:#fff;padding:5px 10px;border-radius:4px;font-size:13px;margin:16px 0 6px}
+  h3 .tot{font-weight:400;font-size:12px;opacity:.9}
+  table{border-collapse:collapse;width:100%;margin-bottom:6px}
+  th,td{border:1px solid #999;padding:4px 7px;font-size:11.5px;vertical-align:top}
+  th{background:#E8EEF4;text-align:center}
+  td.num{text-align:right;font-family:monospace} td.c{text-align:center} td.mono{font-family:monospace}
+  td.small{font-size:10px;color:#555} td.r{text-align:right;font-weight:700}
+  tfoot td{background:#F4F7FB}
+  @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+  </style></head><body>
+  <div class="co">${co}</div>
+  <h1>สรุปการใช้วัตถุดิบต่อสินค้า</h1>
+  <div class="sub">Raw Material Usage by Product · ช่วงเวลา: ${period} · สถานะ WO: ${meta.status==='active'?'ค้างผลิต (จอง/กำลังผลิต)':'ทั้งหมด'} · พิมพ์ ${new Date().toLocaleString('th-TH')}</div>
+  ${blocks}
   <scr`+`ipt>window.onload=function(){window.print();setTimeout(function(){window.close();},500);}</scr`+`ipt></body></html>`);
   w.document.close();
 }
