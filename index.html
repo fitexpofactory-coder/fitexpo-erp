@@ -3046,6 +3046,7 @@ CREATE INDEX IF NOT EXISTS idx_pbp_date ON prod_batch_plan(plan_date);</pre>
       <!-- Actions -->
       <div style="display:flex;gap:4px;margin-left:auto;flex-wrap:wrap">
         <button class="btn btnP sm" onclick="psShowAddModal()">+ New WO</button>
+        <button class="btn btnN sm" onclick="psProductReport()">📊 รายสินค้า</button>
         <button class="btn btnT sm" onclick="psRefresh()">🔄</button>
         <div style="position:relative" id="ps-print-menu-wrap">
           <button class="btn btnS sm" onclick="document.getElementById('ps-print-menu').style.display=
@@ -25013,6 +25014,324 @@ function psRenderGrid(){
 }
 
 // ── Load WOs ─────────────────────────────────────────────────
+// ── ดูการผลิตรายสินค้า ตามช่วงเวลา (วันไหนผลิตบ้าง จำนวนเท่าไร) ──────
+function _psThaiDate(iso){
+  if(!iso) return '—';
+  const p=String(iso).split('-').map(Number); if(p.length<3) return iso;
+  const [y,m,dd]=p;
+  const mth=['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  return `${dd} ${mth[m]||''} ${y>2400?y:y+543}`;
+}
+function _psStatusChip(st){
+  const c={'จองแล้ว':'#D97706','กำลังผลิต':'#2563EB','เสร็จสิ้น':'#16a34a','เสร็จแล้ว':'#16a34a','รอผลิต':'#64748B'}[st]||'#64748B';
+  return `<span style="background:${c};color:#fff;border-radius:4px;padding:1px 7px;font-size:10px;white-space:nowrap">${st||'—'}</span>`;
+}
+let _psrData=null, _psrProducts=[], _psrSelected=new Set(), _psrMode='daily';
+async function psProductReport(){
+  _psrSelected=new Set();
+  openMo('📊 ดูการผลิตรายสินค้า ตามช่วงเวลา', `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px">
+      <div><label class="flbl">ตั้งแต่วันที่</label><input type="date" class="fc2" id="psr-from" style="width:150px"></div>
+      <div><label class="flbl">ถึงวันที่</label><input type="date" class="fc2" id="psr-to" style="width:150px"></div>
+      <div style="display:flex;gap:6px;align-self:flex-end">
+        <button class="btn btnS sm" onclick="psrQuickRange('m')">เดือนนี้</button>
+        <button class="btn btnS sm" onclick="psrQuickRange('3m')">3 เดือน</button>
+        <button class="btn btnS sm" onclick="psrQuickRange('y')">ปีนี้</button>
+      </div>
+    </div>
+    <label class="flbl">เลือกสินค้า (ได้หลายรายการ)</label>
+    <input class="fc2" id="psr-search" placeholder="🔍 พิมพ์กรองชื่อ/รหัสสินค้า" style="width:100%;margin-bottom:6px" autocomplete="off" oninput="psrFilterProducts(this.value)">
+    <div style="display:flex;gap:8px;margin-bottom:6px;align-items:center">
+      <button class="btn btnS sm" onclick="psrSelectAll(true)">เลือกทั้งหมดที่แสดง</button>
+      <button class="btn btnS sm" onclick="psrSelectAll(false)">ล้าง</button>
+      <span id="psr-count" style="font-size:12px;color:#64748B">เลือกแล้ว 0 รายการ</span>
+    </div>
+    <div id="psr-prod-list" style="max-height:190px;overflow:auto;border:1px solid var(--border);border-radius:6px;margin-bottom:10px">
+      <div style="padding:16px;text-align:center;color:#64748B"><span class="spin"></span> กำลังโหลดรายการสินค้า...</div>
+    </div>
+    <button class="btn btnP" style="width:100%" onclick="psRunProductReport()">🔍 ดูการผลิต</button>
+    <div id="psr-result" style="min-height:30px;margin-top:12px"></div>`);
+  psrQuickRange('m');
+  try{
+    const rows=await sbG('production_plan',{ s:'sku_code,product_name',
+      f:['status=neq.cancelled','status=neq.ยกเลิก'], lim:3000 });
+    const seen={}; _psrProducts=[];
+    rows.forEach(r=>{ const k=r.sku_code||''; if(!k||seen[k]) return; seen[k]=1; _psrProducts.push({sku:k,name:r.product_name||k}); });
+    _psrProducts.sort((a,b)=>(a.name||'').localeCompare(b.name||'','th'));
+    psrRenderProductList('');
+  }catch(e){ const b=document.getElementById('psr-prod-list'); if(b) b.innerHTML='<div style="padding:12px;color:#DC2626">โหลดรายการไม่สำเร็จ</div>'; }
+}
+function psrRenderProductList(filter){
+  const f=(filter||'').toLowerCase();
+  const list=_psrProducts.filter(p=>!f || (p.sku+' '+p.name).toLowerCase().includes(f));
+  const box=document.getElementById('psr-prod-list'); if(!box) return;
+  if(!list.length){ box.innerHTML='<div style="padding:12px;color:#64748B">ไม่พบสินค้า</div>'; return; }
+  box.innerHTML=list.map(p=>`<label style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-bottom:1px solid #F1F5F9;font-size:12px;cursor:pointer">
+    <input type="checkbox" class="psr-pick" value="${p.sku}" ${_psrSelected.has(p.sku)?'checked':''} onchange="psrToggle('${p.sku}',this.checked)" style="width:15px;height:15px">
+    <span style="font-family:monospace;color:#1B5EC7;min-width:120px">${p.sku}</span>
+    <span style="flex:1;min-width:0">${p.name}</span></label>`).join('');
+}
+function psrFilterProducts(v){ psrRenderProductList(v); }
+function psrToggle(sku,on){ if(on)_psrSelected.add(sku); else _psrSelected.delete(sku); psrUpdateCount(); }
+function psrSelectAll(on){ document.querySelectorAll('#psr-prod-list .psr-pick').forEach(c=>{ c.checked=on; if(on)_psrSelected.add(c.value); else _psrSelected.delete(c.value); }); psrUpdateCount(); }
+function psrUpdateCount(){ const el=document.getElementById('psr-count'); if(el) el.textContent=`เลือกแล้ว ${_psrSelected.size} รายการ`; }
+function psrQuickRange(kind){
+  const now=new Date(); let from,to;
+  if(kind==='m'){ from=new Date(now.getFullYear(),now.getMonth(),1); to=new Date(now.getFullYear(),now.getMonth()+1,0); }
+  else if(kind==='3m'){ from=new Date(now.getFullYear(),now.getMonth()-2,1); to=new Date(now.getFullYear(),now.getMonth()+1,0); }
+  else { from=new Date(now.getFullYear(),0,1); to=new Date(now.getFullYear(),11,31); }
+  const fe=document.getElementById('psr-from'), te=document.getElementById('psr-to');
+  if(fe) fe.value=psDateStr(from); if(te) te.value=psDateStr(to);
+}
+async function psRunProductReport(){
+  const skus=[..._psrSelected];
+  const from=document.getElementById('psr-from')?.value;
+  const to=document.getElementById('psr-to')?.value;
+  const box=document.getElementById('psr-result');
+  if(!skus.length){ box.innerHTML='<div style="color:#DC2626;font-size:12px;padding:8px">⚠️ เลือกสินค้าอย่างน้อย 1 รายการ</div>'; return; }
+  box.innerHTML='<div style="padding:24px;text-align:center"><span class="spin"></span> กำลังดึงข้อมูลการผลิต...</div>';
+  try{
+    const f=[`sku_code=in.(${skus.join(',')})`,'status=neq.cancelled','status=neq.ยกเลิก'];
+    if(from) f.push(`start_date=gte.${from}`);
+    if(to)   f.push(`start_date=lte.${to}`);
+    const wos=await sbG('production_plan',{ f,
+      s:'pp_no,sku_code,product_name,num_batches,batch_kg,actual_qty,status,start_date,lot_no',
+      ord:'sku_code.asc,start_date.asc,pp_no.asc', lim:3000 });
+    const dated=wos.filter(w=>w.start_date);
+    const byProd={};
+    dated.forEach(w=>{ const k=w.sku_code; if(!byProd[k]) byProd[k]={sku:k, name:w.product_name||k, wos:[]}; byProd[k].wos.push(w); });
+    const products=skus.map(sku=>byProd[sku] || {sku, name:(_psrProducts.find(p=>p.sku===sku)?.name||sku), wos:[]});
+    _psrData={ from, to, products };
+    psRenderProductReport();
+  }catch(e){ box.innerHTML='<div style="color:#DC2626;padding:8px">ผิดพลาด: '+e.message+'</div>'; }
+}
+function _psrAggOne(wos){
+  const byDate={}; wos.forEach(w=>{ (byDate[w.start_date]=byDate[w.start_date]||[]).push(w); });
+  const dates=Object.keys(byDate).sort();
+  let p=0,a=0,b=0; wos.forEach(w=>{ p+=Number(w.num_batches||0)*Number(w.batch_kg||0); a+=Number(w.actual_qty||0); b+=Number(w.num_batches||0); });
+  return {byDate,dates,totPlanned:p,totActual:a,totBatch:b};
+}
+function _psrMonthKey(iso){ return String(iso).slice(0,7); }
+function _psrThaiMonth(key){ const [y,m]=key.split('-').map(Number); const mth=['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']; return `${mth[m]||''} ${y>2400?y:y+543}`; }
+function _psrDailyHTML(withData){
+  return withData.map(p=>{
+    const ag=_psrAggOne(p.wos);
+    const rows=ag.dates.map(dt=>{
+      const list=ag.byDate[dt];
+      return list.map((w,idx)=>{
+        const planned=Number(w.num_batches||0)*Number(w.batch_kg||0), actual=Number(w.actual_qty||0);
+        return `<tr>
+          ${idx===0?`<td rowspan="${list.length}" class="dt">${_psThaiDate(dt)}</td>`:''}
+          <td class="mono">${w.pp_no||''}</td><td class="c">${w.num_batches||0}×${w.batch_kg||0}kg</td>
+          <td class="num">${fmt(planned,1)}</td><td class="num">${actual>0?fmt(actual,1):'—'}</td>
+          <td class="mono">${w.lot_no||'—'}</td><td class="c">${_psStatusChip(w.status)}</td>
+        </tr>`;
+      }).join('');
+    }).join('');
+    return `<details style="margin-top:8px" open>
+      <summary style="cursor:pointer;font-weight:700;color:#1B3A5C;padding:4px 0">${p.sku} — ${p.name} <span style="font-weight:400;color:#64748B;font-size:11px">(${ag.dates.length} วัน · วางแผน ${fmt(ag.totPlanned,1)} kg)</span></summary>
+      <table style="margin-top:4px"><thead><tr><th>วันที่ผลิต</th><th>WO</th><th>Batch</th><th>วางแผน(kg)</th><th>ผลิตจริง</th><th>Lot</th><th>สถานะ</th></tr></thead><tbody>${rows}</tbody></table>
+    </details>`;
+  }).join('');
+}
+function _psrMonthPivot(withData){
+  // months set + per product per month planned/actual
+  const months=new Set(); const data={}; // data[sku][monthKey]={p,a}
+  withData.forEach(p=>{
+    data[p.sku]={};
+    p.wos.forEach(w=>{
+      const mk=_psrMonthKey(w.start_date); months.add(mk);
+      const cur=data[p.sku][mk]||{p:0,a:0};
+      cur.p+=Number(w.num_batches||0)*Number(w.batch_kg||0);
+      cur.a+=Number(w.actual_qty||0);
+      data[p.sku][mk]=cur;
+    });
+  });
+  return {months:[...months].sort(), data};
+}
+function _psrMonthlyHTML(withData){
+  const {months,data}=_psrMonthPivot(withData);
+  if(!months.length) return '<div style="color:#64748B;padding:10px">ไม่มีข้อมูล</div>';
+  const head=`<tr><th>เดือน</th>${withData.map(p=>`<th>${p.sku}<br><span style="font-weight:400;font-size:9px">${(p.name||'').slice(0,16)}</span></th>`).join('')}<th>รวม (kg)</th></tr>`;
+  const colTot={}; let grand=0;
+  const rows=months.map(mk=>{
+    let rowTot=0;
+    const cells=withData.map(p=>{
+      const v=(data[p.sku]||{})[mk]; const planned=v?v.p:0; rowTot+=planned; colTot[p.sku]=(colTot[p.sku]||0)+planned;
+      return `<td class="num">${planned>0?fmt(planned,1):'—'}</td>`;
+    }).join('');
+    grand+=rowTot;
+    return `<tr><td class="dt">${_psrThaiMonth(mk)}</td>${cells}<td class="num"><b>${fmt(rowTot,1)}</b></td></tr>`;
+  }).join('');
+  const totRow=`<tr style="font-weight:800;background:#EFF3F8"><td class="r">รวม</td>${withData.map(p=>`<td class="num">${fmt(colTot[p.sku]||0,1)}</td>`).join('')}<td class="num">${fmt(grand,1)}</td></tr>`;
+  return `<div style="font-size:11px;color:#64748B;margin-bottom:4px">ตัวเลข = น้ำหนักผลิตตามแผน (kg) ต่อเดือน/ต่อสินค้า</div>
+    <table><thead>${head}</thead><tbody>${rows}</tbody><tfoot>${totRow}</tfoot></table>`;
+}
+function psrSetMode(mode){
+  _psrMode=mode;
+  const area=document.getElementById('psr-mode-area'); if(!area||!_psrData) return;
+  const withData=_psrData.products.filter(p=>p.wos.length);
+  document.getElementById('psr-tab-daily')?.classList.toggle('btnP', mode==='daily');
+  document.getElementById('psr-tab-daily')?.classList.toggle('btnS', mode!=='daily');
+  document.getElementById('psr-tab-month')?.classList.toggle('btnP', mode==='month');
+  document.getElementById('psr-tab-month')?.classList.toggle('btnS', mode!=='month');
+  area.innerHTML = mode==='month' ? _psrMonthlyHTML(withData) : _psrDailyHTML(withData);
+}
+function psRenderProductReport(){
+  const d=_psrData, box=document.getElementById('psr-result');
+  const withData=d.products.filter(p=>p.wos.length);
+  if(!withData.length){ box.innerHTML='<div style="color:#64748B;padding:18px;text-align:center">ไม่พบการผลิตของสินค้าที่เลือกในช่วงเวลานี้</div>'; return; }
+  let gP=0,gA=0,gB=0,gDays=0;
+  const sumRows=d.products.map((p,i)=>{
+    const ag=_psrAggOne(p.wos); gP+=ag.totPlanned; gA+=ag.totActual; gB+=ag.totBatch; gDays+=ag.dates.length;
+    return `<tr>
+      <td class="c">${i+1}</td><td class="mono">${p.sku}</td><td>${p.name}</td>
+      <td class="c">${ag.dates.length}</td><td class="c">${fmt(ag.totBatch,0)}</td>
+      <td class="num">${fmt(ag.totPlanned,1)}</td><td class="num">${ag.totActual>0?fmt(ag.totActual,1):'—'}</td>
+    </tr>`;
+  }).join('');
+  box.innerHTML=`
+    <style>#psr-result table{border-collapse:collapse;width:100%;margin-bottom:4px}
+    #psr-result th,#psr-result td{border:1px solid #E2E8F0;padding:4px 8px;font-size:12px}
+    #psr-result th{background:#1B3A5C;color:#fff;font-size:11px;text-align:center}
+    #psr-result .num{font-family:monospace;text-align:right} #psr-result .mono{font-family:monospace}
+    #psr-result .c{text-align:center} #psr-result .dt{font-weight:700;white-space:nowrap} #psr-result .r{text-align:right}</style>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
+      <div style="font-size:12px;color:#334155"><b>${withData.length}</b> สินค้า · ช่วง ${_psThaiDate(d.from)}–${_psThaiDate(d.to)}</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btnS sm" onclick="psExportProductExcel()">⬇️ Excel</button>
+        <button class="btn btnS sm" onclick="psPrintProductReport()">🖨️ พิมพ์</button>
+      </div>
+    </div>
+    <div style="font-weight:700;font-size:12px;color:#1B3A5C;margin-bottom:3px">สรุปต่อสินค้า</div>
+    <table><thead><tr><th>#</th><th>รหัส</th><th>สินค้า</th><th>วันผลิต</th><th>batch</th><th>วางแผน(kg)</th><th>ผลิตจริง</th></tr></thead>
+      <tbody>${sumRows}</tbody>
+      <tfoot><tr style="font-weight:800;background:#EFF3F8"><td colspan="3" style="text-align:right">รวมทั้งหมด</td><td class="c">${gDays}</td><td class="c">${fmt(gB,0)}</td><td class="num">${fmt(gP,1)}</td><td class="num">${gA>0?fmt(gA,1):'—'}</td></tr></tfoot>
+    </table>
+    <div style="display:flex;gap:6px;margin:12px 0 4px">
+      <button id="psr-tab-daily" class="btn btnP sm" onclick="psrSetMode('daily')">📋 รายวัน</button>
+      <button id="psr-tab-month" class="btn btnS sm" onclick="psrSetMode('month')">📅 รายเดือน</button>
+    </div>
+    <div id="psr-mode-area"></div>`;
+  psrSetMode(_psrMode||'daily');
+}
+function psPrintProductReport(){
+  const d=_psrData;
+  const withData=(d?.products||[]).filter(p=>p.wos.length);
+  if(!withData.length){ alert('ไม่มีข้อมูลให้พิมพ์'); return; }
+  const co=(typeof COMPANY_INFO!=='undefined'&&COMPANY_INFO.name)||'FitExpo';
+  let gP=0,gA=0,gB=0,gDays=0;
+  const sumRows=d.products.map((p,i)=>{
+    const ag=_psrAggOne(p.wos); gP+=ag.totPlanned; gA+=ag.totActual; gB+=ag.totBatch; gDays+=ag.dates.length;
+    return `<tr><td class="c">${i+1}</td><td class="mono">${p.sku}</td><td>${p.name}</td><td class="c">${ag.dates.length}</td><td class="c">${fmt(ag.totBatch,0)}</td><td class="num">${fmt(ag.totPlanned,1)}</td><td class="num">${ag.totActual>0?fmt(ag.totActual,1):'—'}</td></tr>`;
+  }).join('');
+  const details=withData.map(p=>{
+    const ag=_psrAggOne(p.wos);
+    const rows=ag.dates.map(dt=>{
+      const list=ag.byDate[dt];
+      return list.map((w,idx)=>{
+        const planned=Number(w.num_batches||0)*Number(w.batch_kg||0), actual=Number(w.actual_qty||0);
+        return `<tr>${idx===0?`<td rowspan="${list.length}" class="dt">${_psThaiDate(dt)}</td>`:''}<td class="mono">${w.pp_no||''}</td><td class="c">${w.num_batches||0}×${w.batch_kg||0}kg</td><td class="num">${fmt(planned,1)}</td><td class="num">${actual>0?fmt(actual,1):'—'}</td><td class="mono">${w.lot_no||'—'}</td><td class="c">${w.status||'—'}</td></tr>`;
+      }).join('');
+    }).join('');
+    return `<h3>${p.sku} — ${p.name} <span class="tot">(${ag.dates.length} วัน · วางแผน ${fmt(ag.totPlanned,1)} kg · ผลิตจริง ${ag.totActual>0?fmt(ag.totActual,1):'—'})</span></h3>
+      <table><thead><tr><th>วันที่ผลิต</th><th>เลขที่ WO</th><th>Batch</th><th>วางแผน(kg)</th><th>ผลิตจริง</th><th>Lot</th><th>สถานะ</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }).join('');
+  const w=window.open('','_blank');
+  if(!w){ alert('เบราว์เซอร์บล็อก pop-up — อนุญาตก่อนครับ'); return; }
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>รายงานการผลิตรายสินค้า</title>
+  <style>@page{size:A4 portrait;margin:14mm}
+  *{box-sizing:border-box} body{font-family:'Sarabun',Arial,sans-serif;color:#111;margin:0;font-size:13px}
+  .co{text-align:center;font-weight:700;font-size:16px} h1{text-align:center;font-size:18px;margin:2px 0}
+  .sub{text-align:center;color:#555;font-size:12px;margin-bottom:12px}
+  h3{background:#1B3A5C;color:#fff;padding:5px 10px;border-radius:4px;font-size:13px;margin:16px 0 6px}
+  h3 .tot{font-weight:400;font-size:11px;opacity:.9}
+  table{border-collapse:collapse;width:100%;margin-bottom:6px}
+  th,td{border:1px solid #999;padding:5px 8px;font-size:11.5px}
+  th{background:#E8EEF4;text-align:center}
+  td.num{text-align:right;font-family:monospace} td.c{text-align:center} td.mono{font-family:monospace} td.dt{font-weight:700;white-space:nowrap}
+  tfoot td{background:#F4F7FB;font-weight:800}
+  @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+  </style></head><body>
+  <div class="co">${co}</div>
+  <h1>รายงานการผลิตรายสินค้า</h1>
+  <div class="sub">Production by Product · ${withData.length} สินค้า · ช่วงเวลา ${_psThaiDate(d.from)} ถึง ${_psThaiDate(d.to)} · พิมพ์ ${new Date().toLocaleString('th-TH')}</div>
+  <h3 style="background:#0F2C4A">สรุปต่อสินค้า</h3>
+  <table><thead><tr><th>#</th><th>รหัส</th><th>สินค้า</th><th>วันผลิต</th><th>batch</th><th>วางแผน(kg)</th><th>ผลิตจริง</th></tr></thead>
+    <tbody>${sumRows}</tbody>
+    <tfoot><tr><td colspan="3" style="text-align:right">รวมทั้งหมด</td><td class="c">${gDays}</td><td class="c">${fmt(gB,0)}</td><td class="num">${fmt(gP,1)}</td><td class="num">${gA>0?fmt(gA,1):'—'}</td></tr></tfoot>
+  </table>
+  <h3 style="background:#0F2C4A">รายละเอียดรายวัน</h3>
+  ${details}
+  <scr`+`ipt>window.onload=function(){window.print();setTimeout(function(){window.close();},500);}</scr`+`ipt></body></html>`);
+  w.document.close();
+}
+
+function psExportProductExcel(){
+  const d=_psrData;
+  const withData=(d?.products||[]).filter(p=>p.wos.length);
+  if(!withData.length){ alert('ไม่มีข้อมูลให้ export'); return; }
+  const co=(typeof COMPANY_INFO!=='undefined'&&COMPANY_INFO.name)||'FitExpo';
+  const periodTxt=`${d.from||''} ถึง ${d.to||''}`;
+  const wb=XLSX.utils.book_new();
+
+  // Sheet 1: สรุปต่อสินค้า
+  let gP=0,gA=0,gB=0,gDays=0;
+  const sumBody=withData.map((p,i)=>{
+    const ag=_psrAggOne(p.wos); gP+=ag.totPlanned; gA+=ag.totActual; gB+=ag.totBatch; gDays+=ag.dates.length;
+    return [i+1, p.sku, p.name, ag.dates.length, ag.totBatch, Number(ag.totPlanned.toFixed(1)), Number(ag.totActual.toFixed(1))];
+  });
+  const aoa1=[
+    ['รายงานการผลิตรายสินค้า — '+co],
+    ['ช่วงเวลา:', periodTxt, '', 'จำนวนสินค้า:', withData.length],
+    [],
+    ['#','รหัส','สินค้า','วันผลิต','batch รวม','วางแผน(kg)','ผลิตจริง(kg)'],
+    ...sumBody,
+    ['','','รวมทั้งหมด', gDays, gB, Number(gP.toFixed(1)), Number(gA.toFixed(1))]
+  ];
+  const ws1=XLSX.utils.aoa_to_sheet(aoa1);
+  ws1['!cols']=[{wch:4},{wch:16},{wch:34},{wch:9},{wch:10},{wch:12},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,ws1,'สรุปต่อสินค้า');
+
+  // Sheet 2: รายวัน (ทุก WO)
+  const aoa2=[['รหัสสินค้า','สินค้า','วันที่ผลิต','เลขที่ WO','จำนวน Batch','ขนาด Batch(kg)','วางแผน(kg)','ผลิตจริง(kg)','Lot','สถานะ']];
+  withData.forEach(p=>{
+    const ag=_psrAggOne(p.wos);
+    ag.dates.forEach(dt=>ag.byDate[dt].forEach(w=>{
+      const planned=Number(w.num_batches||0)*Number(w.batch_kg||0);
+      aoa2.push([p.sku, p.name, dt, w.pp_no||'', Number(w.num_batches||0), Number(w.batch_kg||0),
+        Number(planned.toFixed(1)), Number(Number(w.actual_qty||0).toFixed(1)), w.lot_no||'', w.status||'']);
+    }));
+  });
+  const ws2=XLSX.utils.aoa_to_sheet(aoa2);
+  ws2['!cols']=[{wch:16},{wch:30},{wch:12},{wch:18},{wch:10},{wch:12},{wch:12},{wch:12},{wch:14},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,ws2,'รายวัน');
+
+  // Sheet 3: รายเดือน (pivot เดือน × สินค้า, วางแผน kg)
+  const {months,data}=_psrMonthPivot(withData);
+  const header=['เดือน', ...withData.map(p=>p.sku), 'รวม(kg)'];
+  const colTot={}; let grand=0;
+  const monthRows=months.map(mk=>{
+    let rowTot=0;
+    const cells=withData.map(p=>{ const v=(data[p.sku]||{})[mk]; const pl=v?v.p:0; rowTot+=pl; colTot[p.sku]=(colTot[p.sku]||0)+pl; return Number(pl.toFixed(1)); });
+    grand+=rowTot;
+    return [_psrThaiMonth(mk), ...cells, Number(rowTot.toFixed(1))];
+  });
+  const aoa3=[
+    ['สรุปการผลิตรายเดือน (น้ำหนักตามแผน kg) — '+periodTxt],
+    [],
+    header,
+    ...monthRows,
+    ['รวม', ...withData.map(p=>Number((colTot[p.sku]||0).toFixed(1))), Number(grand.toFixed(1))]
+  ];
+  const ws3=XLSX.utils.aoa_to_sheet(aoa3);
+  ws3['!cols']=[{wch:14}, ...withData.map(()=>({wch:14})), {wch:12}];
+  XLSX.utils.book_append_sheet(wb,ws3,'รายเดือน');
+
+  const fn='Production_by_Product_'+((d.from||'all')+'_'+(d.to||''))+'.xlsx';
+  XLSX.writeFile(wb,fn);
+}
+
 async function psLoadWOs(){
   const endDate=new Date(_psWeekStart); endDate.setDate(_psWeekStart.getDate()+6);
   const from=psDateStr(_psWeekStart);
