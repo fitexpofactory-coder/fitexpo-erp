@@ -4550,10 +4550,15 @@ async function loadProductionSummary(){
     const groups={};
     wos.forEach(w=>{ const m=(w.start_date||'').slice(0,7)||'ไม่กำหนดวัน'; (groups[m]=groups[m]||[]).push(w); });
     const months=Object.keys(groups).sort((a,b)=> a==='ไม่กำหนดวัน'?1 : b==='ไม่กำหนดวัน'?-1 : (a<b?1:-1));
+    window._prodSum={groups, months};
     const statusC={'จองแล้ว':'#D97706','กำลังผลิต':'#2563EB','เสร็จสิ้น':'#16a34a','เสร็จแล้ว':'#16a34a','จองแล้ว (WIP)':'#7C3AED'};
     let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
       <div style="font-weight:700;color:var(--navy)">📊 สรุป Work Order รายเดือน — รวม ${wos.length} รายการ / ${months.length} เดือน</div>
-      <button class="btn btnS sm" onclick="loadProduction()">← มุมมองปกติ</button></div>`;
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btnP sm" onclick="printProdSummaryByProduct()">🖨️ พิมพ์สรุปต่อสินค้า</button>
+        <button class="btn btnN sm" onclick="psProductReport()">📊 รายสินค้า (เลือกวัน)</button>
+        <button class="btn btnS sm" onclick="loadProduction()">← มุมมองปกติ</button>
+      </div></div>`;
     months.forEach(m=>{
       const g=groups[m];
       const totBatch=g.reduce((s,w)=>s+(+w.num_batches||0),0);
@@ -4568,6 +4573,7 @@ async function loadProductionSummary(){
           <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${isFG?'📦':'🏭'} ${w.product_name||w.sku_code}</span>
           <span style="font-size:10px;color:#64748B">${w.num_batches||1}B</span>
           <span style="font-size:10px;background:${sc};color:white;border-radius:4px;padding:1px 6px;white-space:nowrap">${w.status||''}</span>
+          ${!/เสร็จ/.test(w.status||'') ? `<button onclick="deleteWO(${w.id},'${w.pp_no}','${w.status||''}',true)" title="ลบใบสั่งผลิตทิ้ง (ไม่กระทบ stock)" style="border:none;background:none;cursor:pointer;color:#DC2626;font-size:13px;padding:0 2px">🗑</button>` : ''}
         </div>`;
       }).join('');
       html+=`<div style="border:1px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden">
@@ -4575,13 +4581,87 @@ async function loadProductionSummary(){
           style="display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer;background:var(--navy);color:white;padding:8px 12px;flex-wrap:wrap">
           <div style="font-weight:700">📅 ${_woThaiMonth(m)} <span style="opacity:.85;font-weight:400;font-size:12px">· ${g.length} WO · ${totBatch} batch</span></div>
           <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${chips}
-            ${m!=='ไม่กำหนดวัน'?`<button class="btn sm" style="background:white;color:var(--navy);padding:2px 8px" onclick="event.stopPropagation();woGotoMonth('${m}')">🔍 ดูเต็ม</button>`:''}</div>
+            ${m!=='ไม่กำหนดวัน'?`<button class="btn sm" style="background:white;color:var(--navy);padding:2px 8px" onclick="event.stopPropagation();woGotoMonth('${m}')">🔍 ดูเต็ม</button>
+            <button class="btn sm" style="background:white;color:var(--navy);padding:2px 8px" onclick="event.stopPropagation();printProdSummaryByProduct('${m}')">🖨️ สรุป</button>`:''}</div>
         </div>
         <div style="display:block">${rows}</div>
       </div>`;
     });
     list.innerHTML=html;
   }catch(e){ list.innerHTML='<div style="color:var(--red);padding:20px">ผิดพลาด: '+e.message+'</div>'; }
+}
+
+// ── รวมการผลิตต่อสินค้า (สำหรับสรุปรายเดือน/ช่วงเวลา) ──
+function _prodAggByProduct(wos){
+  const byProd={};
+  (wos||[]).forEach(w=>{
+    const k=w.sku_code||'—';
+    if(!byProd[k]) byProd[k]={sku:k, name:w.product_name||k, isWIP:(k||'').startsWith('WIP'), woCount:0, batches:0, kgPlanned:0, kgActual:0, sizes:{}};
+    const b=byProd[k];
+    b.woCount++; b.batches+=Number(w.num_batches||0);
+    b.kgPlanned+=Number(w.num_batches||0)*Number(w.batch_kg||0);
+    b.kgActual+=Number(w.actual_qty||0);
+    const bs=Number(w.batch_kg||0); if(bs) b.sizes[bs]=(b.sizes[bs]||0)+Number(w.num_batches||0);
+  });
+  return Object.values(byProd).sort((a,b)=>b.kgPlanned-a.kgPlanned);
+}
+function _sizesTxt(sizes){ const ks=Object.keys(sizes).map(Number).sort((a,b)=>a-b); return ks.length?ks.map(k=>fmt(k,0)).join(', '):'—'; }
+function printProdSummaryByProduct(month){
+  const S=window._prodSum;
+  if(!S || !S.months || !S.months.length){ alert('ยังไม่มีข้อมูล — เปิด "📊 สรุปรายเดือน" ก่อนครับ'); return; }
+  const co=(typeof COMPANY_INFO!=='undefined'&&COMPANY_INFO.name)||'FitExpo';
+  const monthsToPrint = month ? [month] : S.months;
+  let gWO=0,gB=0,gP=0,gA=0;
+  const blocks=monthsToPrint.map(m=>{
+    const g=S.groups[m]||[];
+    const prods=_prodAggByProduct(g);
+    let tWO=0,tB=0,tP=0,tA=0;
+    const rows=prods.map((p,i)=>{
+      tWO+=p.woCount; tB+=p.batches; tP+=p.kgPlanned; tA+=p.kgActual;
+      return `<tr>
+        <td class="c">${i+1}</td><td class="mono">${p.sku}</td><td>${p.isWIP?'🏭 ':'📦 '}${p.name}</td>
+        <td class="c">${p.woCount}</td><td class="c">${fmt(p.batches,0)}</td><td class="c">${_sizesTxt(p.sizes)}</td>
+        <td class="num">${fmt(p.kgPlanned,1)}</td><td class="num">${p.kgActual>0?fmt(p.kgActual,1):'—'}</td>
+      </tr>`;
+    }).join('');
+    gWO+=tWO; gB+=tB; gP+=tP; gA+=tA;
+    return `<h3>📅 ${_woThaiMonth(m)} <span class="tot">(${g.length} WO · ${prods.length} สินค้า · ${fmt(tB,0)} batch)</span></h3>
+      <table>
+        <thead><tr><th>#</th><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th>จำนวน WO</th><th>รวม Batch</th><th>ขนาด/แบท (kg)</th><th>วางแผน (kg)</th><th>ผลิตจริง (kg)</th></tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr><td colspan="3" class="r">รวมเดือนนี้</td><td class="c">${tWO}</td><td class="c">${fmt(tB,0)}</td><td></td><td class="num">${fmt(tP,1)}</td><td class="num">${tA>0?fmt(tA,1):'—'}</td></tr></tfoot>
+      </table>`;
+  }).join('');
+  const grand = monthsToPrint.length>1
+    ? `<h3 style="background:#0F2C4A">รวมทั้งสิ้น (${monthsToPrint.length} เดือน)</h3>
+       <table><tbody><tr>
+        <td class="r" style="width:60%">รวมทุกเดือน</td><td class="c">${gWO} WO</td><td class="c">${fmt(gB,0)} batch</td>
+        <td class="num">${fmt(gP,1)} kg (วางแผน)</td><td class="num">${gA>0?fmt(gA,1)+' kg (จริง)':'—'}</td>
+       </tr></tbody></table>` : '';
+  const w=window.open('','_blank');
+  if(!w){ alert('เบราว์เซอร์บล็อก pop-up — อนุญาตก่อนครับ'); return; }
+  const periodLabel = month ? _woThaiMonth(month) : `ทุกเดือน (${monthsToPrint.filter(x=>x!=='ไม่กำหนดวัน').length} เดือน)`;
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>สรุปการผลิตต่อสินค้า</title>
+  <style>@page{size:A4 portrait;margin:14mm}
+  *{box-sizing:border-box} body{font-family:'Sarabun',Arial,sans-serif;color:#111;margin:0;font-size:13px}
+  .co{text-align:center;font-weight:700;font-size:16px} h1{text-align:center;font-size:18px;margin:2px 0}
+  .sub{text-align:center;color:#555;font-size:12px;margin-bottom:12px}
+  h3{background:#1B3A5C;color:#fff;padding:5px 10px;border-radius:4px;font-size:13px;margin:16px 0 6px}
+  h3 .tot{font-weight:400;font-size:11px;opacity:.9}
+  table{border-collapse:collapse;width:100%;margin-bottom:6px}
+  th,td{border:1px solid #999;padding:5px 8px;font-size:11.5px}
+  th{background:#E8EEF4;text-align:center}
+  td.num{text-align:right;font-family:monospace} td.c{text-align:center} td.mono{font-family:monospace} td.r{text-align:right;font-weight:700}
+  tfoot td{background:#F4F7FB;font-weight:800}
+  @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+  </style></head><body>
+  <div class="co">${co}</div>
+  <h1>สรุปการผลิตต่อสินค้า</h1>
+  <div class="sub">Production Summary by Product · ช่วงเวลา: ${periodLabel} · พิมพ์ ${new Date().toLocaleString('th-TH')}</div>
+  ${blocks}
+  ${grand}
+  <scr`+`ipt>window.onload=function(){window.print();setTimeout(function(){window.close();},500);}</scr`+`ipt></body></html>`);
+  w.document.close();
 }
 
 // ── ดู WO ทั้งหมด: ล้างตัวกรองทั้งหมดก่อนโหลด แล้วเลื่อนไปที่รายการ ──
@@ -4661,6 +4741,7 @@ async function loadProduction(){
             <button class="btn btnS sm" onclick="viewBatchRecord(${w.id},'${w.pp_no}')">📋 Batch Record</button>
             <button class="btn btnT sm" onclick="printWORecord(${w.id})">🖨️ Print</button>
             <button class="btn btnD sm" onclick="updateWO(${w.id},'ยกเลิก')">✕ ยกเลิก</button>
+            ${!/เสร็จ/.test(w.status||'') ? `<button class="btn btnD sm" style="background:#7F1D1D" onclick="deleteWO(${w.id},'${w.pp_no}','${w.status||''}')" title="ลบใบสั่งผลิตทิ้ง (ยังไม่ผลิต ไม่กระทบ stock)">🗑 ลบทิ้ง</button>` : ''}
           </div>
         </div>
       </div>
@@ -4673,6 +4754,22 @@ async function loadProduction(){
   }
   // โหลด batch progress ใน background
   setTimeout(loadBatchProgress, 300);
+}
+
+// ── ลบ Work Order ที่ยังไม่ผลิต (ไม่กระทบ stock) ──
+async function deleteWO(id, ppNo, status, fromSummary){
+  if(/เสร็จ/.test(status||'')){
+    alert('WO นี้ผลิตเสร็จแล้ว (ตัด/รับ stock ไปแล้ว) จึงลบทิ้งไม่ได้\nถ้าต้องการยกเลิกให้ใช้ปุ่ม "✕ ยกเลิก" แทน');
+    return;
+  }
+  if(!confirm(`ลบใบสั่งผลิต ${ppNo} ทิ้งถาวร?\n\n• เป็นการลบ WO ที่ยังไม่ได้ผลิต\n• ไม่มีผลต่อ stock (ยังไม่ได้ตัด/รับเข้า)\n• ลบแล้วกู้คืนไม่ได้\n\nยืนยันลบ?`)) return;
+  try{
+    await sbD('production_plan',`id=eq.${id}`);
+    await logA('DELETE','production',`ลบ WO ${ppNo} ทิ้ง (ยังไม่ผลิต, ไม่กระทบ stock)`);
+    // เอา card ออกจากจอทันที (ถ้ามี) แล้วรีเฟรชมุมมองที่กำลังดูอยู่
+    const card=document.getElementById('wo-card-'+id); if(card) card.remove();
+    if(fromSummary) loadProductionSummary(); else loadProduction();
+  }catch(e){ alert('ลบไม่สำเร็จ: '+(e.message||e)); }
 }
 
 async function loadBatchProgress(){
