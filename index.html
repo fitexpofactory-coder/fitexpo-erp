@@ -235,10 +235,10 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:15
 #ribbon-bar{display:flex;align-items:stretch;flex-wrap:nowrap;gap:2px;padding:4px 10px;
   overflow-x:auto;scrollbar-width:none}
 #ribbon-bar::-webkit-scrollbar{display:none}
-#rbn-dash{background:rgba(255,255,255,.15);color:white;border:none;padding:7px 14px;
+#rbn-dash,#rbn-tasks{background:rgba(255,255,255,.15);color:white;border:none;padding:7px 14px;
   border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;
   align-self:center}
-#rbn-dash:hover,#rbn-dash.on{background:rgba(255,255,255,.3)}
+#rbn-dash:hover,#rbn-dash.on,#rbn-tasks:hover,#rbn-tasks.on{background:rgba(255,255,255,.3)}
 .rg{position:relative;align-self:center}
 .rgb{background:transparent;color:rgba(255,255,255,.85);border:none;padding:7px 11px;
   border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;
@@ -602,6 +602,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
   <div id="ribbon">
   <div id="ribbon-bar">
     <button id="rbn-dash" onclick="nav('dashboard')">📊 Dashboard</button>
+    <button id="rbn-tasks" onclick="nav('tasks')">✅ Tasks</button>
     <div class="rg">
       <button class="rgb" onclick="ribbonToggle(this)">📦 Inventory <span class="rga">▾</span></button>
       <div class="rdd">
@@ -746,6 +747,27 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
 
 
 
+
+<div id="pg-tasks" class="pg">
+  <div class="card" style="margin-bottom:12px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <button class="btn btnP sm" onclick="taskOpenEditor()">+ งานใหม่</button>
+      <div style="display:flex;gap:4px">
+        <button id="task-view-board" class="btn btnP sm" onclick="taskSetView('board')">📋 Board</button>
+        <button id="task-view-list" class="btn btnS sm" onclick="taskSetView('list')">📃 List</button>
+      </div>
+      <input id="task-search" class="fc2" placeholder="🔍 ค้นหางาน" style="width:170px" oninput="taskRender()" autocomplete="off">
+      <select id="task-f-assignee" class="fc2" style="width:160px" onchange="taskRender()"><option value="">ผู้รับผิดชอบ: ทั้งหมด</option></select>
+      <select id="task-f-priority" class="fc2" style="width:150px" onchange="taskRender()">
+        <option value="">Priority: ทั้งหมด</option>
+        <option value="urgent">🔴 ด่วนมาก</option><option value="high">🟠 สูง</option>
+        <option value="medium">🟡 กลาง</option><option value="low">⚪ ต่ำ</option>
+      </select>
+      <button class="btn btnS sm" onclick="loadTasks()">🔄</button>
+    </div>
+  </div>
+  <div id="tasks-body"><div style="padding:40px;text-align:center;color:#94A3B8"><span class="spin"></span> กำลังโหลด...</div></div>
+</div>
 
 <div id="pg-rm" class="pg">
   <div class="ch2 mb3">
@@ -3373,6 +3395,7 @@ const RM={
     'hr-report','hr-employees','hr-holidays','hr-payroll','hr-payslip',
     'hr-diligence','stock-report','mat-trace']
 };
+Object.keys(RM).forEach(r=>{ if(!RM[r].includes('tasks')) RM[r].push('tasks'); });
 // ══════════════════════════════════════════════════
 //  SUPABASE HELPERS
 // ════════════════════════════════════════════════════════════
@@ -3548,7 +3571,7 @@ async function logA(action,module,detail,ref=''){
 // ════════════════════════════════════════════════════════════
 //  HELPERS
 // ════════════════════════════════════════════════════════════
-const META={dashboard:['Dashboard','System Overview'],rm:['Stock RM & PK',''],
+const META={dashboard:['Dashboard','System Overview'],tasks:['Tasks','จัดการงาน (Task Board)'],rm:['Stock RM & PK',''],
   stockcard:['Stock Card (QR)','บัตรสต็อกล็อต/พาเลท + QR'],
   'wip-stock':['Stock WIP',''],'fg':['Stock FG',''],
   'bom-mgr':['จัดการ BOM','เพิ่ม/แก้ไข/ลบ BOM ต่อ SKU + WIP'],
@@ -3607,11 +3630,12 @@ function nav(id){
   document.querySelectorAll('.rdd').forEach(d=>{d.style.display='none';});
   document.querySelectorAll('.rni').forEach(el=>el.classList.toggle('on',el.dataset.page===id));
   document.getElementById('rbn-dash')?.classList.toggle('on',id==='dashboard');
+  document.getElementById('rbn-tasks')?.classList.toggle('on',id==='tasks');
   if(id==='pm') setTimeout(pmInitYears,100);
 }
 
 function loadPage(id){
-  const fn={dashboard:loadDash,rm:loadRM,'wip-stock':loadWIPStock,fg:loadFG,
+  const fn={dashboard:loadDash,tasks:loadTasks,rm:loadRM,'wip-stock':loadWIPStock,fg:loadFG,
     'bom-mgr':loadBOMMgr,production:loadProduction,'prod-plan':loadProdPlan,'wip-prod':loadWIPProd,
     'print-docs':loadPrintDocs,so:loadSO,
     'mat-mgr':loadMatMgr,'prod-mgr':loadProdMgr,'wip-mgr':loadWIPMgr,
@@ -4770,6 +4794,252 @@ async function deleteWO(id, ppNo, status, fromSummary){
     const card=document.getElementById('wo-card-'+id); if(card) card.remove();
     if(fromSummary) loadProductionSummary(); else loadProduction();
   }catch(e){ alert('ลบไม่สำเร็จ: '+(e.message||e)); }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  TASK MANAGEMENT (Kanban + List) — คล้าย ClickUp
+// ═══════════════════════════════════════════════════════════
+let _tasks=[], _taskView='board', _taskDragId=null;
+const TASK_STATUSES=[
+  {key:'todo',   label:'📥 รอทำ',      color:'#64748B'},
+  {key:'doing',  label:'🔧 กำลังทำ',   color:'#2563EB'},
+  {key:'review', label:'🔍 ตรวจสอบ',   color:'#D97706'},
+  {key:'done',   label:'✅ เสร็จ',      color:'#16A34A'}
+];
+const TASK_PRIO={
+  urgent:{l:'ด่วนมาก',c:'#DC2626',e:'🔴'},
+  high:  {l:'สูง',    c:'#EA580C',e:'🟠'},
+  medium:{l:'กลาง',   c:'#CA8A04',e:'🟡'},
+  low:   {l:'ต่ำ',    c:'#94A3B8',e:'⚪'}
+};
+const TASK_SQL=`create table if not exists tasks (
+  id bigserial primary key,
+  title text not null,
+  description text,
+  status text default 'todo',
+  priority text default 'medium',
+  assignee text,
+  due_date date,
+  tags text,
+  checklist jsonb default '[]'::jsonb,
+  sort_order int default 0,
+  created_by text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  done_at timestamptz
+);
+alter table tasks enable row level security;
+create policy "tasks_all" on tasks for all using (true) with check (true);`;
+
+function _taskJSON(x){ try{ return typeof x==='string'?JSON.parse(x):(Array.isArray(x)?x:[]); }catch(e){ return []; } }
+
+async function loadTasks(){
+  const body=document.getElementById('tasks-body'); if(!body) return;
+  body.innerHTML='<div style="padding:40px;text-align:center;color:#94A3B8"><span class="spin"></span> กำลังโหลดงาน...</div>';
+  try{
+    _tasks=await sbG('tasks',{ord:'sort_order.asc,created_at.desc',lim:2000});
+    taskFillAssignees();
+    taskRender();
+  }catch(e){
+    body.innerHTML=`<div class="card" style="padding:24px;text-align:center;max-width:520px;margin:0 auto">
+      <div style="font-size:15px;font-weight:700;color:#DC2626;margin-bottom:8px">⚠️ ยังไม่ได้สร้างตาราง <code>tasks</code></div>
+      <div style="font-size:13px;color:#64748B;margin-bottom:12px">โมดูล Tasks ต้องมีตาราง tasks ใน Supabase ก่อน รัน SQL ครั้งเดียวแล้วรีเฟรช</div>
+      <button class="btn btnP" onclick="taskShowSQL()">🗄️ ดู / คัดลอก SQL สร้างตาราง</button>
+      <div style="font-size:11px;color:#94A3B8;margin-top:10px">(${(e&&e.message)||e})</div>
+    </div>`;
+  }
+}
+function taskShowSQL(){
+  openMo('🗄️ SQL สร้างตาราง tasks',
+    `<div style="font-size:12px;color:#64748B;margin-bottom:6px">คัดลอกไปรันใน Supabase → SQL Editor ครั้งเดียว แล้วกลับมากด 🔄</div>
+     <pre style="background:#0F172A;color:#E2E8F0;padding:12px;border-radius:8px;font-size:11px;overflow:auto;white-space:pre-wrap;max-height:340px">${TASK_SQL.replace(/</g,'&lt;')}</pre>
+     <button class="btn btnP" style="width:100%;margin-top:8px" onclick="navigator.clipboard.writeText(TASK_SQL).then(()=>alert('คัดลอก SQL แล้ว'))">📋 คัดลอก SQL</button>`);
+}
+function taskFillAssignees(){
+  const sel=document.getElementById('task-f-assignee'); if(!sel) return;
+  const cur=sel.value;
+  const names=[...new Set(_tasks.map(t=>t.assignee).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'th'));
+  sel.innerHTML='<option value="">ผู้รับผิดชอบ: ทั้งหมด</option>'+names.map(n=>`<option value="${n}">${n}</option>`).join('');
+  sel.value=cur;
+}
+function taskSetView(v){
+  _taskView=v;
+  const b=document.getElementById('task-view-board'), l=document.getElementById('task-view-list');
+  b?.classList.toggle('btnP',v==='board'); b?.classList.toggle('btnS',v!=='board');
+  l?.classList.toggle('btnP',v==='list');  l?.classList.toggle('btnS',v!=='list');
+  taskRender();
+}
+function taskFiltered(){
+  const q=(document.getElementById('task-search')?.value||'').toLowerCase();
+  const fa=document.getElementById('task-f-assignee')?.value||'';
+  const fp=document.getElementById('task-f-priority')?.value||'';
+  return _tasks.filter(t=>{
+    if(fa && t.assignee!==fa) return false;
+    if(fp && (t.priority||'medium')!==fp) return false;
+    if(q){ const hay=((t.title||'')+' '+(t.description||'')+' '+(t.tags||'')).toLowerCase(); if(!hay.includes(q)) return false; }
+    return true;
+  });
+}
+function taskRender(){
+  const body=document.getElementById('tasks-body'); if(!body) return;
+  const list=taskFiltered();
+  body.innerHTML = _taskView==='list' ? taskListHTML(list) : taskBoardHTML(list);
+}
+function _taskDueBadge(d,status){
+  if(!d) return '';
+  const done=(status==='done');
+  const today=new Date(); today.setHours(0,0,0,0);
+  const due=new Date(d+'T00:00:00');
+  const diff=Math.round((due-today)/86400000);
+  let c='#64748B', txt=(typeof _psThaiDate==='function'?_psThaiDate(d):d);
+  if(done){ c='#94A3B8'; }
+  else if(diff<0){ c='#DC2626'; txt='เลยกำหนด '+txt; }
+  else if(diff===0){ c='#EA580C'; txt='วันนี้'; }
+  else if(diff<=2){ c='#EA580C'; }
+  return `<span style="font-size:10px;color:${c}">📅 ${txt}</span>`;
+}
+function taskCardHTML(t){
+  const pr=TASK_PRIO[t.priority||'medium']||TASK_PRIO.medium;
+  const due=_taskDueBadge(t.due_date,t.status);
+  const tags=(t.tags||'').split(',').map(s=>s.trim()).filter(Boolean)
+    .map(tg=>`<span style="background:#EEF2FF;color:#4338CA;border-radius:4px;padding:1px 6px;font-size:10px">${tg}</span>`).join(' ');
+  const cl=_taskJSON(t.checklist); const done=cl.filter(c=>c.done).length;
+  const clBadge=cl.length?`<span style="font-size:10px;color:#64748B">☑️ ${done}/${cl.length}</span>`:'';
+  return `<div class="task-card" draggable="true" ondragstart="taskDrag(event,${t.id})" onclick="taskOpenEditor(${t.id})"
+    style="background:#fff;border:1px solid #E2E8F0;border-left:3px solid ${pr.c};border-radius:8px;padding:8px 10px;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.04)">
+    <div style="font-weight:600;font-size:13px;margin-bottom:4px;line-height:1.3">${t.title||'(ไม่มีชื่อ)'}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+      <span style="font-size:10px;color:${pr.c};font-weight:700">${pr.e} ${pr.l}</span>${due?' '+due:''}${clBadge?' '+clBadge:''}
+    </div>
+    ${tags?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:5px">${tags}</div>`:''}
+    ${t.assignee?`<div style="margin-top:6px;font-size:11px;color:#475569">👤 ${t.assignee}</div>`:''}
+  </div>`;
+}
+function taskBoardHTML(list){
+  const cols=TASK_STATUSES.map(st=>{
+    const items=list.filter(t=>(t.status||'todo')===st.key);
+    const cards=items.map(taskCardHTML).join('') || '<div style="color:#CBD5E1;font-size:12px;text-align:center;padding:16px">— ว่าง —</div>';
+    return `<div class="task-col" ondragover="event.preventDefault();this.style.background='#EEF2FF'" ondragleave="this.style.background=''" ondrop="taskDrop(event,'${st.key}')"
+      style="flex:1;min-width:235px;background:#F8FAFC;border-radius:10px;padding:8px;transition:background .1s">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:2px 6px 8px;font-weight:700;font-size:13px;color:${st.color};border-bottom:2px solid ${st.color}">
+        <span>${st.label}</span><span style="background:${st.color};color:#fff;border-radius:10px;padding:0 8px;font-size:11px">${items.length}</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;min-height:40px">${cards}</div>
+    </div>`;
+  }).join('');
+  return `<div style="display:flex;gap:12px;overflow-x:auto;align-items:flex-start;padding-bottom:8px">${cols}</div>`;
+}
+function taskListHTML(list){
+  const out=TASK_STATUSES.map(st=>{
+    const items=list.filter(t=>(t.status||'todo')===st.key);
+    if(!items.length) return '';
+    const trs=items.map(t=>{
+      const pr=TASK_PRIO[t.priority||'medium']||TASK_PRIO.medium;
+      const cl=_taskJSON(t.checklist); const done=cl.filter(c=>c.done).length;
+      return `<tr onclick="taskOpenEditor(${t.id})" style="cursor:pointer;border-top:1px solid #F1F5F9">
+        <td style="padding:6px 8px">${t.title||''}${cl.length?` <span style="font-size:10px;color:#64748B">☑️${done}/${cl.length}</span>`:''}</td>
+        <td style="padding:6px 8px"><span style="color:${pr.c};font-weight:700;font-size:12px">${pr.e} ${pr.l}</span></td>
+        <td style="padding:6px 8px">${t.assignee||'—'}</td>
+        <td style="padding:6px 8px">${_taskDueBadge(t.due_date,t.status)||'—'}</td>
+        <td style="padding:6px 8px">${(t.tags||'').split(',').map(x=>x.trim()).filter(Boolean).map(x=>`<span style="background:#EEF2FF;color:#4338CA;border-radius:4px;padding:1px 5px;font-size:10px">${x}</span>`).join(' ')}</td>
+      </tr>`;
+    }).join('');
+    return `<div style="margin-bottom:14px">
+      <div style="font-weight:700;color:${st.color};margin-bottom:4px">${st.label} (${items.length})</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;background:#fff;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden">
+        <thead><tr style="background:#F8FAFC;color:#64748B;font-size:11px">
+          <th style="text-align:left;padding:6px 8px">งาน</th><th style="text-align:left;padding:6px 8px">Priority</th>
+          <th style="text-align:left;padding:6px 8px">ผู้รับผิดชอบ</th><th style="text-align:left;padding:6px 8px">กำหนดส่ง</th>
+          <th style="text-align:left;padding:6px 8px">Tags</th></tr></thead>
+        <tbody>${trs}</tbody></table></div>`;
+  }).join('');
+  return out || '<div style="padding:30px;text-align:center;color:#94A3B8">ไม่มีงานตามตัวกรอง</div>';
+}
+function taskDrag(e,id){ _taskDragId=id; try{e.dataTransfer.effectAllowed='move';}catch(_){} }
+async function taskDrop(e,status){
+  e.preventDefault(); if(e.currentTarget) e.currentTarget.style.background='';
+  const id=_taskDragId; _taskDragId=null; if(!id) return;
+  const t=_tasks.find(x=>x.id===id); if(!t || t.status===status) return;
+  const prev=t.status; t.status=status; taskRender();  // optimistic
+  try{
+    const upd={status}; upd.done_at = (status==='done') ? new Date().toISOString() : null;
+    await sbU('tasks',upd,`id=eq.${id}`);
+    if(status==='done') t.done_at=upd.done_at; else t.done_at=null;
+    await logA('UPDATE','task',`ย้ายงาน "${t.title}" → ${status}`);
+  }catch(err){ t.status=prev; taskRender(); alert('อัปเดตสถานะไม่สำเร็จ: '+(err.message||err)); }
+}
+function taskOpenEditor(id){
+  const t = id ? (_tasks.find(x=>x.id===id)||{}) : {};
+  window._taskEditCL=_taskJSON(t.checklist).map(c=>({text:c.text,done:!!c.done}));
+  const esc=v=>String(v||'').replace(/"/g,'&quot;');
+  const statusOpts=TASK_STATUSES.map(s=>`<option value="${s.key}" ${((t.status||'todo')===s.key)?'selected':''}>${s.label}</option>`).join('');
+  const prioOpts=Object.entries(TASK_PRIO).map(([k,v])=>`<option value="${k}" ${((t.priority||'medium')===k)?'selected':''}>${v.e} ${v.l}</option>`).join('');
+  openMo((id?'✏️ แก้ไขงาน':'➕ งานใหม่'),`
+    <input type="hidden" id="tk-id" value="${id||''}">
+    <div class="fgrp"><label class="flbl">ชื่องาน *</label><input class="fc2" id="tk-title" value="${esc(t.title)}" placeholder="เช่น เตรียมเอกสาร HALAL"></div>
+    <div class="fgrp"><label class="flbl">รายละเอียด</label><textarea class="fc2" id="tk-desc" rows="2">${t.description||''}</textarea></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="fgrp"><label class="flbl">สถานะ</label><select class="fc2" id="tk-status">${statusOpts}</select></div>
+      <div class="fgrp"><label class="flbl">ความสำคัญ</label><select class="fc2" id="tk-prio">${prioOpts}</select></div>
+      <div class="fgrp"><label class="flbl">ผู้รับผิดชอบ</label><input class="fc2" id="tk-assignee" value="${esc(t.assignee)}" placeholder="ชื่อผู้รับผิดชอบ"></div>
+      <div class="fgrp"><label class="flbl">กำหนดส่ง</label><input type="date" class="fc2" id="tk-due" value="${t.due_date||''}"></div>
+    </div>
+    <div class="fgrp"><label class="flbl">Tags (คั่นด้วย ,)</label><input class="fc2" id="tk-tags" value="${esc(t.tags)}" placeholder="เช่น เอกสาร, ด่วน"></div>
+    <div class="fgrp"><label class="flbl">Checklist (งานย่อย)</label>
+      <div id="tk-cl"></div>
+      <div style="display:flex;gap:6px;margin-top:4px">
+        <input class="fc2" id="tk-cl-new" placeholder="เพิ่มรายการย่อย..." style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();taskCLAdd();}">
+        <button class="btn btnS sm" onclick="taskCLAdd()">+ เพิ่ม</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btnP" style="flex:1" onclick="taskSave()">💾 บันทึก</button>
+      ${id?`<button class="btn btnD" onclick="taskDelete(${id})">🗑 ลบ</button>`:''}
+    </div>
+    <div id="tk-msg" style="margin-top:6px"></div>`);
+  taskCLRender();
+}
+function taskCLRender(){
+  const box=document.getElementById('tk-cl'); if(!box) return;
+  const cl=window._taskEditCL||[];
+  box.innerHTML=cl.length?cl.map((c,i)=>`<div style="display:flex;align-items:center;gap:6px;padding:2px 0">
+    <input type="checkbox" ${c.done?'checked':''} onchange="window._taskEditCL[${i}].done=this.checked;taskCLRender()">
+    <span style="flex:1;font-size:13px;${c.done?'text-decoration:line-through;color:#94A3B8':''}">${(c.text||'').replace(/</g,'&lt;')}</span>
+    <button onclick="window._taskEditCL.splice(${i},1);taskCLRender()" style="border:none;background:none;color:#DC2626;cursor:pointer;font-size:14px">✕</button>
+  </div>`).join(''):'<div style="font-size:12px;color:#94A3B8">ยังไม่มีรายการย่อย</div>';
+}
+function taskCLAdd(){
+  const inp=document.getElementById('tk-cl-new'); if(!inp) return;
+  const v=(inp.value||'').trim(); if(!v) return;
+  (window._taskEditCL=window._taskEditCL||[]).push({text:v,done:false});
+  inp.value=''; taskCLRender(); inp.focus();
+}
+async function taskSave(){
+  const id=document.getElementById('tk-id').value;
+  const title=document.getElementById('tk-title').value.trim();
+  if(!title){ msgEl('tk-msg','⚠️ กรอกชื่องานก่อนครับ','e'); return; }
+  const data={
+    title,
+    description:document.getElementById('tk-desc').value.trim()||null,
+    status:document.getElementById('tk-status').value,
+    priority:document.getElementById('tk-prio').value,
+    assignee:document.getElementById('tk-assignee').value.trim()||null,
+    due_date:document.getElementById('tk-due').value||null,
+    tags:document.getElementById('tk-tags').value.trim()||null,
+    checklist:window._taskEditCL||[]
+  };
+  data.done_at = (data.status==='done') ? new Date().toISOString() : null;
+  msgEl('tk-msg','<span class="spin"></span> บันทึก...','i');
+  try{
+    if(id){ await sbU('tasks',data,`id=eq.${id}`); await logA('UPDATE','task',`แก้ไขงาน "${title}"`); }
+    else { data.created_by=(CU&&(CU.name||CU.username))||'admin'; await sbP('tasks',data); await logA('CREATE','task',`สร้างงาน "${title}"`); }
+    closeMo(); loadTasks();
+  }catch(e){ msgEl('tk-msg','❌ '+(e.message||e),'e'); }
+}
+async function taskDelete(id){
+  if(!confirm('ลบงานนี้ถาวร?')) return;
+  try{ await sbD('tasks',`id=eq.${id}`); await logA('DELETE','task',`ลบงาน id=${id}`); closeMo(); loadTasks(); }
+  catch(e){ alert('ลบไม่สำเร็จ: '+(e.message||e)); }
 }
 
 async function loadBatchProgress(){
