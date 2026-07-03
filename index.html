@@ -30746,15 +30746,109 @@ async function scOpenDetail(code){
   if(!card){ ov.innerHTML='<div style="padding:40px;text-align:center;color:#991B1B">ไม่พบบัตรสต็อก '+code+'<br><button class="btn btnS" style="margin-top:14px" onclick="scCloseDetail()">ปิด</button></div>'; return; }
   _scCur=card;
   const moves=await sbG('stock_card_moves',{f:['card_code=eq.'+encodeURIComponent(code)],ord:'created_at.desc'}).catch(()=>[]);
-  scRenderDetail(card,moves||[]);
+  const sibs=await sbG('stock_cards',{f:['material_code=eq.'+encodeURIComponent(card.material_code||'')]}).catch(()=>null);
+  scRenderDetail(card,moves||[],sibs);
 }
 function scCloseDetail(){
   const ov=document.getElementById('sc-detail'); ov.style.display='none'; ov.innerHTML='';
   if(location.search.includes('sc=')) history.replaceState(null,'',scBaseURL());
 }
 const _scMoveLabels={in:'📥 รับเข้า',out:'📤 เบิกออก',adjust:'⚖️ ปรับยอด',move:'🔀 ย้าย',count:'🔢 นับ'};
-function scRenderDetail(c,moves){
+// ── ตารางทุก Lot ของวัตถุดิบเดียวกัน + ยอดรวม ──
+function scSiblingLotsHTML(c, sibs){
+  const mat=c.material_code||'';
+  let cards=(sibs&&sibs.length)?sibs.slice():(_scAll||[]).filter(x=>x.material_code===mat);
+  if(!cards.length) cards=[c];
+  cards.sort((a,b)=>{ const ea=a.expiry_date||'9999-99', eb=b.expiry_date||'9999-99'; if(ea!==eb) return ea<eb?-1:1; return (a.lot_no||'').localeCompare(b.lot_no||''); });
+  const unit=c.unit||'';
+  const activeCards=cards.filter(x=>(x.status||'active')!=='depleted');
+  const total=cards.reduce((s,x)=>s+(+x.qty||0),0);
+  const totalActive=activeCards.reduce((s,x)=>s+(+x.qty||0),0);
+  const rows=cards.map(x=>{
+    const isCur=x.card_code===c.card_code;
+    return '<tr style="border-bottom:1px solid #F1F5F9;'+(isCur?'background:#EFF6FF':'')+'">'
+      +'<td style="padding:6px 8px;white-space:nowrap">'+(isCur?'<span title="กำลังดู" style="color:#1B5EC7">▶ </span>':'')
+        +'<a href="javascript:void(0)" onclick="scOpenDetail(\''+x.card_code+'\')" style="color:#1B5EC7;font-family:monospace;text-decoration:none">'+x.card_code+'</a></td>'
+      +'<td style="padding:6px 8px">'+(x.lot_no||'—')+'</td>'
+      +'<td style="padding:6px 8px;white-space:nowrap">📍 '+(x.location||'—')+'</td>'
+      +'<td style="padding:6px 8px;text-align:right;font-weight:600">'+fmt(+x.qty||0,2)+' <span style="font-size:10px;font-weight:400;color:#94A3B8">'+unit+'</span></td>'
+      +'<td style="padding:6px 8px">'+scExpBadge(x.expiry_date)+'</td>'
+      +'<td style="padding:6px 8px">'+scStatusBadge(x.status||'active')+'</td></tr>';
+  }).join('');
+  return '<div style="background:white;border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:14px">'
+    +'<div style="padding:10px 14px;font-weight:600;background:#F8FAFC;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">'
+      +'<span>📦 ทุก Lot ของ '+(c.material_name||mat)+' <span style="color:#94A3B8;font-size:12px">('+cards.length+' การ์ด)</span></span>'
+      +'<span style="font-size:13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">รวมคงเหลือ: <b style="color:#16A34A;font-size:15px">'+fmt(totalActive,2)+' '+unit+'</b>'
+        +(total!==totalActive?(' <span style="color:#94A3B8;font-size:11px">(+depleted '+fmt(total-totalActive,2)+')</span>'):'')
+        +'<button class="btn btnS sm" onclick="scPrintLotSummary()">🖨️ พิมพ์สรุปทุก Lot</button></span>'
+    +'</div>'
+    +'<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="text-align:left;color:#64748B;background:#FBFCFE">'
+    +'<th style="padding:6px 8px">การ์ด</th><th style="padding:6px 8px">ล็อต</th><th style="padding:6px 8px">โลเคชัน</th>'
+    +'<th style="padding:6px 8px;text-align:right">คงเหลือ</th><th style="padding:6px 8px">หมดอายุ</th><th style="padding:6px 8px">สถานะ</th></tr></thead>'
+    +'<tbody>'+rows+'</tbody>'
+    +'<tfoot><tr style="font-weight:700;background:#EEF2F7"><td colspan="3" style="padding:7px 8px;text-align:right">รวมทั้งหมด ('+activeCards.length+' lot ใช้งาน)</td>'
+      +'<td style="padding:7px 8px;text-align:right;color:#16A34A">'+fmt(totalActive,2)+' '+unit+'</td><td colspan="2"></td></tr></tfoot>'
+    +'</table></div>';
+}
+async function scPrintLotSummary(){
+  const c=_scCur; if(!c){ alert('ไม่พบข้อมูลการ์ด'); return; }
+  const mat=c.material_code||'';
+  let cards=await sbG('stock_cards',{f:['material_code=eq.'+encodeURIComponent(mat)]}).catch(()=>null);
+  if(!cards||!cards.length) cards=(_scAll||[]).filter(x=>x.material_code===mat);
+  if(!cards.length) cards=[c];
+  cards.sort((a,b)=>{ const ea=a.expiry_date||'9999-99', eb=b.expiry_date||'9999-99'; if(ea!==eb) return ea<eb?-1:1; return (a.lot_no||'').localeCompare(b.lot_no||''); });
+  const unit=c.unit||'';
+  const act=cards.filter(x=>(x.status||'active')!=='depleted');
+  const totalAct=act.reduce((s,x)=>s+(+x.qty||0),0);
+  const total=cards.reduce((s,x)=>s+(+x.qty||0),0);
+  const co=(typeof COMPANY_INFO!=='undefined'&&COMPANY_INFO.name)||'FitExpo';
+  const rows=cards.map((x,i)=>{
+    const dep=(x.status||'active')==='depleted';
+    return `<tr${dep?' style="color:#9CA3AF"':''}>
+      <td class="c">${i+1}</td>
+      <td class="mono">${x.card_code||''}</td>
+      <td>${x.lot_no||'—'}</td>
+      <td>${x.location||'—'}${x.pallet_no?(' / '+x.pallet_no):''}</td>
+      <td>${x.supplier||'—'}</td>
+      <td class="num">${fmt(+x.qty||0,2)}</td>
+      <td class="c">${unit}</td>
+      <td class="c">${x.expiry_date||'—'}</td>
+      <td class="c">${x.status||'active'}</td>
+    </tr>`;
+  }).join('');
+  const w=window.open('','_blank');
+  if(!w){ alert('เบราว์เซอร์บล็อก pop-up — อนุญาตก่อนครับ'); return; }
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>สรุปทุก Lot — ${mat}</title>
+  <style>@page{size:A4 portrait;margin:14mm}
+  *{box-sizing:border-box} body{font-family:'Sarabun',Arial,sans-serif;color:#111;margin:0;font-size:13px}
+  .co{text-align:center;font-weight:700;font-size:16px} h1{text-align:center;font-size:18px;margin:2px 0}
+  .sub{text-align:center;color:#555;font-size:12px;margin-bottom:12px}
+  .tot{text-align:right;font-size:14px;margin:6px 0;font-weight:700}
+  table{border-collapse:collapse;width:100%} th,td{border:1px solid #999;padding:5px 8px;font-size:11.5px}
+  th{background:#E8EEF4;text-align:center} td.num{text-align:right;font-family:monospace} td.c{text-align:center} td.mono{font-family:monospace}
+  tfoot td{background:#F4F7FB;font-weight:800}
+  @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+  </style></head><body>
+  <div class="co">${co}</div>
+  <h1>สรุปสต็อกทุก Lot ต่อวัตถุดิบ</h1>
+  <div class="sub">${c.material_name||''} <b>(${mat})</b> · ${cards.length} การ์ด · พิมพ์ ${new Date().toLocaleString('th-TH')}</div>
+  <div class="tot">รวมคงเหลือใช้งานได้: <span style="color:#16A34A">${fmt(totalAct,2)} ${unit}</span>${total!==totalAct?` <span style="color:#94A3B8;font-size:12px;font-weight:400">(รวม depleted = ${fmt(total,2)} ${unit})</span>`:''}</div>
+  <table>
+    <thead><tr><th>#</th><th>การ์ด</th><th>ล็อต</th><th>โลเคชัน</th><th>Supplier</th><th>คงเหลือ</th><th>หน่วย</th><th>วันหมดอายุ</th><th>สถานะ</th></tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr><td colspan="5" style="text-align:right">รวมใช้งานได้ (${act.length} lot)</td><td class="num">${fmt(totalAct,2)}</td><td class="c">${unit}</td><td colspan="2"></td></tr></tfoot>
+  </table>
+  <scr`+`ipt>window.onload=function(){window.print();setTimeout(function(){window.close();},500);}</scr`+`ipt></body></html>`);
+  w.document.close();
+}
+
+function scRenderDetail(c,moves,sibs){
   const ov=document.getElementById('sc-detail');
+  // ยอดรวมทุก lot ของวัตถุดิบเดียวกัน (เฉพาะที่ยังไม่ depleted)
+  const _allCards=(sibs&&sibs.length)?sibs:((_scAll||[]).filter(x=>x.material_code===(c.material_code||'')));
+  const _actCards=_allCards.filter(x=>(x.status||'active')!=='depleted');
+  const _matTotal=_actCards.reduce((s,x)=>s+(+x.qty||0),0);
+  const _lotCount=_actCards.length||1;
   let rows=moves.map(mv=>'<tr style="border-bottom:1px solid #F1F5F9">'
     +'<td style="padding:6px;white-space:nowrap">'+(mv.created_at||'').slice(0,16).replace('T',' ')+'</td>'
     +'<td style="padding:6px">'+(_scMoveLabels[mv.type]||mv.type)+'</td>'
@@ -30774,7 +30868,8 @@ function scRenderDetail(c,moves){
         +'<div style="font-size:18px;font-weight:700;color:#1B3A5C">'+c.card_code+'</div>'
         +'<div style="font-size:15px;margin:2px 0 8px">'+(c.material_name||'')+' <span style="color:#94A3B8;font-size:12px">'+(c.material_code||'')+'</span></div>'
         +'<div style="display:flex;gap:18px;flex-wrap:wrap;font-size:13px">'
-          +'<div><div style="color:#94A3B8;font-size:11px">คงเหลือ</div><div style="font-size:20px;font-weight:700">'+(+c.qty||0)+' <span style="font-size:12px;font-weight:400">'+(c.unit||'')+'</span></div></div>'
+          +'<div><div style="color:#94A3B8;font-size:11px">คงเหลือ (lot นี้)</div><div style="font-size:20px;font-weight:700">'+(+c.qty||0)+' <span style="font-size:12px;font-weight:400">'+(c.unit||'')+'</span></div></div>'
+          +'<div style="border-left:2px solid #E2E8F0;padding-left:14px"><div style="color:#94A3B8;font-size:11px">รวมทุก lot ('+_lotCount+' lot)</div><div style="font-size:20px;font-weight:700;color:#16A34A">'+fmt(_matTotal,2)+' <span style="font-size:12px;font-weight:400">'+(c.unit||'')+'</span></div></div>'
           +'<div><div style="color:#94A3B8;font-size:11px">ล็อต</div><div>'+(c.lot_no||'—')+'</div></div>'
           +'<div><div style="color:#94A3B8;font-size:11px">โลเคชัน</div><div>📍 '+(c.location||'—')+(c.pallet_no?(' / '+c.pallet_no):'')+'</div></div>'
           +'<div><div style="color:#94A3B8;font-size:11px">วันหมดอายุ</div><div>'+scExpBadge(c.expiry_date)+'</div></div>'
@@ -30788,6 +30883,7 @@ function scRenderDetail(c,moves){
       +'<button class="btn btnS sm" onclick="scMove(\'adjust\')">⚖️ ปรับยอด</button>'
       +'<button class="btn btnS sm" onclick="scMove(\'move\')">🔀 ย้ายโลเคชัน</button>'
       +'<button class="btn btnS sm" onclick="scMove(\'count\')">🔢 นับสต็อก</button></div>'
+    +scSiblingLotsHTML(c,sibs)
     +'<div style="background:white;border:1px solid var(--border);border-radius:12px;overflow:hidden">'
       +'<div style="padding:10px 14px;font-weight:600;background:#F8FAFC;border-bottom:1px solid var(--border)">📜 ปูมการเคลื่อนไหว</div>'
       +'<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="text-align:left;color:#64748B">'
