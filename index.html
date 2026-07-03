@@ -15596,9 +15596,14 @@ function openPreviewWindow(htmlContent, title){
 // ════════════════════════════════════════════════════════════
 //  COPY BOM
 // ════════════════════════════════════════════════════════════
-function showCopyBOM(srcCode, srcType){
-  const fgOpts=(_prodData||[]).map(p=>`<option value="${p.sku}">[FG] ${p.sku} — ${p.name_th||p.name||''}</option>`).join('');
-  const wipOpts=(_cachedWIPs||window._cachedWIPs||[]).map(w=>`<option value="${w.code}">[WIP] ${w.code} — ${w.name||''}</option>`).join('');
+async function showCopyBOM(srcCode, srcType){
+  // FG ที่หน้า BOM โหลดไว้ใน window._cachedProds (ไม่ใช่ _prodData ซึ่งว่างบนหน้านี้)
+  let prods=(window._cachedProds&&window._cachedProds.length)?window._cachedProds:(_prodData||[]);
+  let wips=(window._cachedWIPs&&window._cachedWIPs.length)?window._cachedWIPs:[];
+  if(!prods.length){ try{ prods=await sbG('master_product',{s:'sku,name_en'}); window._cachedProds=prods; }catch(e){ console.warn('copyBOM prods:',e); } }
+  if(!wips.length){ try{ wips=await sbG('wip_master',{s:'code,name'}); window._cachedWIPs=wips; }catch(e){ console.warn('copyBOM wips:',e); } }
+  const fgOpts=(prods||[]).map(p=>`<option value="${p.sku}">[FG] ${p.sku} — ${p.name_en||p.name_th||p.name||''}</option>`).join('');
+  const wipOpts=(wips||[]).map(w=>`<option value="${w.code}">[WIP] ${w.code} — ${w.name||''}</option>`).join('');
   openMo(`📋 Copy BOM — ${srcCode}`,`
     <div style="background:rgba(27,94,199,.05);border:1px solid var(--accent);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px">
       <b>ต้นทาง:</b> <span style="color:var(--accent);font-family:monospace">${srcCode}</span>
