@@ -30792,6 +30792,30 @@ function scSiblingLotsHTML(c, sibs){
 }
 async function scPrintLotSummary(){
   const c=_scCur; if(!c){ alert('ไม่พบข้อมูลการ์ด'); return; }
+  const unit=c.unit||'kg';
+  openMo('🖨️ พิมพ์สรุปทุก Lot — '+(c.material_name||c.material_code||''), `
+    <div style="font-size:13px;color:#334155;margin-bottom:10px">ต้องการแปลงหน่วยเป็นบรรจุภัณฑ์ (ถัง/กระสอบ/ถุง) ในใบพิมพ์นี้ไหม? กรอกค่าแล้วกดพิมพ์ หรือข้ามไปพิมพ์แบบ ${unit} อย่างเดียว</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <div style="flex:1;min-width:150px"><label class="flbl">${unit} ต่อ 1 หน่วยบรรจุ</label>
+        <input type="number" id="sclp-size" class="fc2" placeholder="เช่น 180" step="any" min="0" style="width:100%"></div>
+      <div style="flex:1;min-width:150px"><label class="flbl">ชื่อหน่วยบรรจุ</label>
+        <input type="text" id="sclp-unit" class="fc2" value="ถัง" style="width:100%"></div>
+    </div>
+    <div style="font-size:11px;color:#94A3B8;margin-top:4px">เช่น 180 ${unit}/ถัง → 160 ${unit} ≈ 0.89 ถัง (ปัดตามจริง)</div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btnP" style="flex:1" onclick="scDoPrintLotSummary(true)">🖨️ พิมพ์พร้อมแปลงหน่วย</button>
+      <button class="btn btnS" onclick="scDoPrintLotSummary(false)">พิมพ์แบบ ${unit} อย่างเดียว</button>
+    </div>`);
+}
+async function scDoPrintLotSummary(withConv){
+  const c=_scCur; if(!c){ alert('ไม่พบข้อมูลการ์ด'); return; }
+  let packSize=0, packUnit='';
+  if(withConv){
+    packSize=parseFloat(document.getElementById('sclp-size')?.value)||0;
+    packUnit=(document.getElementById('sclp-unit')?.value||'หน่วย').trim()||'หน่วย';
+    if(packSize<=0){ alert('กรอกจำนวน '+(c.unit||'kg')+' ต่อ 1 หน่วยบรรจุก่อนครับ'); return; }
+  }
+  closeMo();
   const mat=c.material_code||'';
   let cards=await sbG('stock_cards',{f:['material_code=eq.'+encodeURIComponent(mat)]}).catch(()=>null);
   if(!cards||!cards.length) cards=(_scAll||[]).filter(x=>x.material_code===mat);
@@ -30802,20 +30826,26 @@ async function scPrintLotSummary(){
   const totalAct=act.reduce((s,x)=>s+(+x.qty||0),0);
   const total=cards.reduce((s,x)=>s+(+x.qty||0),0);
   const co=(typeof COMPANY_INFO!=='undefined'&&COMPANY_INFO.name)||'FitExpo';
+  const convHead = packSize?`<th>≈ ${packUnit}</th>`:'';
   const rows=cards.map((x,i)=>{
     const dep=(x.status||'active')==='depleted';
+    const q=+x.qty||0;
+    const convCell = packSize?`<td class="c">${fmt(q/packSize,2)}</td>`:'';
     return `<tr${dep?' style="color:#9CA3AF"':''}>
       <td class="c">${i+1}</td>
       <td class="mono">${x.card_code||''}</td>
       <td>${x.lot_no||'—'}</td>
       <td>${x.location||'—'}${x.pallet_no?(' / '+x.pallet_no):''}</td>
       <td>${x.supplier||'—'}</td>
-      <td class="num">${fmt(+x.qty||0,2)}</td>
+      <td class="num">${fmt(q,2)}</td>
       <td class="c">${unit}</td>
+      ${convCell}
       <td class="c">${x.expiry_date||'—'}</td>
       <td class="c">${x.status||'active'}</td>
     </tr>`;
   }).join('');
+  const convTotal = packSize?`<td class="c"><b>${fmt(totalAct/packSize,2)}</b></td>`:'';
+  const convNote = packSize?` · <span style="color:#0F766E">≈ ${fmt(totalAct/packSize,2)} ${packUnit}</span> <span style="color:#94A3B8;font-size:12px;font-weight:400">(${fmt(packSize,2)} ${unit}/${packUnit})</span>`:'';
   const w=window.open('','_blank');
   if(!w){ alert('เบราว์เซอร์บล็อก pop-up — อนุญาตก่อนครับ'); return; }
   w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>สรุปทุก Lot — ${mat}</title>
@@ -30832,16 +30862,15 @@ async function scPrintLotSummary(){
   <div class="co">${co}</div>
   <h1>สรุปสต็อกทุก Lot ต่อวัตถุดิบ</h1>
   <div class="sub">${c.material_name||''} <b>(${mat})</b> · ${cards.length} การ์ด · พิมพ์ ${new Date().toLocaleString('th-TH')}</div>
-  <div class="tot">รวมคงเหลือใช้งานได้: <span style="color:#16A34A">${fmt(totalAct,2)} ${unit}</span>${total!==totalAct?` <span style="color:#94A3B8;font-size:12px;font-weight:400">(รวม depleted = ${fmt(total,2)} ${unit})</span>`:''}</div>
+  <div class="tot">รวมคงเหลือใช้งานได้: <span style="color:#16A34A">${fmt(totalAct,2)} ${unit}</span>${convNote}${total!==totalAct?` <span style="color:#94A3B8;font-size:12px;font-weight:400">(รวม depleted = ${fmt(total,2)} ${unit})</span>`:''}</div>
   <table>
-    <thead><tr><th>#</th><th>การ์ด</th><th>ล็อต</th><th>โลเคชัน</th><th>Supplier</th><th>คงเหลือ</th><th>หน่วย</th><th>วันหมดอายุ</th><th>สถานะ</th></tr></thead>
+    <thead><tr><th>#</th><th>การ์ด</th><th>ล็อต</th><th>โลเคชัน</th><th>Supplier</th><th>คงเหลือ</th><th>หน่วย</th>${convHead}<th>วันหมดอายุ</th><th>สถานะ</th></tr></thead>
     <tbody>${rows}</tbody>
-    <tfoot><tr><td colspan="5" style="text-align:right">รวมใช้งานได้ (${act.length} lot)</td><td class="num">${fmt(totalAct,2)}</td><td class="c">${unit}</td><td colspan="2"></td></tr></tfoot>
+    <tfoot><tr><td colspan="5" style="text-align:right">รวมใช้งานได้ (${act.length} lot)</td><td class="num">${fmt(totalAct,2)}</td><td class="c">${unit}</td>${convTotal}<td colspan="2"></td></tr></tfoot>
   </table>
   <scr`+`ipt>window.onload=function(){window.print();setTimeout(function(){window.close();},500);}</scr`+`ipt></body></html>`);
   w.document.close();
 }
-
 function scRenderDetail(c,moves,sibs){
   const ov=document.getElementById('sc-detail');
   // ยอดรวมทุก lot ของวัตถุดิบเดียวกัน (เฉพาะที่ยังไม่ depleted)
