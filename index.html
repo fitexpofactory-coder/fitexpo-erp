@@ -4994,8 +4994,10 @@ async function taskOpenEditor(id, presetDue){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <div class="fgrp"><label class="flbl">สถานะ</label><select class="fc2" id="tk-status">${statusOpts}</select></div>
       <div class="fgrp"><label class="flbl">ความสำคัญ</label><select class="fc2" id="tk-prio">${prioOpts}</select></div>
-      <div class="fgrp"><label class="flbl">ผู้รับผิดชอบ</label><input class="fc2" id="tk-assignee" list="task-emp-dl" value="${esc(t.assignee)}" placeholder="เลือก/พิมพ์ชื่อพนักงาน">${taskEmpDatalist()}</div>
+      <div class="fgrp"><label class="flbl">ผู้รับผิดชอบ</label><input class="fc2" id="tk-assignee" list="task-emp-dl" value="${esc(t.assignee)}" placeholder="เลือก/พิมพ์ชื่อพนักงาน" oninput="taskAutoEmail()">${taskEmpDatalist()}</div>
       <div class="fgrp"><label class="flbl">กำหนดส่ง</label><input type="date" class="fc2" id="tk-due" value="${t.due_date||presetDue||''}"></div>
+      <div class="fgrp"><label class="flbl">📧 อีเมลผู้รับผิดชอบ</label><input class="fc2" id="tk-assignee-email" type="email" value="${esc(t.assignee_email)}" placeholder="เว้นว่างได้ (ดึงจากทะเบียนให้)"></div>
+      <div class="fgrp"><label class="flbl">👥 ผู้เกี่ยวข้อง (แจ้งอีเมลด้วย)</label><input class="fc2" id="tk-watchers" list="task-emp-dl" value="${esc(t.watchers)}" placeholder="ชื่อ หรือ อีเมล คั่นด้วย ,"></div>
     </div>
     <div class="fgrp"><label class="flbl">Tags (คั่นด้วย ,)</label><input class="fc2" id="tk-tags" value="${esc(t.tags)}" placeholder="เช่น เอกสาร, ด่วน"></div>
     <div class="fgrp"><label class="flbl">Checklist (งานย่อย)</label>
@@ -5038,6 +5040,8 @@ async function taskSave(){
     status:document.getElementById('tk-status').value,
     priority:document.getElementById('tk-prio').value,
     assignee:document.getElementById('tk-assignee').value.trim()||null,
+    assignee_email:document.getElementById('tk-assignee-email').value.trim()||null,
+    watchers:document.getElementById('tk-watchers').value.trim()||null,
     due_date:document.getElementById('tk-due').value||null,
     tags:document.getElementById('tk-tags').value.trim()||null,
     checklist:window._taskEditCL||[]
@@ -5076,6 +5080,12 @@ function taskEmpDatalist(){
 function _taskEmpEmail(name){
   const e=(_taskEmps||[]).find(x=>x.full_name===name);
   return e&&e.email?e.email:'';
+}
+function taskAutoEmail(){
+  const a=(document.getElementById('tk-assignee')?.value||'').trim();
+  const e=document.getElementById('tk-assignee-email');
+  if(!a||!e||e.value) return;
+  const em=_taskEmpEmail(a); if(em) e.value=em;
 }
 
 // ── สรุป/แจ้งเตือนงานใกล้ครบกำหนด ──
@@ -5266,7 +5276,14 @@ async function taskSendEmail(task, action){
   if(!s || !s.enabled || !s.emailjs_service_id || !s.emailjs_template_id || !s.emailjs_public_key) return;
   const recips=new Set();
   (s.notify_emails||'').split(',').map(x=>x.trim()).filter(Boolean).forEach(x=>recips.add(x));
-  if(s.notify_assignee!==false && task.assignee){ const em=_taskEmpEmail(task.assignee); if(em) recips.add(em); }
+  // ผู้รับผิดชอบ: ใช้อีเมลที่กรอกไว้ก่อน ไม่งั้นดึงจากทะเบียนพนักงาน
+  if(task.assignee_email){ recips.add(task.assignee_email); }
+  else if(s.notify_assignee!==false && task.assignee){ const em=_taskEmpEmail(task.assignee); if(em) recips.add(em); }
+  // ผู้เกี่ยวข้องที่ tag ไว้ (ชื่อ→อีเมลจากทะเบียน หรือใส่อีเมลตรงๆ)
+  if(task.watchers){ task.watchers.split(',').map(x=>x.trim()).filter(Boolean).forEach(w=>{
+    if(w.includes('@')) recips.add(w);
+    else { const em=_taskEmpEmail(w); if(em) recips.add(em); }
+  }); }
   if(!recips.size) return;
   const ok=await _emailjsReady(); if(!ok||!window.emailjs) return;
   const stLabel=(TASK_STATUSES.find(x=>x.key===(task.status||'todo'))||{}).label||task.status;
@@ -5278,6 +5295,7 @@ async function taskSendEmail(task, action){
       task_status:stLabel,
       task_assignee:task.assignee||'-',
       task_due:task.due_date||'-',
+      task_watchers:task.watchers||'-',
       task_link:link,
       message:`[${action}] งาน "${task.title}" · สถานะ: ${stLabel} · ผู้รับผิดชอบ: ${task.assignee||'-'} · กำหนดส่ง: ${task.due_date||'-'}`
     };
