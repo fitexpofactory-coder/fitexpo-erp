@@ -4938,11 +4938,12 @@ function taskCardHTML(t){
     .map(tg=>`<span style="background:#EEF2FF;color:#4338CA;border-radius:4px;padding:1px 6px;font-size:10px">${tg}</span>`).join(' ');
   const cl=_taskJSON(t.checklist); const done=cl.filter(c=>c.done).length;
   const clBadge=cl.length?`<span style="font-size:10px;color:#64748B">☑️ ${done}/${cl.length}</span>`:'';
+  const att=_taskJSON(t.attachments); const attBadge=att.length?`<span style="font-size:10px;color:#64748B">📎 ${att.length}</span>`:'';
   return `<div class="task-card" draggable="true" ondragstart="taskDrag(event,${t.id})" onclick="taskOpenEditor(${t.id})"
     style="background:#fff;border:1px solid #E2E8F0;border-left:3px solid ${pr.c};border-radius:8px;padding:8px 10px;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.04)">
     <div style="font-weight:600;font-size:13px;margin-bottom:4px;line-height:1.3">${t.title||'(ไม่มีชื่อ)'}</div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
-      <span style="font-size:10px;color:${pr.c};font-weight:700">${pr.e} ${pr.l}</span>${due?' '+due:''}${clBadge?' '+clBadge:''}
+      <span style="font-size:10px;color:${pr.c};font-weight:700">${pr.e} ${pr.l}</span>${due?' '+due:''}${clBadge?' '+clBadge:''}${attBadge?' '+attBadge:''}
     </div>
     ${tags?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:5px">${tags}</div>`:''}
     ${t.assignee?`<div style="margin-top:6px;font-size:11px;color:#475569">👤 ${t.assignee}</div>`:''}
@@ -5007,6 +5008,7 @@ async function taskOpenEditor(id, presetDue){
   await taskLoadEmps();
   const t = id ? (_tasks.find(x=>x.id===id)||{}) : {};
   window._taskEditCL=_taskJSON(t.checklist).map(c=>({text:c.text,done:!!c.done}));
+  window._taskEditAtt=_taskJSON(t.attachments).map(a=>({...a}));
   const esc=v=>String(v||'').replace(/"/g,'&quot;');
   const statusOpts=TASK_STATUSES.map(s=>`<option value="${s.key}" ${((t.status||'todo')===s.key)?'selected':''}>${s.label}</option>`).join('');
   const prioOpts=Object.entries(TASK_PRIO).map(([k,v])=>`<option value="${k}" ${((t.priority||'medium')===k)?'selected':''}>${v.e} ${v.l}</option>`).join('');
@@ -5030,6 +5032,19 @@ async function taskOpenEditor(id, presetDue){
         <button class="btn btnS sm" onclick="taskCLAdd()">+ เพิ่ม</button>
       </div>
     </div>
+    <div class="fgrp"><label class="flbl">📎 เอกสารแนบ (เอกสาร / รูปภาพ / อีเมล .eml — อัปโหลด หรือ วางลิงก์)</label>
+      <div id="tk-att"></div>
+      <div style="display:flex;gap:6px;margin-top:6px;align-items:center">
+        <input type="file" id="tk-att-file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.eml,.msg,.txt" style="font-size:12px;flex:1">
+        <button class="btn btnP sm" onclick="taskAttUpload()">⬆️ อัปโหลด</button>
+      </div>
+      <div id="tk-att-msg" style="font-size:11px;margin-top:2px"></div>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <input class="fc2" id="tk-att-name" placeholder="ชื่อ (ถ้าวางลิงก์)" style="width:130px">
+        <input class="fc2" id="tk-att-url" placeholder="หรือวางลิงก์เอกสาร/อีเมล" style="flex:1">
+        <button class="btn btnS sm" onclick="taskAttAdd()">+ ลิงก์</button>
+      </div>
+    </div>
     <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
       <button class="btn btnP" style="flex:1;min-width:120px" onclick="taskSave()">💾 บันทึก</button>
       ${id?`<button class="btn btnS" onclick="taskCopyLink(${id})">🔗 ลิงก์</button>`:''}
@@ -5037,6 +5052,7 @@ async function taskOpenEditor(id, presetDue){
     </div>
     <div id="tk-msg" style="margin-top:6px"></div>`);
   taskCLRender();
+  taskAttRender();
 }
 function taskCLRender(){
   const box=document.getElementById('tk-cl'); if(!box) return;
@@ -5053,6 +5069,42 @@ function taskCLAdd(){
   (window._taskEditCL=window._taskEditCL||[]).push({text:v,done:false});
   inp.value=''; taskCLRender(); inp.focus();
 }
+const TASK_BUCKET='task-files';
+function _taskIsImg(u){ return /\.(png|jpe?g|gif|webp|bmp|svg)(\?|$)/i.test(u||''); }
+function taskAttRender(){
+  const box=document.getElementById('tk-att'); if(!box) return;
+  const at=window._taskEditAtt||[];
+  box.innerHTML=at.length?at.map((a,i)=>`<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:3px 0;border-bottom:1px solid #F1F5F9">
+    ${_taskIsImg(a.url)?`<a href="${a.url}" target="_blank"><img src="${a.url}" style="width:34px;height:34px;object-fit:cover;border-radius:4px;border:1px solid #E2E8F0"></a>`:'<span style="font-size:18px">📄</span>'}
+    <a href="${a.url||'#'}" target="_blank" style="color:#2563EB;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.name||a.url||''}</a>
+    <button onclick="window._taskEditAtt.splice(${i},1);taskAttRender()" style="border:none;background:none;color:#DC2626;cursor:pointer">✕</button></div>`).join('')
+    :'<div style="font-size:12px;color:#94A3B8">ยังไม่มีเอกสารแนบ</div>';
+}
+function taskAttAdd(){
+  const n=document.getElementById('tk-att-name'), u=document.getElementById('tk-att-url');
+  const url=(u.value||'').trim(); if(!url){ alert('วางลิงก์ก่อนครับ'); return; }
+  (window._taskEditAtt=window._taskEditAtt||[]).push({name:(n.value||'').trim()||url,url});
+  n.value=''; u.value=''; taskAttRender();
+}
+async function taskAttUpload(){
+  const inp=document.getElementById('tk-att-file'); const f=inp&&inp.files&&inp.files[0];
+  if(!f){ alert('เลือกไฟล์ก่อนครับ'); return; }
+  if(f.size>15*1024*1024){ alert('ไฟล์ใหญ่เกิน 15MB'); return; }
+  const safe=f.name.replace(/[^\w.\-]/g,'_');
+  const path=Date.now()+'_'+safe;
+  const msg=document.getElementById('tk-att-msg'); if(msg) msg.innerHTML='<span class="spin"></span> กำลังอัปโหลด...';
+  try{
+    await axios.post(`${SB}/storage/v1/object/${TASK_BUCKET}/${encodeURIComponent(path)}`, f,
+      { headers:{ apikey:KEY, 'Authorization':'Bearer '+KEY, 'Content-Type':f.type||'application/octet-stream', 'x-upsert':'true' } });
+    const publicUrl=`${SB}/storage/v1/object/public/${TASK_BUCKET}/${encodeURIComponent(path)}`;
+    (window._taskEditAtt=window._taskEditAtt||[]).push({name:f.name,url:publicUrl});
+    taskAttRender(); inp.value='';
+    if(msg) msg.innerHTML='<span style="color:#16A34A">✅ อัปโหลดแล้ว (อย่าลืมกดบันทึก)</span>';
+  }catch(e){
+    const em=(e&&e.response&&e.response.data&&(e.response.data.message||e.response.data.error))||e.message||e;
+    if(msg) msg.innerHTML='<span style="color:#DC2626">❌ '+em+' — ตรวจว่าสร้าง bucket "task-files" (public) + policy แล้ว</span>';
+  }
+}
 async function taskSave(){
   const id=document.getElementById('tk-id').value;
   const title=document.getElementById('tk-title').value.trim();
@@ -5067,7 +5119,8 @@ async function taskSave(){
     watchers:document.getElementById('tk-watchers').value.trim()||null,
     due_date:document.getElementById('tk-due').value||null,
     tags:document.getElementById('tk-tags').value.trim()||null,
-    checklist:window._taskEditCL||[]
+    checklist:window._taskEditCL||[],
+    attachments:window._taskEditAtt||[]
   };
   data.done_at = (data.status==='done') ? new Date().toISOString() : null;
   msgEl('tk-msg','<span class="spin"></span> บันทึก...','i');
