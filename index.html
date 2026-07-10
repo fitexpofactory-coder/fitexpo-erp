@@ -610,6 +610,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
         <div class="rni" onclick="nav('wip-stock')" data-page="wip-stock">🏭 Stock WIP</div>
         <div class="rni" onclick="nav('fg')" data-page="fg">📦 Stock FG</div>
         <div class="rni" onclick="nav('stock-report')" data-page="stock-report">📊 Stock Report</div>
+        <div class="rni" onclick="nav('po')" data-page="po">🛒 ใบสั่งซื้อ (PO)</div>
         <div class="rns">Master Data</div>
         <div class="rni" onclick="nav('mat-mgr')" data-page="mat-mgr">🗂️ Raw Material & PK</div>
         <div class="rni" onclick="nav('prod-mgr')" data-page="prod-mgr">🏷️ Products</div>
@@ -711,6 +712,7 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
     <div class="kpi kr"><div class="kl">แจ้งเตือน</div><div class="kv" id="kv-al" style="color:var(--red)">—</div><div class="kd">Stock ต่ำ</div></div>
   </div>
   <div class="card mb4"><div class="ch"><div class="ct">✅ สรุปงาน (Tasks)</div><button class="btn btnS sm" onclick="nav('tasks')">เปิด Task Board →</button></div><div id="dash-tasks"><div style="color:var(--text3);font-size:13px;padding:6px">—</div></div></div>
+  <div class="card mb4"><div class="ch"><div class="ct">🚨 แจ้งเตือนสต็อกต่ำ / จัดซื้อ</div><button class="btn btnS sm" onclick="nav('po')">เปิดใบสั่งซื้อ →</button></div><div id="dash-lowstock"><div style="color:var(--text3);font-size:13px;padding:6px">—</div></div></div>
   <div class="g2 mb4">
     <div class="card"><div class="ch"><div class="ct">⚠️ แจ้งเตือน Stock</div></div><div id="dash-al"><div class="al ali">⏳ เชื่อมต่อ Supabase...</div></div></div>
     <div class="card"><div class="ch"><div class="ct">🛒 SO ล่าสุด</div></div><div id="dash-so"></div></div>
@@ -770,6 +772,25 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
     </div>
   </div>
   <div id="tasks-body"><div style="padding:40px;text-align:center;color:#94A3B8"><span class="spin"></span> กำลังโหลด...</div></div>
+</div>
+
+<div id="pg-po" class="pg">
+  <div class="card" style="margin-bottom:12px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <button class="btn btnP sm" onclick="poAutoGenerate()">🔄 สร้าง PO อัตโนมัติ (ของถึงจุดสั่งซื้อ)</button>
+      <button class="btn btnS sm" onclick="poOpenEditor()">+ สร้าง PO เอง</button>
+      <select id="po-status-f" class="fc2" style="width:150px" onchange="poRender()">
+        <option value="">ทุกสถานะ</option>
+        <option value="pending">🕐 รออนุมัติ</option><option value="approved">✅ อนุมัติแล้ว</option>
+        <option value="ordered">📦 สั่งซื้อแล้ว</option><option value="partial">🟣 รับบางส่วน</option><option value="received">📥 รับของแล้ว</option><option value="rejected">❌ ปฏิเสธ</option>
+      </select>
+      <button class="btn btnS sm" onclick="loadPO()">🔄</button>
+      <button class="btn btnS sm" onclick="poGRList()">🧾 ใบรับของ (GR)</button>
+      <button class="btn btnS sm" onclick="poSummary()">📊 สรุปยอดซื้อ</button>
+    </div>
+  </div>
+  <div id="po-lowstock"></div>
+  <div id="po-body"><div style="padding:40px;text-align:center;color:#94A3B8"><span class="spin"></span> กำลังโหลด...</div></div>
 </div>
 
 <div id="pg-rm" class="pg">
@@ -3398,7 +3419,7 @@ const RM={
     'hr-report','hr-employees','hr-holidays','hr-payroll','hr-payslip',
     'hr-diligence','stock-report','mat-trace']
 };
-Object.keys(RM).forEach(r=>{ if(!RM[r].includes('tasks')) RM[r].push('tasks'); });
+Object.keys(RM).forEach(r=>{ ['tasks','po'].forEach(p=>{ if(!RM[r].includes(p)) RM[r].push(p); }); });
 // ══════════════════════════════════════════════════
 //  SUPABASE HELPERS
 // ════════════════════════════════════════════════════════════
@@ -3532,6 +3553,7 @@ function showApp(){
   if(typeof scHandleDeepLink==='function') scHandleDeepLink();
   if(typeof taskInitBadge==='function') taskInitBadge();
   if(/task=\d+/.test(location.hash||'')) setTimeout(function(){ if(typeof taskOpenFromHash==='function') taskOpenFromHash(); }, 900);
+  if(/po=\d+/.test(location.hash||'')) setTimeout(function(){ if(typeof poOpenFromHash==='function') poOpenFromHash(); }, 900);
   const rm2={admin:'👑 Admin',production:'🔧 Production',sales:'📊 Sales',qc:'🔍 QC'};
   const rc={admin:'ra',production:'rp',sales:'rs',qc:'rq'};
   document.getElementById('ub-av').textContent=CU.full_name.slice(0,1);
@@ -3576,7 +3598,7 @@ async function logA(action,module,detail,ref=''){
 // ════════════════════════════════════════════════════════════
 //  HELPERS
 // ════════════════════════════════════════════════════════════
-const META={dashboard:['Dashboard','System Overview'],tasks:['Tasks','จัดการงาน (Task Board)'],rm:['Stock RM & PK',''],
+const META={dashboard:['Dashboard','System Overview'],tasks:['Tasks','จัดการงาน (Task Board)'],po:['ใบสั่งซื้อ (PO)','Purchase Order + แจ้งเตือนสต็อกต่ำ'],rm:['Stock RM & PK',''],
   stockcard:['Stock Card (QR)','บัตรสต็อกล็อต/พาเลท + QR'],
   'wip-stock':['Stock WIP',''],'fg':['Stock FG',''],
   'bom-mgr':['จัดการ BOM','เพิ่ม/แก้ไข/ลบ BOM ต่อ SKU + WIP'],
@@ -3640,7 +3662,7 @@ function nav(id){
 }
 
 function loadPage(id){
-  const fn={dashboard:loadDash,tasks:loadTasks,rm:loadRM,'wip-stock':loadWIPStock,fg:loadFG,
+  const fn={dashboard:loadDash,tasks:loadTasks,po:loadPO,rm:loadRM,'wip-stock':loadWIPStock,fg:loadFG,
     'bom-mgr':loadBOMMgr,production:loadProduction,'prod-plan':loadProdPlan,'wip-prod':loadWIPProd,
     'print-docs':loadPrintDocs,so:loadSO,
     'mat-mgr':loadMatMgr,'prod-mgr':loadProdMgr,'wip-mgr':loadWIPMgr,
@@ -3743,6 +3765,7 @@ const avFG=d=>Number(d.qty_in||0)-Number(d.qty_sold||0);
 async function loadDash(){
   const spin='<span class="spin"></span>';
   if(typeof taskDashSummary==='function') taskDashSummary();
+  if(typeof dashLowStock==='function') dashLowStock();
   ['kv-rm','kv-wip','kv-so','kv-al'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='...'});
   const alEl=document.getElementById('dash-al');
   if(alEl)alEl.innerHTML=`<div class="al ali">${spin} Loading...</div>`;
@@ -5105,6 +5128,29 @@ function taskUpdateBadge(){
     b.style.cssText='background:#DC2626;color:#fff;border-radius:9px;padding:0 6px;font-size:10px;margin-left:5px;font-weight:700'; btn.appendChild(b); }
   if(n>0){ b.textContent=n; b.style.display='inline-block'; } else { b.style.display='none'; }
 }
+async function dashLowStock(){
+  const box=document.getElementById('dash-lowstock'); if(!box) return;
+  try{
+    const [mats,smat,prods,sprod,pos]=await Promise.all([
+      sbG('master_material',{s:'code,stock_min'}).catch(()=>[]),
+      sbG('stock_material',{s:'code,balance_opening,qty_in,qty_out'}).catch(()=>[]),
+      sbG('master_product',{s:'sku,stock_unit,stock_min'}).catch(()=>[]),
+      sbG('stock_product',{s:'sku,qty_in,qty_sold'}).catch(()=>[]),
+      sbG('purchase_orders',{s:'id,status'}).catch(()=>null)
+    ]);
+    const smMap={}; smat.forEach(s=>smMap[s.code]=s);
+    const lowRM=mats.filter(m=>{ const s=smMap[m.code]||{}; const bal=(+s.balance_opening||0)+(+s.qty_in||0)-(+s.qty_out||0); return (+m.stock_min||0)>0 && bal<=(+m.stock_min||0); }).length;
+    const spMap={}; sprod.forEach(s=>spMap[s.sku]=s);
+    const lowFG=prods.filter(p=>{ const s=spMap[p.sku]||{}; const bal=(+s.qty_in||0)-(+s.qty_sold||0); const isPcs=/pcs|ชิ้น|กระปุก|ใบ|จุก|ซอง|กล่อง|box|piece/i.test(p.stock_unit||''); const thr=isPcs?Math.max(1000,+p.stock_min||0):(+p.stock_min||0); return thr>0 && bal<thr; }).length;
+    const pendPO=(pos===null)?-1:(pos||[]).filter(p=>p.status==='pending').length;
+    const kpi=(label,val,color)=>`<div onclick="nav('po')" style="flex:1;min-width:110px;background:#F8FAFC;border-radius:8px;padding:10px;text-align:center;cursor:pointer"><div style="font-size:24px;font-weight:800;color:${val>0?color:'#16A34A'}">${val<0?'—':val}</div><div style="font-size:12px;color:#64748B">${label}</div></div>`;
+    box.innerHTML=`<div style="display:flex;gap:10px;flex-wrap:wrap">
+      ${kpi('🧱 RM/PK ถึงจุดสั่งซื้อ',lowRM,'#DC2626')}
+      ${kpi('📦 FG ต่ำกว่า 1,000',lowFG,'#EA580C')}
+      ${kpi('🛒 PO รออนุมัติ',pendPO,'#D97706')}
+    </div>${(lowRM>0)?`<button class="btn btnP sm" style="margin-top:8px" onclick="nav('po')">🔄 ไปออก PO ให้ของที่ถึงจุดสั่งซื้อ</button>`:''}`;
+  }catch(e){ box.innerHTML='<div style="color:#94A3B8;font-size:12px;padding:6px">โหลดสรุปสต็อกไม่ได้</div>'; }
+}
 async function taskDashSummary(){
   const box=document.getElementById('dash-tasks'); if(!box) return;
   try{
@@ -5309,6 +5355,584 @@ async function taskTestEmail(){
   msgEl('tset-msg','<span class="spin"></span> กำลังส่งทดสอบ...','i');
   try{ await taskSendEmail(demo,'ทดสอบ'); msgEl('tset-msg','✅ สั่งส่งแล้ว (ตรวจกล่องอีเมล) — ถ้าไม่เข้า ตรวจค่า EmailJS','s'); }
   catch(e){ msgEl('tset-msg','❌ '+(e.message||e),'e'); }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PURCHASE ORDER (PO) — ออกอัตโนมัติเมื่อสต็อกถึงจุดสั่งซื้อ + อนุมัติ/แก้ไข
+// ═══════════════════════════════════════════════════════════
+let _pos=[], _poLow=null, _poMats=[];
+const PO_SQL=`create table if not exists purchase_orders (
+  id bigserial primary key,
+  po_no text,
+  supplier text,
+  status text default 'pending',      -- pending|approved|ordered|received|rejected
+  items jsonb default '[]'::jsonb,     -- [{code,name,unit,qty,price,amount}]
+  total numeric default 0,
+  note text,
+  created_by text, created_at timestamptz default now(),
+  approved_by text, approved_at timestamptz,
+  updated_at timestamptz default now()
+);
+alter table purchase_orders enable row level security;
+drop policy if exists "po_all" on purchase_orders;
+create policy "po_all" on purchase_orders for all using (true) with check (true);`;
+function _poJSON(x){ try{ return typeof x==='string'?JSON.parse(x):(Array.isArray(x)?x:[]); }catch(e){ return []; } }
+const PO_ST={pending:{t:'รออนุมัติ',c:'#D97706'},approved:{t:'อนุมัติแล้ว',c:'#16A34A'},ordered:{t:'สั่งซื้อแล้ว',c:'#2563EB'},partial:{t:'รับบางส่วน',c:'#7C3AED'},received:{t:'รับของแล้ว',c:'#0F766E'},rejected:{t:'ปฏิเสธ',c:'#DC2626'}};
+function poStatusText(s){ return (PO_ST[s]||{}).t||s||''; }
+function poStatusBadge(s){ const x=PO_ST[s]||{c:'#64748B',t:s}; return `<span style="background:${x.c};color:#fff;border-radius:5px;padding:1px 8px;font-size:11px">${x.t}</span>`; }
+
+async function loadPO(){
+  const body=document.getElementById('po-body'); if(!body) return;
+  body.innerHTML='<div style="padding:40px;text-align:center;color:#94A3B8"><span class="spin"></span> กำลังโหลด...</div>';
+  try{ _pos=await sbG('purchase_orders',{ord:'created_at.desc',lim:1000}); }
+  catch(e){
+    document.getElementById('po-lowstock').innerHTML='';
+    body.innerHTML=`<div class="card" style="padding:24px;text-align:center;max-width:520px;margin:0 auto">
+      <div style="font-size:15px;font-weight:700;color:#DC2626;margin-bottom:8px">⚠️ ยังไม่ได้สร้างตาราง <code>purchase_orders</code></div>
+      <button class="btn btnP" onclick="poShowSQL()">🗄️ ดู / คัดลอก SQL</button>
+      <div style="font-size:11px;color:#94A3B8;margin-top:10px">(${(e&&e.message)||e})</div></div>`;
+    return;
+  }
+  poRenderLowStock();
+  poLoadSuppliers();
+  poRender();
+}
+function poShowSQL(){
+  openMo('🗄️ SQL สร้างตาราง purchase_orders',
+    `<pre style="background:#0F172A;color:#E2E8F0;padding:12px;border-radius:8px;font-size:11px;overflow:auto;white-space:pre-wrap;max-height:340px">${PO_SQL.replace(/</g,'&lt;')}</pre>
+     <button class="btn btnP" style="width:100%;margin-top:8px" onclick="navigator.clipboard.writeText(PO_SQL).then(()=>alert('คัดลอกแล้ว'))">📋 คัดลอก SQL</button>`);
+}
+async function poLoadMats(){
+  if(_poMats.length) return _poMats;
+  _poMats=await sbG('master_material',{s:'code,name,unit,price_per_unit,supplier'}).catch(()=>[]);
+  return _poMats;
+}
+let _poSupps=[];
+async function poLoadSuppliers(){
+  if(_poSupps.length) return _poSupps;
+  _poSupps=await sbG('suppliers',{ord:'code.asc'}).catch(()=>[]);
+  return _poSupps;
+}
+function _poFindSupplier(name){
+  if(!name) return null;
+  const n=String(name).trim().toLowerCase();
+  return (_poSupps||[]).find(s=>String(s.name||'').trim().toLowerCase()===n) ||
+         (_poSupps||[]).find(s=>String(s.code||'').trim().toLowerCase()===n) || null;
+}
+// ราคาซื้อล่าสุดต่อวัตถุดิบ (จากประวัติ PO ที่ผ่านมา)
+function _poLastPrice(code){
+  if(!code) return null;
+  const hist=[];
+  (_pos||[]).forEach(p=>{ _poJSON(p.items).forEach(it=>{ if(it.code===code && +it.price>0) hist.push({price:+it.price,date:p.created_at||'',po_no:p.po_no||'',supplier:p.supplier||'',qty:+it.qty||0}); }); });
+  hist.sort((a,b)=>(a.date<b.date?1:-1));
+  return hist.length?hist[0]:null;
+}
+function poPriceHistory(code){
+  const rows=[];
+  (_pos||[]).forEach(p=>{ _poJSON(p.items).forEach(it=>{ if(it.code===code && +it.price>0) rows.push({date:(p.created_at||'').slice(0,10),po_no:p.po_no||'',supplier:p.supplier||'',qty:+it.qty||0,price:+it.price||0}); }); });
+  rows.sort((a,b)=>(a.date<b.date?1:-1));
+  const body=rows.length?`<table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr style="background:#F1F5F9"><th style="padding:4px">วันที่</th><th>PO</th><th>ผู้ขาย</th><th style="text-align:right">จำนวน</th><th style="text-align:right">ราคา/หน่วย</th></tr></thead>
+    <tbody>${rows.map(r=>`<tr><td style="padding:3px 6px">${r.date}</td><td class="mono" style="font-family:monospace">${r.po_no}</td><td>${r.supplier}</td><td style="text-align:right">${fmt(r.qty,2)}</td><td style="text-align:right;font-family:monospace">${fmt(r.price,2)}</td></tr>`).join('')}</tbody></table>`
+    :'<div style="color:#94A3B8;padding:10px">ยังไม่มีประวัติการซื้อ</div>';
+  openMo('📈 ประวัติราคาซื้อ — '+code, body);
+}
+function poSupDatalist(){
+  const sups=[...new Set((_poMats||[]).map(m=>m.supplier).filter(Boolean))].sort();
+  return `<datalist id="po-sup-dl">${sups.map(s=>`<option value="${(s||'').replace(/"/g,'&quot;')}">`).join('')}</datalist>`;
+}
+function poMatDatalist(){
+  return `<datalist id="po-mat-dl">${(_poMats||[]).map(m=>`<option value="${m.code}">${(m.name||'').replace(/"/g,'&quot;')}</option>`).join('')}</datalist>`;
+}
+
+// ── ตรวจสต็อกต่ำ: RM/PK ≤ ขั้นต่ำ, FG < 1000 ชิ้น ──
+async function poRenderLowStock(){
+  const box=document.getElementById('po-lowstock'); if(!box) return;
+  try{
+    const [mats,smat,prods,sprod]=await Promise.all([
+      sbG('master_material',{s:'code,name,unit,category,stock_min,supplier,price_per_unit'}).catch(()=>[]),
+      sbG('stock_material',{s:'code,balance_opening,qty_in,qty_out'}).catch(()=>[]),
+      sbG('master_product',{s:'sku,name_en,stock_unit,stock_min'}).catch(()=>[]),
+      sbG('stock_product',{s:'sku,qty_in,qty_sold'}).catch(()=>[])
+    ]);
+    const smMap={}; smat.forEach(s=>smMap[s.code]=s);
+    const lowRM=mats.map(m=>{ const s=smMap[m.code]||{}; const bal=(+s.balance_opening||0)+(+s.qty_in||0)-(+s.qty_out||0); return {...m,bal,min:+m.stock_min||0}; })
+      .filter(m=>m.min>0 && m.bal<=m.min).sort((a,b)=>(a.bal-a.min)-(b.bal-b.min));
+    const spMap={}; sprod.forEach(s=>spMap[s.sku]=s);
+    const lowFG=prods.map(p=>{ const s=spMap[p.sku]||{}; const bal=(+s.qty_in||0)-(+s.qty_sold||0);
+      const isPcs=/pcs|ชิ้น|กระปุก|ใบ|จุก|ซอง|กล่อง|box|piece/i.test(p.stock_unit||'');
+      const thr=isPcs?Math.max(1000,+p.stock_min||0):(+p.stock_min||0);
+      return {...p,bal,thr,isPcs}; }).filter(p=>p.thr>0 && p.bal<p.thr).sort((a,b)=>a.bal-b.bal);
+    _poLow={lowRM,lowFG};
+    box.innerHTML=poLowStockHTML(lowRM,lowFG);
+  }catch(e){ box.innerHTML=''; }
+}
+function poLowStockHTML(lowRM,lowFG){
+  const rmRows=lowRM.slice(0,50).map(m=>`<tr>
+    <td class="mono">${m.code}</td><td>${m.name||''}</td>
+    <td style="text-align:right;color:#DC2626;font-weight:700">${fmt(m.bal,2)}</td>
+    <td style="text-align:right">${fmt(m.min,2)}</td><td>${m.unit||''}</td><td>${m.supplier||'—'}</td></tr>`).join('');
+  const fgRows=lowFG.slice(0,50).map(p=>`<tr>
+    <td class="mono">${p.sku}</td><td>${p.name_en||''}</td>
+    <td style="text-align:right;color:#DC2626;font-weight:700">${fmt(p.bal,0)}</td>
+    <td style="text-align:right">${fmt(p.thr,0)}</td><td>${p.stock_unit||''}</td></tr>`).join('');
+  const style=`<style>#po-lowstock table{border-collapse:collapse;width:100%;font-size:12px}#po-lowstock th,#po-lowstock td{border:1px solid #E2E8F0;padding:3px 7px}#po-lowstock th{background:#F1F5F9}#po-lowstock .mono{font-family:monospace}</style>`;
+  return style+`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+    <div class="card">
+      <div style="font-weight:700;color:#B91C1C;margin-bottom:6px">🧱 วัตถุดิบ/วัสดุถึงจุดสั่งซื้อ (${lowRM.length})</div>
+      ${lowRM.length?`<div style="max-height:260px;overflow:auto"><table><thead><tr><th>รหัส</th><th>ชื่อ</th><th>คงเหลือ</th><th>ขั้นต่ำ</th><th>หน่วย</th><th>Supplier</th></tr></thead><tbody>${rmRows}</tbody></table></div>
+      <button class="btn btnP sm" style="margin-top:8px" onclick="poAutoGenerate()">🔄 ออก PO ให้รายการเหล่านี้</button>`:'<div style="color:#16A34A;font-size:13px">✅ ไม่มีของถึงจุดสั่งซื้อ</div>'}
+    </div>
+    <div class="card">
+      <div style="font-weight:700;color:#B45309;margin-bottom:6px">📦 สินค้า (FG) สต็อกต่ำ (${lowFG.length})</div>
+      ${lowFG.length?`<div style="max-height:260px;overflow:auto"><table><thead><tr><th>SKU</th><th>สินค้า</th><th>คงเหลือ</th><th>เกณฑ์</th><th>หน่วย</th></tr></thead><tbody>${fgRows}</tbody></table></div>
+      <div style="font-size:11px;color:#94A3B8;margin-top:4px">เกณฑ์ = 1,000 ชิ้น (หรือขั้นต่ำที่ตั้งไว้ถ้าสูงกว่า)</div>`:'<div style="color:#16A34A;font-size:13px">✅ ไม่มีสินค้าต่ำกว่าเกณฑ์</div>'}
+    </div>
+  </div>`;
+}
+
+// ── ออก PO อัตโนมัติ (แยกตาม Supplier, สถานะรออนุมัติ) ──
+async function poAutoGenerate(){
+  await poRenderLowStock();
+  const low=(_poLow&&_poLow.lowRM)||[];
+  if(!low.length){ alert('ไม่มีวัตถุดิบ/วัสดุที่ถึงจุดสั่งซื้อ'); return; }
+  const bySup={}; low.forEach(m=>{ const sup=m.supplier||'ไม่ระบุ Supplier'; (bySup[sup]=bySup[sup]||[]).push(m); });
+  const sups=Object.keys(bySup);
+  if(!confirm(`พบ ${low.length} รายการถึงจุดสั่งซื้อ จาก ${sups.length} ผู้ขาย\nสร้างใบ PO (สถานะ "รออนุมัติ") ${sups.length} ใบ?\n\n*จำนวนสั่งเป็นค่าแนะนำ แก้ไขได้ก่อนอนุมัติ`)) return;
+  let created=0;
+  for(const sup of sups){
+    const items=bySup[sup].map(m=>{ const orderQty=Math.max((m.min*2)-m.bal, m.min); const q=Math.ceil(orderQty); const price=+m.price_per_unit||0; return {code:m.code,name:m.name||'',unit:m.unit||'',qty:q,price,amount:q*price}; });
+    const total=items.reduce((s,i)=>s+i.amount,0);
+    try{ await sbP('purchase_orders',{po_no:await poNextNo(),supplier:sup,status:'pending',items,total,note:'สร้างอัตโนมัติจากสต็อกถึงจุดสั่งซื้อ',created_by:(CU&&CU.full_name)||'system'}); created++; }
+    catch(e){ console.warn('po create',e); }
+  }
+  await logA('CREATE','po',`ออก PO อัตโนมัติ ${created} ใบ`);
+  if(created) poNotifySummary(created);
+  alert(`✅ สร้าง PO รออนุมัติ ${created} ใบแล้ว — ตรวจสอบ/แก้ไขก่อนอนุมัติได้`);
+  loadPO();
+}
+async function poNextNo(){
+  const d=new Date(); const ym=d.getFullYear()+String(d.getMonth()+1).padStart(2,'0');
+  return `PO-${ym}-${Math.floor(1000+Math.random()*9000)}`;
+}
+// ── แจ้งเตือน PO รออนุมัติทางอีเมล (ใช้ค่า EmailJS จากตั้งค่า Task) ──
+function poDeepLink(id){ return location.href.split('#')[0]+'#po='+id; }
+async function _poEmailReady(){
+  if(typeof taskLoadSettings==='function' && !_taskSettings) await taskLoadSettings();
+  const s=_taskSettings;
+  if(!s||!s.enabled||!s.emailjs_service_id||!s.emailjs_template_id||!s.emailjs_public_key) return null;
+  const recips=(s.notify_emails||'').split(',').map(x=>x.trim()).filter(Boolean);
+  if(!recips.length) return null;
+  if(typeof _emailjsReady==='function'){ const ok=await _emailjsReady(); if(!ok||!window.emailjs) return null; }
+  return {s,recips};
+}
+async function poNotifyEmail(po){
+  const e=await _poEmailReady(); if(!e||!po) return;
+  const items=_poJSON(po.items);
+  for(const to of e.recips){
+    const params={to_email:to, task_title:`ใบสั่งซื้อ ${po.po_no||''} (${po.supplier||'-'})`, task_status:'รออนุมัติ',
+      task_assignee:po.created_by||'-', task_due:'-', task_watchers:'-', task_link:poDeepLink(po.id),
+      message:`มีใบสั่งซื้อรออนุมัติ: ${po.po_no||''} · ผู้ขาย ${po.supplier||'-'} · ${items.length} รายการ · รวม ${thb(po.total||0)}`};
+    try{ await window.emailjs.send(e.s.emailjs_service_id,e.s.emailjs_template_id,params,{publicKey:e.s.emailjs_public_key}); }catch(err){ console.warn('po email',err); }
+  }
+}
+async function poNotifySummary(count){
+  const e=await _poEmailReady(); if(!e||!count) return;
+  const link=location.href.split('#')[0]+'#po';
+  for(const to of e.recips){
+    const params={to_email:to, task_title:`มีใบสั่งซื้อรออนุมัติ ${count} ใบ`, task_status:'รออนุมัติ',
+      task_assignee:'-', task_due:'-', task_watchers:'-', task_link:link,
+      message:`ระบบออกใบสั่งซื้ออัตโนมัติ ${count} ใบ จากสต็อกถึงจุดสั่งซื้อ กรุณาตรวจสอบและอนุมัติ`};
+    try{ await window.emailjs.send(e.s.emailjs_service_id,e.s.emailjs_template_id,params,{publicKey:e.s.emailjs_public_key}); }catch(err){}
+  }
+}
+function poOpenFromHash(){
+  const mh=(location.hash||'').match(/po=(\d+)/);
+  nav('po');
+  if(mh){ const id=parseInt(mh[1],10);
+    setTimeout(()=>{ if(_pos.find(x=>x.id===id)) poOpenEditor(id); else loadPO().then(()=>setTimeout(()=>poOpenEditor(id),500)); },500);
+  }
+}
+window.addEventListener('hashchange',()=>{ if(/po=\d+/.test(location.hash||'')) poOpenFromHash(); });
+
+function poRender(){
+  const body=document.getElementById('po-body'); if(!body) return;
+  const f=document.getElementById('po-status-f')?.value||'';
+  const list=_pos.filter(p=>!f||p.status===f);
+  if(!list.length){ body.innerHTML='<div style="padding:24px;text-align:center;color:#94A3B8">ยังไม่มีใบสั่งซื้อ</div>'; return; }
+  body.innerHTML=list.map(p=>{
+    const items=_poJSON(p.items);
+    return `<div class="card" style="margin-bottom:8px;cursor:pointer" onclick="poOpenEditor(${p.id})">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+        <div><b style="font-family:monospace">${p.po_no||''}</b> · ${p.supplier||'-'} &nbsp;${poStatusBadge(p.status)}
+          ${p.approved_by?`<span style="font-size:11px;color:#64748B">· อนุมัติโดย ${p.approved_by}</span>`:''}</div>
+        <div style="text-align:right"><b>${thb(p.total||0)}</b><div style="font-size:11px;color:#64748B">${items.length} รายการ · ${(p.created_at||'').slice(0,10)}</div></div>
+      </div></div>`;
+  }).join('');
+}
+
+async function poOpenEditor(id){
+  await poLoadMats();
+  poLoadSuppliers();
+  const po = id ? (_pos.find(x=>x.id===id)||{}) : {status:'pending',supplier:'',items:[],note:''};
+  window._poEdit={id:id||null,status:po.status||'pending'};
+  window._poEditItems=_poJSON(po.items).map(it=>({...it}));
+  window._poEditAtt=_poJSON(po.attachments).map(a=>({...a}));
+  const esc=v=>String(v==null?'':v).replace(/"/g,'&quot;');
+  openMo((id?('🛒 PO '+(po.po_no||'')):'🛒 สร้าง PO ใหม่'),`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="fgrp"><label class="flbl">Supplier</label><input class="fc2" id="po-sup" list="po-sup-dl" value="${esc(po.supplier)}" placeholder="ชื่อผู้ขาย">${poSupDatalist()}</div>
+      <div class="fgrp"><label class="flbl">สถานะ</label><input class="fc2" value="${poStatusText(po.status)}" disabled></div>
+    </div>
+    <div class="fgrp"><label class="flbl">รายการสั่งซื้อ</label><div id="po-items"></div>
+      <button class="btn btnS sm" style="margin-top:6px" onclick="poAddItem()">+ เพิ่มรายการ</button></div>
+    <div class="fgrp"><label class="flbl">หมายเหตุ</label><textarea class="fc2" id="po-note" rows="2">${po.note||''}</textarea></div>
+    <div class="fgrp"><label class="flbl">📎 เอกสารแนบ (ใบเสนอราคา/ใบส่งของ — อัปโหลดไฟล์ หรือ วางลิงก์)</label>
+      <div id="po-att"></div>
+      <div style="display:flex;gap:6px;margin-top:6px;align-items:center">
+        <input type="file" id="po-att-file" style="font-size:12px;flex:1">
+        <button class="btn btnP sm" onclick="poAttUpload()">⬆️ อัปโหลดไฟล์</button>
+      </div>
+      <div id="po-att-msg" style="font-size:11px;margin-top:2px"></div>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <input class="fc2" id="po-att-name" placeholder="ชื่อเอกสาร (ถ้าวางลิงก์)" style="width:150px">
+        <input class="fc2" id="po-att-url" placeholder="หรือวางลิงก์ (Google Drive/PDF)" style="flex:1">
+        <button class="btn btnS sm" onclick="poAttAdd()">+ ลิงก์</button>
+      </div>
+    </div>
+    <div id="po-total" style="text-align:right;font-weight:700;margin:6px 0"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btnP" onclick="poSave()">💾 บันทึก</button>
+      ${id&&po.status==='pending'?`<button class="btn" style="background:#16A34A;color:#fff" onclick="poApprove(${id})">✅ อนุมัติ</button>`:''}
+      ${id&&po.status==='pending'?`<button class="btn btnD" onclick="poReject(${id})">❌ ปฏิเสธ</button>`:''}
+      ${id&&po.status==='approved'?`<button class="btn" style="background:#2563EB;color:#fff" onclick="poSetStatus(${id},'ordered')">📦 สั่งซื้อแล้ว</button>`:''}
+      ${id&&(po.status==='ordered'||po.status==='partial')?`<button class="btn" style="background:#0F766E;color:#fff" onclick="poReceiveModal(${id})">📥 รับของ (บางส่วน/ทั้งหมด)</button>`:''}
+      ${id?`<button class="btn btnS" onclick="poPrintDoc(${id})">🖨️ พิมพ์</button>`:''}
+      ${id?`<button class="btn btnD" onclick="poDelete(${id})">🗑 ลบ</button>`:''}
+    </div>
+    <div id="po-msg" style="margin-top:6px"></div>`);
+  poRenderItems();
+  poAttRender();
+}
+function poAttRender(){
+  const box=document.getElementById('po-att'); if(!box) return;
+  const at=window._poEditAtt||[];
+  box.innerHTML=at.length?at.map((a,i)=>`<div style="display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0">
+    📎 <a href="${a.url||'#'}" target="_blank" style="color:#2563EB;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.name||a.url||''}</a>
+    <button onclick="window._poEditAtt.splice(${i},1);poAttRender()" style="border:none;background:none;color:#DC2626;cursor:pointer">✕</button></div>`).join('')
+    :'<div style="font-size:12px;color:#94A3B8">ยังไม่มีเอกสารแนบ</div>';
+}
+function poAttAdd(){
+  const n=document.getElementById('po-att-name'), u=document.getElementById('po-att-url');
+  const url=(u.value||'').trim(); if(!url){ alert('วางลิงก์เอกสารก่อนครับ'); return; }
+  (window._poEditAtt=window._poEditAtt||[]).push({name:(n.value||'').trim()||url,url});
+  n.value=''; u.value=''; poAttRender();
+}
+const PO_BUCKET='po-files';
+async function poAttUpload(){
+  const inp=document.getElementById('po-att-file'); const f=inp&&inp.files&&inp.files[0];
+  if(!f){ alert('เลือกไฟล์ก่อนครับ'); return; }
+  if(f.size>15*1024*1024){ alert('ไฟล์ใหญ่เกิน 15MB'); return; }
+  const safe=f.name.replace(/[^\w.\-]/g,'_');
+  const path=Date.now()+'_'+safe;
+  const msg=document.getElementById('po-att-msg'); if(msg) msg.innerHTML='<span class="spin"></span> กำลังอัปโหลด...';
+  try{
+    await axios.post(`${SB}/storage/v1/object/${PO_BUCKET}/${encodeURIComponent(path)}`, f,
+      { headers:{ apikey:KEY, 'Authorization':'Bearer '+KEY, 'Content-Type':f.type||'application/octet-stream', 'x-upsert':'true' } });
+    const publicUrl=`${SB}/storage/v1/object/public/${PO_BUCKET}/${encodeURIComponent(path)}`;
+    (window._poEditAtt=window._poEditAtt||[]).push({name:f.name,url:publicUrl});
+    poAttRender(); inp.value='';
+    if(msg) msg.innerHTML='<span style="color:#16A34A">✅ อัปโหลดแล้ว (อย่าลืมกดบันทึก PO)</span>';
+  }catch(e){
+    const em=(e&&e.response&&e.response.data&&(e.response.data.message||e.response.data.error))||e.message||e;
+    if(msg) msg.innerHTML='<span style="color:#DC2626">❌ '+em+' — ตรวจว่าสร้าง bucket "po-files" (public) + policy แล้ว (ดู SQL ในไฟล์)</span>';
+  }
+}
+function poRenderItems(){
+  const box=document.getElementById('po-items'); if(!box) return;
+  const its=window._poEditItems||[];
+  box.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr style="background:#F1F5F9"><th style="padding:3px">รหัส</th><th>ชื่อ</th><th style="width:66px">จำนวน</th><th style="width:48px">หน่วย</th><th style="width:78px">ราคา/หน่วย</th><th style="width:82px">ซื้อล่าสุด</th><th style="width:86px">รวม</th><th></th></tr></thead>
+    <tbody>${its.map((it,i)=>{
+      const lp=_poLastPrice(it.code);
+      const lpCell=lp?`<span onclick="poPriceHistory('${(it.code||'').replace(/'/g,"\\'")}')" title="ดูประวัติราคา" style="cursor:pointer;color:#2563EB;font-family:monospace">${fmt(lp.price,2)}</span>`:'<span style="color:#CBD5E1">—</span>';
+      return `<tr>
+      <td><input class="fc2" style="width:110px;font-family:monospace;font-size:11px" list="po-mat-dl" value="${(it.code||'').replace(/"/g,'&quot;')}" onchange="poItemCode(${i},this.value)"></td>
+      <td><input class="fc2" style="width:100%;min-width:120px;font-size:11px" value="${(it.name||'').replace(/"/g,'&quot;')}" onchange="window._poEditItems[${i}].name=this.value"></td>
+      <td><input type="number" class="fc2" style="width:62px" value="${it.qty||0}" min="0" step="any" onchange="window._poEditItems[${i}].qty=+this.value;poRecalc()"></td>
+      <td><input class="fc2" style="width:44px;font-size:11px" value="${(it.unit||'').replace(/"/g,'&quot;')}" onchange="window._poEditItems[${i}].unit=this.value"></td>
+      <td><input type="number" class="fc2" style="width:74px" value="${it.price||0}" min="0" step="any" onchange="window._poEditItems[${i}].price=+this.value;poRecalc()"></td>
+      <td style="text-align:right">${lpCell}</td>
+      <td style="text-align:right;font-family:monospace" id="po-amt-${i}">${fmt((it.qty||0)*(it.price||0),2)}</td>
+      <td><button onclick="window._poEditItems.splice(${i},1);poRenderItems()" style="border:none;background:none;color:#DC2626;cursor:pointer">✕</button></td>
+    </tr>`;}).join('')}</tbody></table></div>${poMatDatalist()}`;
+  poRecalc();
+}
+function poItemCode(i,code){
+  window._poEditItems[i].code=code;
+  const m=(_poMats||[]).find(x=>x.code===code);
+  if(m){ window._poEditItems[i].name=m.name||''; window._poEditItems[i].unit=m.unit||''; if(!+window._poEditItems[i].price) window._poEditItems[i].price=+m.price_per_unit||0; }
+  poRenderItems();
+}
+function poAddItem(){ (window._poEditItems=window._poEditItems||[]).push({code:'',name:'',unit:'',qty:0,price:0}); poRenderItems(); }
+function poRecalc(){
+  const its=window._poEditItems||[]; let tot=0;
+  its.forEach((it,i)=>{ const amt=(+it.qty||0)*(+it.price||0); tot+=amt; const c=document.getElementById('po-amt-'+i); if(c) c.textContent=fmt(amt,2); });
+  const t=document.getElementById('po-total'); if(t) t.textContent='รวมเป็นเงิน: '+thb(tot);
+}
+async function poSave(){
+  const items=(window._poEditItems||[]).filter(it=>it.code||it.name).map(it=>({code:it.code||'',name:it.name||'',unit:it.unit||'',qty:+it.qty||0,price:+it.price||0,amount:(+it.qty||0)*(+it.price||0)}));
+  const supplier=document.getElementById('po-sup').value.trim();
+  const note=document.getElementById('po-note').value.trim();
+  const total=items.reduce((s,i)=>s+i.amount,0);
+  const attachments=window._poEditAtt||[];
+  const id=window._poEdit.id;
+  msgEl('po-msg','<span class="spin"></span> บันทึก...','i');
+  try{
+    if(id){ await sbU('purchase_orders',{supplier,items,note,total,attachments},`id=eq.${id}`); await logA('UPDATE','po',`แก้ไข PO id=${id}`); }
+    else { const po_no=await poNextNo(); const ins=await sbP('purchase_orders',{po_no,supplier,items,note,total,attachments,status:'pending',created_by:(CU&&CU.full_name)||'admin'}); await logA('CREATE','po',`สร้าง PO ${po_no}`); poNotifyEmail(ins&&ins[0]); }
+    closeMo(); loadPO();
+  }catch(e){ msgEl('po-msg','❌ '+(e.message||e),'e'); }
+}
+async function poApprove(id){
+  if(!confirm('อนุมัติใบสั่งซื้อนี้?')) return;
+  await poSetStatus(id,'approved',true);
+}
+async function poReject(id){ if(!confirm('ปฏิเสธใบสั่งซื้อนี้?')) return; await poSetStatus(id,'rejected'); }
+async function poSetStatus(id,status,appr){
+  try{
+    const upd={status};
+    if(appr){ upd.approved_by=(CU&&CU.full_name)||'admin'; upd.approved_at=new Date().toISOString(); }
+    await sbU('purchase_orders',upd,`id=eq.${id}`);
+    await logA('UPDATE','po',`PO id=${id} → ${poStatusText(status)}`);
+    closeMo(); loadPO();
+  }catch(e){ alert('ไม่สำเร็จ: '+(e.message||e)); }
+}
+async function _poAddStock(code,name,qty){
+  if(!code||!(+qty>0)) return;
+  const rows=await sbG('stock_material',{f:['code=eq.'+encodeURIComponent(code)]}).catch(()=>[]);
+  if(rows&&rows[0]) await sbU('stock_material',{qty_in:Number(rows[0].qty_in||0)+Number(qty||0)},`code=eq.${encodeURIComponent(code)}`);
+  else await sbP('stock_material',{code,name:name||'',qty_in:Number(qty||0),qty_out:0,balance_opening:0}).catch(()=>{});
+}
+function poReceiveModal(id){
+  const po=_pos.find(x=>x.id===id); if(!po){ alert('ไม่พบ PO'); return; }
+  const items=_poJSON(po.items);
+  window._poRecvItems=items.map(it=>({...it,received:+it.received||0}));
+  const rows=window._poRecvItems.map((it,i)=>{
+    const rem=Math.max(0,(+it.qty||0)-(+it.received||0));
+    return `<tr>
+      <td class="mono">${it.code||''}</td><td style="font-size:11px">${it.name||''}</td>
+      <td class="num">${fmt(it.qty||0,2)}</td><td class="num">${fmt(it.received||0,2)}</td>
+      <td class="num" style="color:#DC2626">${fmt(rem,2)}</td>
+      <td><input type="number" class="fc2" style="width:80px" id="prc-${i}" value="${rem}" min="0" step="any"></td>
+      <td>${it.unit||''}</td></tr>`;
+  }).join('');
+  openMo('📥 รับของ PO '+(po.po_no||''),`
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="background:#F1F5F9"><th style="padding:3px">รหัส</th><th>ชื่อ</th><th>สั่ง</th><th>รับแล้ว</th><th>คงเหลือ</th><th>รับครั้งนี้</th><th>หน่วย</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+    <div style="font-size:12px;color:#64748B;margin-top:6px">กรอกจำนวนที่รับจริงครั้งนี้ (บวกเข้าสต็อก RM/PK ให้อัตโนมัติ) — ถ้ารับครบทุกรายการจะปิดเป็น "รับของแล้ว", ถ้ายังไม่ครบเป็น "รับบางส่วน"</div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn btnP" style="flex:1" onclick="poDoReceive(${id})">✅ ยืนยันรับของ + บวกสต็อก</button>
+    </div><div id="prc-msg" style="margin-top:6px"></div>`);
+}
+async function poDoReceive(id){
+  const po=_pos.find(x=>x.id===id); if(!po) return;
+  const items=window._poRecvItems||[];
+  const toAdd=[];
+  items.forEach((it,i)=>{
+    const inp=document.getElementById('prc-'+i);
+    const recvNow=Math.max(0,parseFloat(inp?.value)||0);
+    const rem=Math.max(0,(+it.qty||0)-(+it.received||0));
+    const q=Math.min(recvNow,rem);
+    if(q>0){ it.received=(+it.received||0)+q; toAdd.push({code:it.code,name:it.name,qty:q}); }
+  });
+  if(!toAdd.length){ msgEl('prc-msg','⚠️ ยังไม่ได้กรอกจำนวนที่รับ','e'); return; }
+  msgEl('prc-msg','<span class="spin"></span> กำลังบันทึก + บวกสต็อก...','i');
+  try{
+    for(const a of toAdd){ await _poAddStock(a.code,a.name,a.qty); }
+    const allDone=items.every(it=>(+it.received||0)>=(+it.qty||0)-1e-9);
+    const newItems=items.map(it=>({code:it.code,name:it.name,unit:it.unit,qty:+it.qty||0,price:+it.price||0,amount:(+it.qty||0)*(+it.price||0),received:+it.received||0}));
+    await sbU('purchase_orders',{items:newItems,status:allDone?'received':'partial',stock_added:allDone},`id=eq.${id}`);
+    // สร้างใบรับของ (GR) อัตโนมัติสำหรับการรับครั้งนี้
+    try{
+      const d=new Date(); const gr_no='GR-'+d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+'-'+Math.floor(1000+Math.random()*9000);
+      const grTotal=toAdd.reduce((s,a)=>{ const it=items.find(x=>x.code===a.code)||{}; return s+(a.qty*(+it.price||0)); },0);
+      await sbP('goods_receipts',{gr_no,po_id:id,po_no:po.po_no||'',supplier:po.supplier||'',items:toAdd.map(a=>{ const it=items.find(x=>x.code===a.code)||{}; return {code:a.code,name:a.name||'',unit:it.unit||'',qty:a.qty,price:+it.price||0}; }),total:grTotal,received_by:(CU&&CU.full_name)||'admin'});
+    }catch(gErr){ console.warn('GR create',gErr); }
+    await logA('UPDATE','po',`รับของ PO ${po.po_no||id} ${toAdd.length} รายการ (${allDone?'ครบแล้ว':'บางส่วน'})`);
+    closeMo(); loadPO();
+  }catch(e){ msgEl('prc-msg','❌ '+(e.message||e),'e'); }
+}
+async function poDelete(id){
+  if(!confirm('ลบใบสั่งซื้อนี้ถาวร?')) return;
+  try{ await sbD('purchase_orders',`id=eq.${id}`); await logA('DELETE','po',`ลบ PO id=${id}`); closeMo(); loadPO(); }
+  catch(e){ alert('ลบไม่สำเร็จ: '+(e.message||e)); }
+}
+async function poPrintDoc(id){
+  const p=_pos.find(x=>x.id===id); if(!p){ alert('ไม่พบ PO'); return; }
+  await poLoadSuppliers();
+  const sup=_poFindSupplier(p.supplier);
+  const items=_poJSON(p.items);
+  const anyRecv=items.some(it=>+it.received>0);
+  const co=(typeof COMPANY_INFO!=='undefined'&&COMPANY_INFO.name)||'FitExpo';
+  const coAddr=(typeof COMPANY_INFO!=='undefined'&&COMPANY_INFO.address)||'';
+  const rows=items.map((it,i)=>`<tr><td class="c">${i+1}</td><td class="mono">${it.code||''}</td><td>${it.name||''}</td>
+    <td class="num">${fmt(it.qty||0,2)}</td>${anyRecv?`<td class="num">${fmt(+it.received||0,2)}</td>`:''}<td class="c">${it.unit||''}</td><td class="num">${fmt(it.price||0,2)}</td><td class="num">${fmt((it.qty||0)*(it.price||0),2)}</td></tr>`).join('');
+  const supBlock=sup?`<b>${sup.name||p.supplier||''}</b>${sup.address?('<br>'+sup.address):''}${sup.tax_id?('<br>เลขผู้เสียภาษี: '+sup.tax_id):''}${sup.tel?('<br>โทร: '+sup.tel):''}${sup.credit_days?('<br>เครดิต: '+sup.credit_days+' วัน'):''}`:`<b>${p.supplier||'-'}</b>`;
+  const w=window.open('','_blank'); if(!w){ alert('เบราว์เซอร์บล็อก pop-up'); return; }
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>PO ${p.po_no||''}</title>
+  <style>@page{size:A4 portrait;margin:14mm}*{box-sizing:border-box}body{font-family:'Sarabun',Arial,sans-serif;color:#111;font-size:13px;margin:0}
+  .head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1B3A5C;padding-bottom:8px}
+  .co{font-weight:700;font-size:17px;color:#1B3A5C}.coaddr{font-size:11px;color:#555;max-width:320px}
+  h1{text-align:center;font-size:19px;margin:10px 0}
+  .party{display:flex;justify-content:space-between;font-size:12.5px;margin:8px 0;gap:16px}
+  .box{border:1px solid #CBD5E1;border-radius:6px;padding:8px 10px;flex:1}
+  table{border-collapse:collapse;width:100%;margin-top:6px}th,td{border:1px solid #999;padding:5px 8px;font-size:12px}
+  th{background:#E8EEF4;text-align:center}td.num{text-align:right;font-family:monospace}td.c{text-align:center}td.mono{font-family:monospace}
+  tfoot td{font-weight:800;background:#F4F7FB}
+  .sig{display:flex;justify-content:space-around;margin-top:44px;text-align:center;font-size:12px}
+  @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>
+  <div class="head"><div><div class="co">${co}</div><div class="coaddr">${coAddr||'&nbsp;'}</div></div>
+    <div style="text-align:right;font-size:12px"><b>เลขที่ PO:</b> ${p.po_no||''}<br><b>วันที่:</b> ${(p.created_at||'').slice(0,10)}<br><b>สถานะ:</b> ${poStatusText(p.status)}</div></div>
+  <h1>ใบสั่งซื้อ / Purchase Order</h1>
+  <div class="party"><div class="box"><div style="color:#64748B;font-size:11px">ผู้ขาย / Supplier</div>${supBlock}</div>
+    <div class="box"><div style="color:#64748B;font-size:11px">ผู้สั่งซื้อ / Buyer</div><b>${co}</b>${coAddr?('<br>'+coAddr):''}</div></div>
+  <table><thead><tr><th>#</th><th>รหัส</th><th>รายการ</th><th>จำนวน</th>${anyRecv?'<th>รับแล้ว</th>':''}<th>หน่วย</th><th>ราคา/หน่วย</th><th>รวม</th></tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr><td colspan="${anyRecv?7:6}" style="text-align:right">รวมเป็นเงินทั้งสิ้น</td><td class="num">${fmt(p.total||0,2)}</td></tr></tfoot></table>
+  ${p.note?`<div style="margin-top:8px;font-size:12px"><b>หมายเหตุ:</b> ${p.note}</div>`:''}
+  <div class="sig"><div>ผู้จัดทำ<br><br>..................<br>(${p.created_by||''})</div>
+    <div>ผู้ตรวจสอบ<br><br>..................<br>(...............)</div>
+    <div>ผู้อนุมัติ<br><br>..................<br>(${p.approved_by||'...............'})</div></div>
+  <scr`+`ipt>window.onload=function(){window.print();setTimeout(function(){window.close();},500);}</scr`+`ipt></body></html>`);
+  w.document.close();
+}
+
+// ── ใบรับของ (Goods Receipt) ──
+let _grs=[];
+const GR_SQL=`create table if not exists goods_receipts (
+  id bigserial primary key,
+  gr_no text, po_id bigint, po_no text, supplier text,
+  items jsonb default '[]'::jsonb, total numeric default 0,
+  received_by text, created_at timestamptz default now()
+);
+alter table goods_receipts enable row level security;
+drop policy if exists "gr_all" on goods_receipts;
+create policy "gr_all" on goods_receipts for all using (true) with check (true);`;
+function poShowGRSQL(){
+  openMo('🗄️ SQL สร้างตาราง goods_receipts',
+    `<pre style="background:#0F172A;color:#E2E8F0;padding:12px;border-radius:8px;font-size:11px;overflow:auto;white-space:pre-wrap;max-height:320px">${GR_SQL.replace(/</g,'&lt;')}</pre>
+     <button class="btn btnP" style="width:100%;margin-top:8px" onclick="navigator.clipboard.writeText(GR_SQL).then(()=>alert('คัดลอกแล้ว'))">📋 คัดลอก</button>`);
+}
+async function poGRList(){
+  try{ _grs=await sbG('goods_receipts',{ord:'created_at.desc',lim:1000}); }
+  catch(e){ openMo('🧾 ใบรับของ (GR)', `<div style="text-align:center;padding:16px"><div style="color:#DC2626;font-weight:700;margin-bottom:8px">ยังไม่ได้สร้างตาราง goods_receipts</div><button class="btn btnP" onclick="poShowGRSQL()">🗄️ ดู / คัดลอก SQL</button></div>`); return; }
+  const rows=_grs.length?_grs.map(g=>`<tr>
+    <td style="font-family:monospace">${g.gr_no||''}</td>
+    <td style="font-family:monospace">${g.po_no||''}</td><td>${g.supplier||''}</td>
+    <td>${(g.created_at||'').slice(0,10)}</td><td style="text-align:right">${thb(g.total||0)}</td>
+    <td style="text-align:center">${_poJSON(g.items).length}</td>
+    <td style="text-align:center"><button class="btn btnS sm" onclick="poPrintGR(${g.id})">🖨️</button></td></tr>`).join('')
+    :'<tr><td colspan="7" style="text-align:center;color:#94A3B8;padding:16px">ยังไม่มีใบรับของ</td></tr>';
+  openMo('🧾 ใบรับของ (Goods Receipt)', `<div style="overflow:auto;max-height:440px"><table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr style="background:#1B3A5C;color:#fff"><th style="padding:5px">เลขที่ GR</th><th>อ้างอิง PO</th><th>ผู้ขาย</th><th>วันที่</th><th>มูลค่า</th><th>รายการ</th><th>พิมพ์</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>
+    <div style="font-size:11px;color:#94A3B8;margin-top:6px">ใบรับของถูกสร้างอัตโนมัติทุกครั้งที่กด "รับของ" ในใบ PO</div>`);
+}
+async function poPrintGR(id){
+  const g=_grs.find(x=>x.id===id); if(!g){ alert('ไม่พบใบรับของ'); return; }
+  await poLoadSuppliers();
+  const sup=_poFindSupplier(g.supplier);
+  const items=_poJSON(g.items);
+  const co=(typeof COMPANY_INFO!=='undefined'&&COMPANY_INFO.name)||'FitExpo';
+  const coAddr=(typeof COMPANY_INFO!=='undefined'&&COMPANY_INFO.address)||'';
+  const rows=items.map((it,i)=>`<tr><td class="c">${i+1}</td><td class="mono">${it.code||''}</td><td>${it.name||''}</td>
+    <td class="num">${fmt(it.qty||0,2)}</td><td class="c">${it.unit||''}</td><td class="num">${fmt(it.price||0,2)}</td><td class="num">${fmt((it.qty||0)*(it.price||0),2)}</td></tr>`).join('');
+  const w=window.open('','_blank'); if(!w){ alert('เบราว์เซอร์บล็อก pop-up'); return; }
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>GR ${g.gr_no||''}</title>
+  <style>@page{size:A4 portrait;margin:14mm}*{box-sizing:border-box}body{font-family:'Sarabun',Arial,sans-serif;color:#111;font-size:13px;margin:0}
+  .head{display:flex;justify-content:space-between;border-bottom:2px solid #0F766E;padding-bottom:8px}.co{font-weight:700;font-size:17px;color:#0F766E}.coaddr{font-size:11px;color:#555;max-width:320px}
+  h1{text-align:center;font-size:19px;margin:10px 0}
+  .party{display:flex;justify-content:space-between;font-size:12.5px;margin:8px 0;gap:16px}.box{border:1px solid #CBD5E1;border-radius:6px;padding:8px 10px;flex:1}
+  table{border-collapse:collapse;width:100%;margin-top:6px}th,td{border:1px solid #999;padding:5px 8px;font-size:12px}th{background:#E8F2F0;text-align:center}
+  td.num{text-align:right;font-family:monospace}td.c{text-align:center}td.mono{font-family:monospace}tfoot td{font-weight:800;background:#F0F7F5}
+  .sig{display:flex;justify-content:space-around;margin-top:44px;text-align:center;font-size:12px}
+  @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>
+  <div class="head"><div><div class="co">${co}</div><div class="coaddr">${coAddr||'&nbsp;'}</div></div>
+    <div style="text-align:right;font-size:12px"><b>เลขที่ GR:</b> ${g.gr_no||''}<br><b>อ้างอิง PO:</b> ${g.po_no||''}<br><b>วันที่รับ:</b> ${(g.created_at||'').slice(0,10)}</div></div>
+  <h1>ใบรับของ / Goods Receipt</h1>
+  <div class="party"><div class="box"><div style="color:#64748B;font-size:11px">ผู้ขาย / Supplier</div><b>${sup?sup.name:g.supplier||'-'}</b>${sup&&sup.address?('<br>'+sup.address):''}${sup&&sup.tax_id?('<br>เลขผู้เสียภาษี: '+sup.tax_id):''}</div>
+    <div class="box"><div style="color:#64748B;font-size:11px">ผู้รับ / Received by</div><b>${g.received_by||''}</b><br>${co}</div></div>
+  <table><thead><tr><th>#</th><th>รหัส</th><th>รายการ</th><th>จำนวนรับ</th><th>หน่วย</th><th>ราคา/หน่วย</th><th>รวม</th></tr></thead>
+    <tbody>${rows}</tbody><tfoot><tr><td colspan="6" style="text-align:right">รวมมูลค่าที่รับ</td><td class="num">${fmt(g.total||0,2)}</td></tr></tfoot></table>
+  <div class="sig"><div>ผู้ส่งของ<br><br>..................</div><div>ผู้ตรวจรับ<br><br>..................<br>(${g.received_by||''})</div><div>ผู้อนุมัติ<br><br>..................</div></div>
+  <scr`+`ipt>window.onload=function(){window.print();setTimeout(function(){window.close();},500);}</scr`+`ipt></body></html>`);
+  w.document.close();
+}
+
+// ── สรุปยอดซื้อ รายเดือน / รายผู้ขาย ──
+function poSummary(){
+  const now=new Date();
+  const from=`${now.getFullYear()}-01-01`, to=`${now.getFullYear()}-12-31`;
+  openMo('📊 สรุปยอดซื้อ',`
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">
+      <div><label class="flbl">ตั้งแต่</label><input type="date" class="fc2" id="psum-from" value="${from}" style="width:150px"></div>
+      <div><label class="flbl">ถึง</label><input type="date" class="fc2" id="psum-to" value="${to}" style="width:150px"></div>
+      <div><label class="flbl">นับสถานะ</label><select class="fc2" id="psum-scope" style="width:190px">
+        <option value="committed">อนุมัติขึ้นไป (ไม่รวมยกเลิก/รออนุมัติ)</option>
+        <option value="received">เฉพาะรับของแล้ว/บางส่วน</option>
+        <option value="all">ทั้งหมด</option></select></div>
+      <button class="btn btnP" onclick="poSummaryRun()">🔍 ดู</button>
+      <button class="btn btnS" onclick="poSummaryExcel()">⬇️ Excel</button>
+    </div>
+    <div id="psum-result"></div>`);
+  poSummaryRun();
+}
+function _poSummaryData(){
+  const from=document.getElementById('psum-from')?.value||'';
+  const to=document.getElementById('psum-to')?.value||'';
+  const scope=document.getElementById('psum-scope')?.value||'committed';
+  const okStatus=p=>{
+    if(scope==='all') return p.status!=='rejected';
+    if(scope==='received') return p.status==='received'||p.status==='partial';
+    return ['approved','ordered','partial','received'].includes(p.status);
+  };
+  const list=(_pos||[]).filter(p=>{ if(!okStatus(p)) return false; const d=(p.created_at||'').slice(0,10); if(from&&d<from) return false; if(to&&d>to) return false; return true; });
+  const byMonth={}, bySup={}; let grand=0;
+  list.forEach(p=>{ const mk=(p.created_at||'').slice(0,7); const amt=+p.total||0; grand+=amt;
+    byMonth[mk]=byMonth[mk]||{amt:0,n:0}; byMonth[mk].amt+=amt; byMonth[mk].n++;
+    const sup=p.supplier||'ไม่ระบุ'; bySup[sup]=bySup[sup]||{amt:0,n:0}; bySup[sup].amt+=amt; bySup[sup].n++; });
+  return {list,byMonth,bySup,grand,from,to};
+}
+function poSummaryRun(){
+  const box=document.getElementById('psum-result'); if(!box) return;
+  const {byMonth,bySup,grand,list}=_poSummaryData();
+  if(!list.length){ box.innerHTML='<div style="color:#94A3B8;padding:16px;text-align:center">ไม่มีข้อมูลในช่วง/สถานะที่เลือก</div>'; return; }
+  const mk=Object.keys(byMonth).sort();
+  const supK=Object.keys(bySup).sort((a,b)=>bySup[b].amt-bySup[a].amt);
+  const mRows=mk.map(k=>`<tr><td>${k}</td><td style="text-align:center">${byMonth[k].n}</td><td style="text-align:right;font-family:monospace">${thb(byMonth[k].amt)}</td></tr>`).join('');
+  const sRows=supK.map(k=>`<tr><td>${k}</td><td style="text-align:center">${bySup[k].n}</td><td style="text-align:right;font-family:monospace">${thb(bySup[k].amt)}</td></tr>`).join('');
+  box.innerHTML=`<style>#psum-result table{border-collapse:collapse;width:100%;font-size:12px;margin-bottom:10px}#psum-result th,#psum-result td{border:1px solid #E2E8F0;padding:4px 8px}#psum-result th{background:#1B3A5C;color:#fff}</style>
+    <div style="font-weight:700;text-align:right;margin-bottom:6px">ยอดซื้อรวม: <span style="color:#0F766E">${thb(grand)}</span> · ${list.length} ใบ</div>
+    <div style="font-weight:700;font-size:12px;color:#1B3A5C;margin-bottom:3px">📅 รายเดือน</div>
+    <table><thead><tr><th>เดือน</th><th>จำนวนใบ</th><th>ยอดซื้อ</th></tr></thead><tbody>${mRows}</tbody></table>
+    <div style="font-weight:700;font-size:12px;color:#1B3A5C;margin-bottom:3px">🏢 รายผู้ขาย</div>
+    <table><thead><tr><th>ผู้ขาย</th><th>จำนวนใบ</th><th>ยอดซื้อ</th></tr></thead><tbody>${sRows}</tbody></table>`;
+}
+function poSummaryExcel(){
+  const {byMonth,bySup,grand,from,to,list}=_poSummaryData();
+  if(!list.length){ alert('ไม่มีข้อมูล'); return; }
+  const wb=XLSX.utils.book_new();
+  const m=[['สรุปยอดซื้อรายเดือน','ช่วง',from+' ถึง '+to],[],['เดือน','จำนวนใบ','ยอดซื้อ'],
+    ...Object.keys(byMonth).sort().map(k=>[k,byMonth[k].n,Number(byMonth[k].amt.toFixed(2))]),['รวม','',Number(grand.toFixed(2))]];
+  const s=[['สรุปยอดซื้อรายผู้ขาย'],[],['ผู้ขาย','จำนวนใบ','ยอดซื้อ'],
+    ...Object.keys(bySup).sort((a,b)=>bySup[b].amt-bySup[a].amt).map(k=>[k,bySup[k].n,Number(bySup[k].amt.toFixed(2))]),['รวม','',Number(grand.toFixed(2))]];
+  const ws1=XLSX.utils.aoa_to_sheet(m); ws1['!cols']=[{wch:14},{wch:10},{wch:16}];
+  const ws2=XLSX.utils.aoa_to_sheet(s); ws2['!cols']=[{wch:30},{wch:10},{wch:16}];
+  XLSX.utils.book_append_sheet(wb,ws1,'รายเดือน');
+  XLSX.utils.book_append_sheet(wb,ws2,'รายผู้ขาย');
+  XLSX.writeFile(wb,`Purchase_Summary_${from}_${to}.xlsx`);
 }
 
 async function loadBatchProgress(){
