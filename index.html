@@ -966,29 +966,6 @@ global.QRCode.CorrectLevel={L:1,M:0,Q:3,H:2};
   <div id="pp-result" style="margin-top:16px"></div>
 </div>
 
-<!-- PURCHASE ORDER PAGE -->
-<div id="pg-po" class="pg">
-  <div class="ch2 mb3">
-    <select class="fc2" id="po-status-filter" style="width:150px" onchange="loadPO()">
-      <option value="">สถานะทั้งหมด</option>
-      <option value="draft">📝 Draft</option>
-      <option value="sent">📤 ส่งแล้ว</option>
-      <option value="received">✅ รับแล้ว</option>
-      <option value="cancelled">❌ ยกเลิก</option>
-    </select>
-    <button class="btn btnP sm" onclick="newPO()"><span data-i18n="btn_new_po">+ สร้าง PO</span></button>
-    <button class="btn btnS sm" onclick="loadPO()">🔄</button>
-  </div>
-  <div class="tw"><table id="po-list-tb">
-    <thead><tr>
-      <th>เลขที่ PO</th><th>Supplier</th><th>วันที่สั่ง</th>
-      <th>Delivery Date / กำหนดส่ง</th><th>ยอดรวม</th><th data-i18n="col_status">Status / สถานะ</th>
-      <th>${pt('remark')}</th><th>Action</th>
-    </tr></thead>
-    <tbody id="po-tb"></tbody>
-  </table></div>
-</div>
-
 <!-- PRODUCTION MODULE -->
 <div id="pg-production" class="pg">
   <div class="g2">
@@ -14884,9 +14861,9 @@ function hrPrintDiligence(){
   </body></html>`,'พิมพ์เอกสาร');}
 
 // ════════════════════════════════════════════════════════════
-//  PURCHASE ORDER (PO) MODULE
+//  PURCHASE ORDER (PO) MODULE (legacy; kept only for backward compatibility)
 // ════════════════════════════════════════════════════════════
-async function loadPO(){
+async function legacyLoadPO(){
   const tb=document.getElementById('po-list-tb');
   if(tb) tb.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px"><span class="spin"></span></td></tr>';
   try{
@@ -15240,7 +15217,7 @@ async function printPO(id){
   \x3Cscript>window.onload=()=>{window.print();setTimeout(()=>window.close(),3000);}<\/script>
   </body></html>`,'พิมพ์เอกสาร');}
 
-function editPO(id){ alert('ฟีเจอร์แก้ไข PO กำลังพัฒนาครับ — ลบแล้วสร้างใหม่ได้เลยครับ'); }
+function legacyEditPO(id){ alert('ฟีเจอร์แก้ไข PO กำลังพัฒนาครับ — ลบแล้วสร้างใหม่ได้เลยครับ'); }
 
 
 // ════════════════════════════════════════════════════════════
