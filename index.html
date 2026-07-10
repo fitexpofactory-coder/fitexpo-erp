@@ -5552,12 +5552,18 @@ async function poAutoGenerate(){
   const bySup={}; low.forEach(m=>{ const sup=m.supplier||'ไม่ระบุ Supplier'; (bySup[sup]=bySup[sup]||[]).push(m); });
   const sups=Object.keys(bySup);
   if(!confirm(`พบ ${low.length} รายการถึงจุดสั่งซื้อ จาก ${sups.length} ผู้ขาย\nสร้างใบ PO (สถานะ "รออนุมัติ") ${sups.length} ใบ?\n\n*จำนวนสั่งเป็นค่าแนะนำ แก้ไขได้ก่อนอนุมัติ`)) return;
-  let created=0;
+  let created=0, lastErr=null;
   for(const sup of sups){
     const items=bySup[sup].map(m=>{ const orderQty=Math.max((m.min*2)-m.bal, m.min); const q=Math.ceil(orderQty); const price=+m.price_per_unit||0; return {code:m.code,name:m.name||'',unit:m.unit||'',qty:q,price,amount:q*price}; });
     const total=items.reduce((s,i)=>s+i.amount,0);
     try{ await sbP('purchase_orders',{po_no:await poNextNo(),supplier:sup,status:'pending',items,total,note:'สร้างอัตโนมัติจากสต็อกถึงจุดสั่งซื้อ',created_by:(CU&&CU.full_name)||'system'}); created++; }
-    catch(e){ console.warn('po create',e); }
+    catch(e){ lastErr=e; console.warn('po create',e); }
+  }
+  if(created===0){
+    const em=(lastErr&&lastErr.response&&lastErr.response.data&&(lastErr.response.data.message||lastErr.response.data.hint||lastErr.response.data.error))||(lastErr&&lastErr.message)||'ไม่ทราบสาเหตุ';
+    const code=(lastErr&&lastErr.response&&lastErr.response.status)||'';
+    alert('❌ สร้าง PO ไม่สำเร็จ (0 ใบ)\n\nสาเหตุ '+(code?('['+code+'] '):'')+em+'\n\nมักเกิดจากตาราง purchase_orders เปิด RLS แต่ยังไม่มี policy อนุญาต INSERT\nแก้โดยรัน SQL นี้ใน Supabase:\n\ncreate policy "po_all" on purchase_orders for all using (true) with check (true);');
+    return;
   }
   await logA('CREATE','po',`ออก PO อัตโนมัติ ${created} ใบ`);
   if(created) poNotifySummary(created);
