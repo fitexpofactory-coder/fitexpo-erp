@@ -5440,21 +5440,28 @@ async function loadPO(){
   try{
     _pos=await Promise.race([
       sbG('purchase_orders',{ord:'created_at.desc',lim:1000}),
-      new Promise((_,rej)=>setTimeout(()=>rej(new Error('หมดเวลาโหลด (timeout 20s) — เซิร์ฟเวอร์ไม่ตอบ ลองกด 🔄 อีกครั้ง')),20000))
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('หมดเวลาโหลด (timeout 15s) — เซิร์ฟเวอร์ไม่ตอบ อาจเป็นปัญหา Supabase ชั่วคราว')),15000))
     ]);
   }
   catch(e){
     document.getElementById('po-lowstock').innerHTML='';
     body.innerHTML=`<div class="card" style="padding:24px;text-align:center;max-width:520px;margin:0 auto">
-      <div style="font-size:15px;font-weight:700;color:#DC2626;margin-bottom:8px">⚠️ ยังไม่ได้สร้างตาราง <code>purchase_orders</code></div>
+      <div style="font-size:15px;font-weight:700;color:#DC2626;margin-bottom:8px">⚠️ โหลดใบสั่งซื้อไม่สำเร็จ</div>
       <button class="btn btnP" onclick="loadPO()">🔄 ลองใหม่</button>
       <button class="btn btnS" onclick="poShowSQL()">🗄️ ดู SQL</button>
       <div style="font-size:11px;color:#94A3B8;margin-top:10px">(${(e&&e.message)||e})</div></div>`;
     return;
   }
-  poRenderLowStock();
-  poLoadSuppliers();
-  poRender();
+  try{
+    poRenderLowStock();
+    poLoadSuppliers();
+    poRender();
+  }catch(e){
+    body.innerHTML=`<div class="card" style="padding:20px;text-align:center">
+      <div style="color:#DC2626;font-weight:700;margin-bottom:8px">⚠️ แสดงผลรายการ PO ไม่สำเร็จ</div>
+      <div style="font-size:12px;color:#64748B;margin-bottom:10px">โหลดข้อมูลได้ ${_pos.length} ใบ แต่ render มีปัญหา: ${(e&&e.message)||e}</div>
+      <button class="btn btnP" onclick="loadPO()">🔄 ลองใหม่</button></div>`;
+  }
 }
 function poShowSQL(){
   openMo('🗄️ SQL สร้างตาราง purchase_orders',
