@@ -5437,12 +5437,18 @@ function poStatusBadge(s){ const x=PO_ST[s]||{c:'#64748B',t:s}; return `<span st
 async function loadPO(){
   const body=document.getElementById('po-body'); if(!body) return;
   body.innerHTML='<div style="padding:40px;text-align:center;color:#94A3B8"><span class="spin"></span> กำลังโหลด...</div>';
-  try{ _pos=await sbG('purchase_orders',{ord:'created_at.desc',lim:1000}); }
+  try{
+    _pos=await Promise.race([
+      sbG('purchase_orders',{ord:'created_at.desc',lim:1000}),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('หมดเวลาโหลด (timeout 20s) — เซิร์ฟเวอร์ไม่ตอบ ลองกด 🔄 อีกครั้ง')),20000))
+    ]);
+  }
   catch(e){
     document.getElementById('po-lowstock').innerHTML='';
     body.innerHTML=`<div class="card" style="padding:24px;text-align:center;max-width:520px;margin:0 auto">
       <div style="font-size:15px;font-weight:700;color:#DC2626;margin-bottom:8px">⚠️ ยังไม่ได้สร้างตาราง <code>purchase_orders</code></div>
-      <button class="btn btnP" onclick="poShowSQL()">🗄️ ดู / คัดลอก SQL</button>
+      <button class="btn btnP" onclick="loadPO()">🔄 ลองใหม่</button>
+      <button class="btn btnS" onclick="poShowSQL()">🗄️ ดู SQL</button>
       <div style="font-size:11px;color:#94A3B8;margin-top:10px">(${(e&&e.message)||e})</div></div>`;
     return;
   }
@@ -5551,6 +5557,8 @@ async function poAutoGenerate(){
   if(!low.length){ alert('ไม่มีวัตถุดิบ/วัสดุที่ถึงจุดสั่งซื้อ'); return; }
   const bySup={}; low.forEach(m=>{ const sup=m.supplier||'ไม่ระบุ Supplier'; (bySup[sup]=bySup[sup]||[]).push(m); });
   const sups=Object.keys(bySup);
+  const pend=(_pos||[]).filter(p=>p.status==='pending').length;
+  if(pend>0 && !confirm(`⚠️ มี PO สถานะ "รออนุมัติ" อยู่แล้ว ${pend} ใบ\nการสร้างอัตโนมัติจะเพิ่มใบใหม่ (อาจซ้ำกับที่มีอยู่)\n\nต้องการสร้างเพิ่มอีกไหม?`)) return;
   if(!confirm(`พบ ${low.length} รายการถึงจุดสั่งซื้อ จาก ${sups.length} ผู้ขาย\nสร้างใบ PO (สถานะ "รออนุมัติ") ${sups.length} ใบ?\n\n*จำนวนสั่งเป็นค่าแนะนำ แก้ไขได้ก่อนอนุมัติ`)) return;
   let created=0, lastErr=null;
   for(const sup of sups){
