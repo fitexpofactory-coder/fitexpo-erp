@@ -1,2 +1,2 @@
-# fitexpo-erp
-FitExpo ERP System
+# EZ-erp
+EZERP System
