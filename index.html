@@ -7876,7 +7876,7 @@ async function doImport(){
 // ════════════════════════════════════════════════════════════
 async function loadActLog(){
   let d=await sbG('activity_log',{ord:'created_at.desc',lim:100});
-  if(!isProgSession()) d=d.filter(l=>!isProgUser(l.username)); // ซ่อนประวัติของบัญชีผู้ดูแลระบบ
+  d=d.filter(l=>!isProgUser(l.username)); // ซ่อนประวัติของบัญชีผู้ดูแลระบบเสมอ
   const ac={'LOGIN':'als','LOGOUT':'alw','CREATE':'ali','UPDATE':'alw','DELETE':'ale','RECEIVE':'ali','ISSUE':'alw','PRINT':'ali'};
   document.getElementById('actlog-tb').innerHTML=d.length?d.map(l=>{
     const dt=new Date(l.created_at);
@@ -7895,7 +7895,7 @@ async function loadUsers(){
 }
 function setUserFilter(f){ _userFilter=f; renderUsers(); }
 function renderUsers(){
-  const d=(_usersCache||[]).filter(u=> isProgSession() ? true : !isProgUser(u.username)); // ซ่อนบัญชีผู้ดูแลระบบ
+  const d=(_usersCache||[]).filter(u=> !isProgUser(u.username)); // ซ่อนบัญชีผู้ดูแลระบบเสมอ (ไม่โชว์แม้กับตัวเอง)
   const rm2={admin:'👑 Admin',production:'🔧 Production',sales:'📊 Sales',qc:'🔍 QC'};
   const act=d.filter(u=>u.is_active!==false).length, inact=d.length-act;
   const list=d.filter(u=> _userFilter==='all' ? true : (_userFilter==='active' ? u.is_active!==false : u.is_active===false));
@@ -15626,7 +15626,30 @@ function deoSetup(){
       <button class="btn btnS" onclick="deoSetupSave()">💾 ใช้เฉพาะเครื่องนี้</button>
       <button class="btn btnD" onclick="deoSetupReset()">↺ ล้างค่าเครื่องนี้</button>
     </div>
+    ${isProgSession()?`<div style="margin-top:10px;border-top:1px dashed #E2E8F0;padding-top:8px">
+      <button class="btn btnS sm" onclick="progChangePassword()">🔑 เปลี่ยนรหัสผ่านบัญชีผู้ดูแลระบบ</button>
+    </div>`:''}
     <div id="deo-setup-msg" style="margin-top:8px"></div>`);
+}
+// เปลี่ยนรหัสผ่านบัญชีผู้ดูแลระบบ (ใช้ได้เฉพาะตอน login ด้วยบัญชีนี้)
+function progChangePassword(){
+  if(!isProgSession()){ alert('ใช้ได้เฉพาะบัญชีผู้ดูแลระบบ'); return; }
+  openMo('🔑 เปลี่ยนรหัสผ่านบัญชีผู้ดูแลระบบ', `
+    <div style="font-size:12px;color:#64748B;margin-bottom:8px">บัญชี: <b>@${CU.username}</b></div>
+    <div class="fgrp"><label class="flbl">รหัสผ่านใหม่</label><input type="password" class="fc2" id="pcp-1" placeholder="อย่างน้อย 8 ตัว"></div>
+    <div class="fgrp"><label class="flbl">ยืนยันรหัสผ่านใหม่</label><input type="password" class="fc2" id="pcp-2"></div>
+    <button class="btn btnP" style="width:100%" onclick="progSavePassword()">💾 บันทึกรหัสผ่านใหม่</button>
+    <div id="pcp-msg" style="margin-top:8px"></div>`);
+}
+async function progSavePassword(){
+  const a=document.getElementById('pcp-1').value, b=document.getElementById('pcp-2').value;
+  if(a.length<8){ msgEl('pcp-msg','⚠️ รหัสผ่านต้องอย่างน้อย 8 ตัว','e'); return; }
+  if(a!==b){ msgEl('pcp-msg','⚠️ รหัสผ่านสองช่องไม่ตรงกัน','e'); return; }
+  msgEl('pcp-msg','<span class="spin"></span> บันทึก...','i');
+  try{
+    await sbU('users',{password_hash:btoa(a)},`id=eq.${CU.id}`);
+    msgEl('pcp-msg','✅ เปลี่ยนรหัสผ่านแล้ว — ครั้งต่อไปใช้รหัสใหม่','s');
+  }catch(e){ msgEl('pcp-msg','❌ '+(e.message||e),'e'); }
 }
 function _deoFormVals(){
   const v=id=>((document.getElementById(id)||{}).value||'').trim();
