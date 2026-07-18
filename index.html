@@ -20,6 +20,8 @@ if('serviceWorker' in navigator){ window.addEventListener('load',function(){ nav
 </script>
 <!-- Build: 20260605_0223 | savedLog fix applied -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.0/axios.min.js"></script>
+<!-- ค่าติดตั้งของบริษัท (admin ตั้งครั้งเดียว แล้ว deploy คู่กับ index.html) -->
+<script src="config.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -3334,7 +3336,8 @@ let _payrollData=[], _lastMRC=null;
 // ════════════════════════════════════════════════════════════
 //  ⚙️ CONFIG — ใส่ anon key ที่นี่
 // ════════════════════════════════════════════════════════════
-const SB=(localStorage.getItem('erp_sb_url')||'https://meehbfcmnmposarkejuh.supabase.co').replace(/\/+$/,'');
+const _CFG=(typeof window!=='undefined'&&window.DEO_CONFIG)||{};
+const SB=(localStorage.getItem('erp_sb_url')||_CFG.supabaseUrl||'').replace(/\/+$/,'');
 
 // MutationObserver: ตรวจ pg-mat-trace เมื่อได้รับ class "on"
 (function(){
@@ -3359,11 +3362,11 @@ const SB=(localStorage.getItem('erp_sb_url')||'https://meehbfcmnmposarkejuh.supa
 
 // ── Company Info (เก็บใน localStorage) ───────────────────
 const COMPANY_INFO = {
-  get name(){ return localStorage.getItem('co_name')||'บริษัท ฟิตเอ็กซ์โป จำกัด'; },
-  get nameEN(){ return localStorage.getItem('co_name_en')||'FitExpo Co., Ltd.'; },
-  get logo(){ return localStorage.getItem('co_logo')||''; },
-  get address(){ return localStorage.getItem('co_address')||''; },
-  get tel(){ return localStorage.getItem('co_tel')||''; },
+  get name(){ return localStorage.getItem('co_name')||_CFG.companyName||'บริษัท ฟิตเอ็กซ์โป จำกัด'; },
+  get nameEN(){ return localStorage.getItem('co_name_en')||_CFG.companyNameEN||'FitExpo Co., Ltd.'; },
+  get logo(){ return localStorage.getItem('co_logo')||_CFG.companyLogo||''; },
+  get address(){ return localStorage.getItem('co_address')||_CFG.companyAddress||''; },
+  get tel(){ return localStorage.getItem('co_tel')||_CFG.companyTel||''; },
   set name(v){ localStorage.setItem('co_name',v); },
   set nameEN(v){ localStorage.setItem('co_name_en',v); },
   set logo(v){ localStorage.setItem('co_logo',v); },
@@ -3385,7 +3388,7 @@ function extractHHMM(dt){
   }
   return '—';
 }
-let KEY=localStorage.getItem('erp_sb_key')||''; // default key removed for security — ต้องตั้งค่าผ่าน Setup
+let KEY=localStorage.getItem('erp_sb_key')||_CFG.supabaseAnonKey||''; // ค่าจาก config.js (ตั้งครั้งเดียวโดย admin) หรือ override รายเครื่อง
 
 // ════════════════════════════════════════════════════════════
 //  SESSION
@@ -15551,28 +15554,74 @@ function pt(key){ return (PT[_lang]||PT.th)[key]||(PT.th)[key]||key; }
 // ════════════════════════════════════════════════════════════
 function deoSetup(){
   const g=k=>localStorage.getItem(k)||'';
+  const cfgOn=!!(_CFG.supabaseUrl&&_CFG.supabaseAnonKey);
+  const src = (g('erp_sb_url')||g('erp_sb_key'))
+      ? '<span style="color:#D97706">⚠️ ใช้ค่าที่ตั้งไว้เฉพาะเครื่องนี้ (override)</span>'
+      : (cfgOn ? '<span style="color:#16A34A">✅ ใช้ค่าจากไฟล์ config.js (ทุกเครื่องใช้ร่วมกัน)</span>'
+               : '<span style="color:#DC2626">❌ ยังไม่มี config.js — ต้องตั้งค่าก่อนใช้งาน</span>');
   openMo('⚙️ ตั้งค่าบริษัท / การเชื่อมต่อ DEOERP', `
-    <div style="font-size:12px;color:#64748B;margin-bottom:10px">ตั้งค่านี้เก็บในเครื่องนี้ (localStorage) — ใช้แยกข้อมูลแต่ละบริษัทโดยให้แต่ละบริษัทชี้ไปยัง Supabase project ของตัวเอง</div>
-    <div class="fgrp"><label class="flbl">ชื่อบริษัท (ไทย)</label><input class="fc2" id="deo-coname" value="${g('co_name')}" placeholder="เช่น บริษัท เดโอ จำกัด"></div>
-    <div class="fgrp"><label class="flbl">ชื่อบริษัท (EN)</label><input class="fc2" id="deo-coen" value="${g('co_name_en')}" placeholder="Deo Co., Ltd."></div>
-    <div class="fgrp"><label class="flbl">ที่อยู่บริษัท</label><textarea class="fc2" id="deo-coaddr" rows="2">${g('co_address')}</textarea></div>
+    <div style="background:#F1F5F9;border-radius:8px;padding:8px 10px;font-size:12px;margin-bottom:10px;line-height:1.6">
+      <b>สถานะปัจจุบัน:</b> ${src}<br>
+      <span style="color:#64748B">แนะนำ: admin ตั้งค่าครั้งเดียว → กด <b>“⬇️ สร้างไฟล์ config.js”</b> → อัปโหลดไฟล์ขึ้นเว็บคู่กับ index.html<br>
+      จากนั้น <b>ผู้ใช้ทุกคนเข้าใช้งานได้ทันทีด้วย username/password</b> ไม่ต้องตั้งค่าอะไรอีก</span>
+    </div>
+    <div class="fgrp"><label class="flbl">ชื่อบริษัท (ไทย)</label><input class="fc2" id="deo-coname" value="${g('co_name')||_CFG.companyName||''}" placeholder="เช่น บริษัท เดโอ จำกัด"></div>
+    <div class="fgrp"><label class="flbl">ชื่อบริษัท (EN)</label><input class="fc2" id="deo-coen" value="${g('co_name_en')||_CFG.companyNameEN||''}" placeholder="Deo Co., Ltd."></div>
+    <div class="fgrp"><label class="flbl">ที่อยู่บริษัท</label><textarea class="fc2" id="deo-coaddr" rows="2">${g('co_address')||_CFG.companyAddress||''}</textarea></div>
     <hr style="border:none;border-top:1px solid #E2E8F0;margin:10px 0">
-    <div class="fgrp"><label class="flbl">Supabase Project URL</label><input class="fc2" id="deo-url" value="${g('erp_sb_url')}" placeholder="https://xxxx.supabase.co"></div>
-    <div class="fgrp"><label class="flbl">Supabase anon key</label><textarea class="fc2" id="deo-key" rows="2" style="font-family:monospace;font-size:11px" placeholder="eyJhbGci...">${g('erp_sb_key')}</textarea></div>
-    <div style="font-size:11px;color:#94A3B8;margin-bottom:8px">หาได้ที่ Supabase → Settings → API (Project URL + anon public key) — เว้นว่าง = ใช้ค่าเริ่มต้น</div>
+    <div class="fgrp"><label class="flbl">Supabase Project URL</label><input class="fc2" id="deo-url" value="${g('erp_sb_url')||_CFG.supabaseUrl||''}" placeholder="https://xxxx.supabase.co"></div>
+    <div class="fgrp"><label class="flbl">Supabase anon key</label><textarea class="fc2" id="deo-key" rows="2" style="font-family:monospace;font-size:11px" placeholder="eyJhbGci...">${g('erp_sb_key')||_CFG.supabaseAnonKey||''}</textarea></div>
+    <div style="font-size:11px;color:#94A3B8;margin-bottom:8px">หาได้ที่ Supabase → Settings → API (Project URL + anon public key) — <b>URL กับ key ต้องมาจากโปรเจกต์เดียวกัน</b></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btnP" style="flex:1" onclick="deoSetupSave()">💾 บันทึก + โหลดใหม่</button>
-      <button class="btn btnD" onclick="deoSetupReset()">↺ ล้างค่า (กลับค่าเริ่มต้น)</button>
-    </div>`);
+      <button class="btn btnP" style="flex:1;min-width:170px" onclick="deoMakeConfig()">⬇️ สร้างไฟล์ config.js (สำหรับ admin)</button>
+      <button class="btn btnS" onclick="deoSetupSave()">💾 ใช้เฉพาะเครื่องนี้</button>
+      <button class="btn btnD" onclick="deoSetupReset()">↺ ล้างค่าเครื่องนี้</button>
+    </div>
+    <div id="deo-setup-msg" style="margin-top:8px"></div>`);
+}
+function _deoFormVals(){
+  const v=id=>((document.getElementById(id)||{}).value||'').trim();
+  return {url:v('deo-url'), key:v('deo-key'), name:v('deo-coname'), en:v('deo-coen'), addr:v('deo-coaddr')};
+}
+function deoMakeConfig(){
+  const f=_deoFormVals();
+  if(!f.url||!f.key){ msgEl('deo-setup-msg','⚠️ กรอก Supabase URL และ anon key ก่อนครับ','e'); return; }
+  const esc=x=>String(x||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\r?\n/g,' ');
+  const txt =
+`// ═══════════════════════════════════════════════════════════
+//  DEOERP — config.js  (ตั้งค่าโดย admin ครั้งเดียว)
+//  อัปโหลดไฟล์นี้ไว้โฟลเดอร์เดียวกับ index.html
+//  ผู้ใช้ทุกคนจะเข้าใช้งานได้ทันที ไม่ต้องกรอก key เอง
+//  สร้างเมื่อ: ${new Date().toLocaleString('th-TH')}
+// ═══════════════════════════════════════════════════════════
+window.DEO_CONFIG = {
+  supabaseUrl:     '${esc(f.url)}',
+  supabaseAnonKey: '${esc(f.key)}',
+  companyName:     '${esc(f.name)}',
+  companyNameEN:   '${esc(f.en)}',
+  companyAddress:  '${esc(f.addr)}'
+};
+`;
+  try{
+    const blob=new Blob([txt],{type:'text/javascript;charset=utf-8'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob); a.download='config.js';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+    msgEl('deo-setup-msg','✅ ดาวน์โหลด config.js แล้ว — นำไปอัปโหลดไว้โฟลเดอร์เดียวกับ index.html บนเว็บ (GitHub Pages) เสร็จแล้วทุกคนเข้าใช้ได้เลย','s');
+  }catch(e){
+    openMo('📄 คัดลอกเนื้อหา config.js',`<div style="font-size:12px;color:#64748B;margin-bottom:6px">คัดลอกข้อความนี้ไปสร้างไฟล์ชื่อ <b>config.js</b> วางไว้คู่กับ index.html</div>
+      <textarea class="fc2" rows="12" style="font-family:monospace;font-size:11px">${txt.replace(/</g,'&lt;')}</textarea>`);
+  }
 }
 function deoSetupSave(){
   const set=(k,id)=>{ const el=document.getElementById(id); const v=((el&&el.value)||'').trim(); if(v) localStorage.setItem(k,v); else localStorage.removeItem(k); };
   set('co_name','deo-coname'); set('co_name_en','deo-coen'); set('co_address','deo-coaddr');
   set('erp_sb_url','deo-url'); set('erp_sb_key','deo-key');
-  alert('บันทึกแล้ว กำลังโหลดใหม่...'); location.reload();
+  alert('บันทึกเฉพาะเครื่องนี้แล้ว กำลังโหลดใหม่...'); location.reload();
 }
 function deoSetupReset(){
-  if(!confirm('ล้างค่าบริษัท/การเชื่อมต่อทั้งหมดในเครื่องนี้?')) return;
+  if(!confirm('ล้างค่าที่ตั้งไว้เฉพาะเครื่องนี้? (จะกลับไปใช้ค่าจาก config.js)')) return;
   ['co_name','co_name_en','co_address','erp_sb_url','erp_sb_key'].forEach(k=>localStorage.removeItem(k));
   alert('ล้างแล้ว กำลังโหลดใหม่...'); location.reload();
 }
